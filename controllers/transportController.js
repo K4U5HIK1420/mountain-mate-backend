@@ -1,4 +1,4 @@
-const Transport = require("../models/transport");
+const Transport = require("../models/Transport");
 
 // Add Transport
 exports.addTransport = async (req, res) => {
