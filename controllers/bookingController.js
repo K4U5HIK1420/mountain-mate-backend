@@ -93,3 +93,27 @@ exports.getBookingStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.getRevenueStats = async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      status: { $in: ["confirmed", "completed"] }
+    }).populate("listingId");
+
+    let totalRevenue = 0;
+
+    bookings.forEach(b => {
+      if (b.listingId && b.listingId.pricePerNight) {
+        totalRevenue += b.listingId.pricePerNight;
+      }
+    });
+
+    res.json({
+      success: true,
+      totalRevenue
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
