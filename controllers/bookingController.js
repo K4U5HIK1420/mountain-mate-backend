@@ -117,3 +117,32 @@ exports.getRevenueStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.getStatusStats = async (req, res) => {
+  try {
+    const stats = await Booking.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    let result = {
+      pending: 0,
+      confirmed: 0,
+      completed: 0,
+      cancelled: 0
+    };
+
+    stats.forEach(item => {
+      result[item._id] = item.count;
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
