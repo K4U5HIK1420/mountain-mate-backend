@@ -1,3 +1,4 @@
+const { successResponse, errorResponse } = require("../utils/response");
 const cloudinary = require("../config/cloudinary");
 const Hotel = require("../models/Hotel");
 
@@ -27,12 +28,12 @@ exports.addHotel = async (req, res) => {
 
 // Get All Hotels
 exports.getHotels = async (req, res) => {
-    try {
-        const hotels = await Hotel.find();
-        res.json(hotels);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const hotels = await Hotel.find();
+    successResponse(res, "Hotels fetched successfully", hotels);
+  } catch (error) {
+    errorResponse(res, error.message);
+  }
 };
 
 // Search Hotels with Filters
