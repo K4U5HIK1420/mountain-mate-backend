@@ -80,3 +80,16 @@ exports.getBookingsByStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.getBookingStats = async (req, res) => {
+  try {
+    const totalBookings = await Booking.countDocuments();
+
+    res.json({
+      success: true,
+      totalBookings
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
