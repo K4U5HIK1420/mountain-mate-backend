@@ -1,12 +1,4 @@
-const rateLimit = require("express-rate-limit");
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: "Too many requests, try later"
-});
-
-app.use(limiter);
 
 require("dotenv").config();
 const errorHandler = require("./middleware/errorHandler");
@@ -17,6 +9,13 @@ const hotelRoutes = require("./routes/hotelRoutes");
 const transportRoutes = require("./routes/transportRoutes");
 const express = require("express");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: "Too many requests, try later"
+});
 
 
 const connectDB = require("./config/db");
@@ -33,6 +32,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/review", reviewRoutes);
 app.use(errorHandler);
 
+app.use(limiter);
 
 // Connect Database
 connectDB();
