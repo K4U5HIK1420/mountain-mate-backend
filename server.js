@@ -19,6 +19,7 @@ app.use("/api/hotel", hotelRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/auth", authRoutes);
 
+
 // Connect Database
 connectDB();
 
@@ -29,6 +30,15 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Mountain-Mate API is running 🚀",
+  });
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+

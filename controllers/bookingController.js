@@ -23,18 +23,126 @@ exports.getBookings = async (req, res) => {
 
 // Update Booking Status
 exports.updateBookingStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
+  try {
+    const { status } = req.body;
 
-        const booking = await Booking.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        );
+    const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
 
-        res.json(booking);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking status",
+      });
     }
+
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Booking status updated",
+      data: booking,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.getBookingsByStatus = async (req, res) => {
+  try {
+    const { status } = req.params;
+
+    const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const bookings = await Booking.find({ status })
+      .populate("listingId");
+
+    res.json(bookings);
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getBookingStats = async (req, res) => {
+  try {
+    const totalBookings = await Booking.countDocuments();
+
+    res.json({
+      success: true,
+      totalBookings
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getRevenueStats = async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      status: { $in: ["confirmed", "completed"] }
+    }).populate("listingId");
+
+    let totalRevenue = 0;
+
+    bookings.forEach(b => {
+      if (b.listingId && b.listingId.pricePerNight) {
+        totalRevenue += b.listingId.pricePerNight;
+      }
+    });
+
+    res.json({
+      success: true,
+      totalRevenue
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getStatusStats = async (req, res) => {
+  try {
+    const stats = await Booking.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    let result = {
+      pending: 0,
+      confirmed: 0,
+      completed: 0,
+      cancelled: 0
+    };
+
+    stats.forEach(item => {
+      result[item._id] = item.count;
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
