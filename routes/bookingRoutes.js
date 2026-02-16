@@ -1,3 +1,5 @@
+const { body } = require("express-validator");
+const validate = require("../middleware/validate");
 const auth = require("../middleware/authMiddleware");
 const express = require("express");
 const router = express.Router();
@@ -13,3 +15,15 @@ router.get("/revenue", getRevenueStats);
 router.get("/stats/status", getStatusStats);
 
 module.exports = router;
+
+router.post(
+  "/create",
+  [
+    body("customerName").notEmpty().withMessage("Name required"),
+    body("phoneNumber").isLength({ min: 10 }).withMessage("Invalid phone"),
+    body("bookingType").notEmpty(),
+    body("listingId").notEmpty(),
+  ],
+  validate,
+  createBooking
+);
