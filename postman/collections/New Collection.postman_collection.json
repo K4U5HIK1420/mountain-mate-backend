@@ -1,0 +1,356 @@
+{
+  "info": {
+    "_postman_id": "bad37321-c724-4e5c-8e46-554462e6bff1",
+    "name": "Mountain-Mate APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "http://localhost:5000/api/hotel/add",
+      "id": "b7997714-771b-4495-bf37-1962048f61ff",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OTM0NjkxOTU4YmViYTVlNWRkNDg5ZiIsImlhdCI6MTc3MTI1OTU2OSwiZXhwIjoxNzcxMzQ1OTY5fQ.N3d7h230QZgQzY00l4CeTh9zcaO1-fMIfjnh0VXQCug",
+            "type": "text",
+            "uuid": "3125aac4-b392-437b-8251-74e86d64dc5d"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/hotel/add",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "hotel",
+            "add"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/auth/login",
+      "id": "05d82362-fc7d-4d6a-b62c-6059f6a7c913",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"admin@mountainmate.com\",\r\n  \"password\": \"pahadi123\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/auth/register",
+      "id": "39fdd592-b325-4df2-a6de-e152956fe31a",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"admin@mountainmate.com\",\r\n  \"password\": \"pahadi123\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/register",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/booking/all",
+      "id": "dac7213d-de87-4090-a024-2d7eb19d3aa2",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"customerName\": \"Anant\",\r\n  \"phoneNumber\": \"9876543210\",\r\n  \"bookingType\": \"Hotel\",\r\n  \"listingId\": \"6992fae6bcff083436b78d80\",\r\n  \"date\": \"2026-05-10\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/booking/all",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "booking",
+            "all"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/booking/create",
+      "id": "0abba9b8-38cf-4560-8018-b51d13f9ea53",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"customerName\": \"Anant\",\r\n  \"phoneNumber\": \"9876543210\",\r\n  \"bookingType\": \"Hotel\",\r\n  \"listingId\": \"6992fae6bcff083436b78d80\",\r\n  \"date\": \"2026-05-10\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/booking/create",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "booking",
+            "create"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/hotel/all",
+      "id": "13cdf88f-7a15-4191-8de8-8f3cb504c720",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/hotel/all",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "hotel",
+            "all"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/booking/create",
+      "id": "79742c83-c2fa-40cf-afd3-616be0f1f1ac",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"customerName\": \"Anant\",\r\n  \"phoneNumber\": \"9876543210\",\r\n  \"bookingType\": \"hotel\",\r\n  \"listingId\": \"67b1d6c7e8c9f6a123456789\",\r\n  \"date\": \"2026-05-10\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/booking/create",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "booking",
+            "create"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/hotel/add",
+      "id": "9baea1a0-4e07-4971-8d10-cee4ce1dcfbd",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"hotelName\": \"Shiv Lodge\",\r\n  \"location\": \"Sonprayag\",\r\n  \"pricePerNight\": 1200,\r\n  \"roomsAvailable\": 5,\r\n  \"contactNumber\": \"9876543210\",\r\n  \"description\": \"Budget stay near Kedarnath route\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/hotel/add",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "hotel",
+            "add"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/transport/add",
+      "id": "cf625654-c909-4e24-b755-7285bb16d40c",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"vehicleType\": \"Bolero\",\r\n  \"routeFrom\": \"Sonprayag\",\r\n  \"routeTo\": \"Gaurikund\",\r\n  \"pricePerSeat\": 500,\r\n  \"seatsAvailable\": 6,\r\n  \"driverName\": \"Ramesh\",\r\n  \"contactNumber\": \"9876543210\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/transport/add",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "transport",
+            "add"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/transport/all",
+      "id": "4cbf62bf-3fd3-4edf-85d4-ecf5adbc180d",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"vehicleType\": \"Bolero\",\r\n  \"routeFrom\": \"Sonprayag\",\r\n  \"routeTo\": \"Gaurikund\",\r\n  \"pricePerSeat\": 500,\r\n  \"seatsAvailable\": 6,\r\n  \"driverName\": \"Ramesh\",\r\n  \"contactNumber\": \"9876543210\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/transport/all",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "transport",
+            "all"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
