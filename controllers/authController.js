@@ -19,7 +19,7 @@ exports.registerAdmin = async (req, res) => {
         res.status(201).json({ message: "Admin created successfully" });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        next(error);
     }
 };
 
@@ -49,6 +49,6 @@ exports.loginAdmin = async (req, res) => {
         res.json({ token });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        next(error);
     }
 };

@@ -1,6 +1,6 @@
 const Review = require("../models/Review");
 
-exports.addReview = async (req, res) => {
+exports.addReview = async (req, res, next) => {
   try {
     const review = new Review(req.body);
     await review.save();
@@ -11,12 +11,12 @@ exports.addReview = async (req, res) => {
       data: review
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
 
-exports.getHotelReviews = async (req, res) => {
+exports.getHotelReviews = async (req, res, next) => {
   try {
     const reviews = await Review.find({ hotelId: req.params.hotelId });
 
@@ -31,13 +31,13 @@ exports.getHotelReviews = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
 const Hotel = require("../models/Hotel");
 
-exports.getTopRatedHotels = async (req, res) => {
+exports.getTopRatedHotels = async (req, res, next) => {
   try {
     const hotels = await Review.aggregate([
       {
@@ -61,6 +61,6 @@ exports.getTopRatedHotels = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    next(error);  
+    }
 };

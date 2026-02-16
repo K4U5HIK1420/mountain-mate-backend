@@ -1,4 +1,5 @@
 require("dotenv").config();
+const errorHandler = require("./middleware/errorHandler");
 const reviewRoutes = require("./routes/reviewRoutes");
 const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
@@ -20,6 +21,7 @@ app.use("/api/hotel", hotelRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/review", reviewRoutes);
+app.use(errorHandler);
 
 
 // Connect Database
