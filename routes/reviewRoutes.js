@@ -3,10 +3,13 @@ const router = express.Router();
 
 const {
   addReview,
-  getHotelReviews
+  getHotelReviews,
+  getTopRatedHotels
 } = require("../controllers/reviewController");
 
 router.post("/add", addReview);
+router.get("/top-rated", getTopRatedHotels);
 router.get("/:hotelId", getHotelReviews);
+
 
 module.exports = router;

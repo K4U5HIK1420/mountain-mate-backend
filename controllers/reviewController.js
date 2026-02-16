@@ -34,3 +34,33 @@ exports.getHotelReviews = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+const Hotel = require("../models/Hotel");
+
+exports.getTopRatedHotels = async (req, res) => {
+  try {
+    const hotels = await Review.aggregate([
+      {
+        $group: {
+          _id: "$hotelId",
+          avgRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 }
+        }
+      },
+      { $sort: { avgRating: -1 } },
+      { $limit: 5 }
+    ]);
+
+    const populatedHotels = await Hotel.populate(hotels, {
+      path: "_id"
+    });
+
+    res.json({
+      success: true,
+      topHotels: populatedHotels
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
