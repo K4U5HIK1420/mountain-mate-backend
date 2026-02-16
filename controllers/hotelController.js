@@ -1,15 +1,29 @@
+const cloudinary = require("../config/cloudinary");
 const Hotel = require("../models/Hotel");
 
 // Add Hotel
 exports.addHotel = async (req, res) => {
-    try {
-        const hotel = new Hotel(req.body);
-        await hotel.save();
-        res.status(201).json(hotel);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+  try {
+    const imageUrls = [];
+
+    for (let file of req.files) {
+      const result = await cloudinary.uploader.upload(file.path);
+      imageUrls.push(result.secure_url);
     }
+
+    const hotel = new Hotel({
+      ...req.body,
+      images: imageUrls,
+    });
+
+    await hotel.save();
+
+    res.status(201).json(hotel);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
+
 
 // Get All Hotels
 exports.getHotels = async (req, res) => {
@@ -43,3 +57,4 @@ exports.searchHotels = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
