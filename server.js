@@ -1,4 +1,5 @@
 require("dotenv").config();
+const reviewRoutes = require("./routes/reviewRoutes");
 const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const hotelRoutes = require("./routes/hotelRoutes");
@@ -18,6 +19,7 @@ app.use("/api/transport", transportRoutes);
 app.use("/api/hotel", hotelRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/review", reviewRoutes);
 
 
 // Connect Database
