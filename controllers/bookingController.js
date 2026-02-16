@@ -1,28 +1,28 @@
 const Booking = require("../models/Booking");
 
 // Create Booking
-exports.createBooking = async (req, res) => {
+exports.createBooking = async (req, res, next) => {
     try {
         const booking = new Booking(req.body);
         await booking.save();
         res.status(201).json(booking);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+    next(error);
     }
 };
 
 // Get All Bookings
-exports.getBookings = async (req, res) => {
+exports.getBookings = async (req, res, next) => {
     try {
         const bookings = await Booking.find().populate("listingId");
         res.json(bookings);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        next(error);
     }
 };
 
 // Update Booking Status
-exports.updateBookingStatus = async (req, res) => {
+exports.updateBookingStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
 
@@ -61,7 +61,7 @@ exports.updateBookingStatus = async (req, res) => {
   }
 };
 
-exports.getBookingsByStatus = async (req, res) => {
+exports.getBookingsByStatus = async (req, res, next) => {
   try {
     const { status } = req.params;
 
@@ -77,11 +77,11 @@ exports.getBookingsByStatus = async (req, res) => {
     res.json(bookings);
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    next(error);
+    }
 };
 
-exports.getBookingStats = async (req, res) => {
+exports.getBookingStats = async (req, res, next) => {
   try {
     const totalBookings = await Booking.countDocuments();
 
@@ -90,11 +90,11 @@ exports.getBookingStats = async (req, res) => {
       totalBookings
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    next(error);
+    }
 };
 
-exports.getRevenueStats = async (req, res) => {
+exports.getRevenueStats = async (req, res, next) => {
   try {
     const bookings = await Booking.find({
       status: { $in: ["confirmed", "completed"] }
@@ -114,8 +114,8 @@ exports.getRevenueStats = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    next(error);
+    }
 };
 
 exports.getStatusStats = async (req, res) => {
@@ -143,6 +143,6 @@ exports.getStatusStats = async (req, res) => {
     res.json(result);
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    next(error);
+    }
 };

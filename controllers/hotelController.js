@@ -3,7 +3,7 @@ const cloudinary = require("../config/cloudinary");
 const Hotel = require("../models/Hotel");
 
 // Add Hotel
-exports.addHotel = async (req, res) => {
+exports.addHotel = async (req, res, next) => {
   try {
     const imageUrls = [];
 
@@ -21,23 +21,23 @@ exports.addHotel = async (req, res) => {
 
     res.status(201).json(hotel);
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    next(error);
+    }
 };
 
 
 // Get All Hotels
-exports.getHotels = async (req, res) => {
+exports.getHotels = async (req, res, next) => {
   try {
     const hotels = await Hotel.find();
     successResponse(res, "Hotels fetched successfully", hotels);
   } catch (error) {
-    errorResponse(res, error.message);
+    next(error);
   }
 };
 
 // Search Hotels with Filters
-exports.searchHotels = async (req, res) => {
+exports.searchHotels = async (req, res, next) => {
     try {
         const { location, maxPrice } = req.query;
 
@@ -55,11 +55,11 @@ exports.searchHotels = async (req, res) => {
 
         res.json(hotels);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        next(error);
     }
 };
 
-exports.deleteHotelImage = async (req, res) => {
+exports.deleteHotelImage = async (req, res, next) => {
   try {
     const { hotelId, imageUrl } = req.body;
 
@@ -84,6 +84,6 @@ exports.deleteHotelImage = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };

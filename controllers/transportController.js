@@ -1,28 +1,27 @@
 const Transport = require("../models/Transport");
 
 // Add Transport
-exports.addTransport = async (req, res) => {
+exports.addTransport = async (req, res, next) => {
     try {
         const transport = new Transport(req.body);
         await transport.save();
         res.status(201).json(transport);
     } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+        next(error);    }
 };
 
 // Get All Transports
-exports.getTransports = async (req, res) => {
+exports.getTransports = async (req, res, next) => {
     try {
         const transports = await Transport.find();
         res.json(transports);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        next(error);
     }
 };
 
 // Search Transport by Route
-exports.searchTransport = async (req, res) => {
+exports.searchTransport = async (req, res, next) => {
     try {
         const { from, to } = req.query;
 
@@ -33,6 +32,6 @@ exports.searchTransport = async (req, res) => {
 
         res.json(transports);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        next(error);
     }
 };
