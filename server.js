@@ -1,3 +1,13 @@
+const rateLimit = require("express-rate-limit");
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: "Too many requests, try later"
+});
+
+app.use(limiter);
+
 require("dotenv").config();
 const errorHandler = require("./middleware/errorHandler");
 const reviewRoutes = require("./routes/reviewRoutes");
