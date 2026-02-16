@@ -351,6 +351,76 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/booking/status/69930a516d3b0c4008719586",
+      "id": "86c287aa-86e2-414a-a49d-289898d4e2ed",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"status\": \"completed\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/booking/status/69930a516d3b0c4008719586",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "booking",
+            "status",
+            "69930a516d3b0c4008719586"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "http://localhost:5000/api/booking/status/completed",
+      "id": "f480d7fe-d65f-411f-8883-e01bd43cc00b",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"status\": \"completed\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/booking/status/completed",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "booking",
+            "status",
+            "completed"
+          ]
+        }
+      },
+      "response": []
     }
   ]
 }
