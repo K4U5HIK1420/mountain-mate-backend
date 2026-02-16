@@ -1,3 +1,4 @@
+const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const hotelRoutes = require("./routes/hotelRoutes");
 const transportRoutes = require("./routes/transportRoutes");
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use("/api/transport", transportRoutes);
 app.use("/api/hotel", hotelRoutes);
 app.use("/api/booking", bookingRoutes);
+app.use("/api/auth", authRoutes);
 
 // Connect Database
 connectDB();
