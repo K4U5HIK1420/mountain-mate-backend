@@ -58,3 +58,31 @@ exports.searchHotels = async (req, res) => {
     }
 };
 
+exports.deleteHotelImage = async (req, res) => {
+  try {
+    const { hotelId, imageUrl } = req.body;
+
+    // Extract public_id from URL
+    const parts = imageUrl.split("/");
+    const filename = parts[parts.length - 1];
+    const publicId = filename.split(".")[0];
+
+    // Delete from Cloudinary
+    await cloudinary.uploader.destroy(publicId);
+
+    // Remove image from DB
+    const hotel = await Hotel.findByIdAndUpdate(
+      hotelId,
+      { $pull: { images: imageUrl } },
+      { new: true }
+    );
+
+    res.json({
+      message: "Image deleted successfully",
+      hotel,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
