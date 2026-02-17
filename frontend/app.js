@@ -1,10 +1,15 @@
-function testAPI() {
-    fetch("https://mountain-mate-api.onrender.com/api/health")
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById("result").innerText = data.message;
-        })
-        .catch(() => {
-            document.getElementById("result").innerText = "Backend not reachable";
-        });
+const API = "https://mountain-mate-api.onrender.com";
+
+async function testAPI() {
+  try {
+    const res = await fetch(`${API}/api/health`);
+    const data = await res.json();
+
+    document.getElementById("result").innerText =
+      "Backend Connected ✅\n" + data.message;
+
+  } catch (err) {
+    document.getElementById("result").innerText =
+      "Connection Failed ❌";
+  }
 }
