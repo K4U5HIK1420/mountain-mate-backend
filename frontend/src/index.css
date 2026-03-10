@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* Agar normal Tailwind setup hai to ye use kar: */
+/* @tailwind base; */
+/* @tailwind components; */
+/* @tailwind utilities; */
+
+body {
+  margin: 0;
+  padding: 0;
+  display: block !important; /* Vite ka default centering hatao */
+}
