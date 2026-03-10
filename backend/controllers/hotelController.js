@@ -7,15 +7,21 @@ exports.addHotel = async (req, res, next) => {
   try {
     const imageUrls = [];
 
-    for (let file of req.files) {
-      const result = await cloudinary.uploader.upload(file.path);
-      imageUrls.push(result.secure_url);
+    if (req.files && req.files.length > 0) {
+      for (let file of req.files) {
+        const result = await cloudinary.uploader.upload(file.path);
+        imageUrls.push(result.secure_url);
+      }
     }
 
     const hotel = new Hotel({
-      ...req.body,
-      images: imageUrls,
-    });
+      hotelName: req.body.name,
+      location: req.body.location,
+      pricePerNight: req.body.price,
+      roomsAvailable: 10, 
+      contactNumber: "9999999999",
+      images: imageUrls
+  });
 
     await hotel.save();
 
