@@ -1,3 +1,4 @@
+import API from "../utils/api";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Calendar, Search, Star, Car, Hotel, ChevronRight, ShieldCheck, Users, Loader2 } from 'lucide-react';
@@ -19,8 +20,10 @@ const Explore = () => {
     setLoading(true);
     try {
       // API endpoints based on active tab
-      const endpoint = activeTab === 'stays' ? '/api/hotel' : '/api/transport';
-      const response = await axios.get(`http://localhost:5000${endpoint}`, {
+      const endpoint = activeTab === "stays"
+        ? "/hotel/search"
+        : "/transport/search";
+      const response = await API.get(endpoint, {
         params: { 
             location: locationFilter.toLowerCase(), 
             date: dateFilter 

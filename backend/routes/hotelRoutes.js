@@ -4,7 +4,7 @@ const express = require("express");
 const router = express.Router();
 const { addHotel, getHotels, searchHotels, deleteHotelImage } = require("../controllers/hotelController");
 
-router.post("/add", authMiddleware, upload.array("images", 5), addHotel);
+router.post("/add", upload.array("images", 5), addHotel);
 router.get("/all", getHotels);
 router.get("/search", searchHotels);
 router.delete("/delete-image", authMiddleware, deleteHotelImage);

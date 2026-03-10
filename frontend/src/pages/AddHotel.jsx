@@ -1,3 +1,4 @@
+import API from "../utils/api";
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Hotel, MapPin, IndianRupee, Star, ShieldCheck, Loader2 } from 'lucide-react';
@@ -27,8 +28,7 @@ const AddHotel = () => {
 
     try {
       // Apne server.js ke route se match kar raha hai: /api/hotel
-      const response = await axios.post('http://localhost:5000/api/hotel', formData);
-      
+      const response = await API.post("/hotel/add", formData);      
       if (response.data) {
         alert("Property Listed Successfully! 🏔️");
         // Form clear karne ke liye
