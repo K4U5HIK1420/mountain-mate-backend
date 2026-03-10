@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mountain, LogOut, Settings2 } from 'lucide-react';
+import { Mountain, LogOut, Settings2, ShieldCheck } from 'lucide-react';
 
 // Pages Import
 import Explore from './pages/Explore';
@@ -10,6 +10,7 @@ import AddTransport from './pages/AddTransport';
 import Bookings from './pages/Bookings';
 import ManageRides from './pages/ManageRides';
 import ManageStays from './pages/ManageStays';
+import AdminDashboard from './pages/AdminDashboard'; // ✅ Added Admin Import
 
 // --- NAVIGATION COMPONENT ---
 const Navbar = () => {
@@ -54,8 +55,13 @@ const Navbar = () => {
         ))}
       </div>
 
-      {/* Disconnect Button */}
+      {/* Admin & Logout Section */}
       <div className="flex items-center gap-6">
+        {/* Admin Secret Link */}
+        <Link to="/admin-mate" className="text-white/20 hover:text-orange-500 transition-all flex items-center gap-2 font-black text-[9px] tracking-widest">
+           <ShieldCheck size={16}/> ADMIN
+        </Link>
+
         <button className="text-white/40 hover:text-white transition-all flex items-center gap-2 font-black text-[10px] tracking-widest group">
           <Settings2 size={18} className="group-hover:rotate-90 transition-transform duration-500"/>
           <LogOut size={20}/>
@@ -86,13 +92,16 @@ function App() {
         {/* Content Routing */}
         <main className="relative z-10">
           <AnimatePresence mode="wait">
-            <Routes key={window.location.pathname}>
+            <Routes>
               <Route path="/" element={<Explore />} />
               <Route path="/add-hotel" element={<AddHotel />} />
               <Route path="/add-transport" element={<AddTransport />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/manage-stays" element={<ManageStays />} />
               <Route path="/manage-rides" element={<ManageRides />} />
+              
+              {/* ✅ New Admin Route */}
+              <Route path="/admin-mate" element={<AdminDashboard />} />
             </Routes>
           </AnimatePresence>
         </main>

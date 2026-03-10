@@ -27,6 +27,16 @@ const hotelSchema = new mongoose.Schema({
     images: {
         type: [String]
     },
+    // --- NAYE FIELDS YAHAN SE HAIN (APPROVED LOGIC) ---
+    isVerified: { 
+        type: Boolean, 
+        default: false // Jab tak admin 'true' nahi karega, false rahega
+    },
+    status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending"
+    }
 }, 
 { timestamps: true });
 
