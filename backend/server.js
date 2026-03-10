@@ -39,6 +39,8 @@ const transportRoutes = require("./routes/transportRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const userAuthRoutes = require("./routes/userAuthRoutes");
+
 
 // 5. Route Definitions
 app.use("/api/auth", authRoutes);
@@ -47,6 +49,7 @@ app.use("/api/transport", transportRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/user", userAuthRoutes);
 
 // 6. Health & Base Routes
 app.get("/", (req, res) => {
