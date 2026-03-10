@@ -56,7 +56,7 @@ const Explore = () => {
 
         <div className="relative z-10 text-center flex flex-col items-center w-full px-6">
           <div className="bg-white/10 backdrop-blur-md border border-white/20 px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.4em] text-white/90 mb-10">
-            KEDARNATH ROUTE SPECIALIST
+            UTTARAKHAND ROUTE SPECIALIST
           </div>
           
           <h1 className="text-[12vw] md:text-[140px] font-black text-white leading-[0.85] tracking-tighter">
