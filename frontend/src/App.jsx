@@ -4,25 +4,36 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mountain, LogOut, Settings2, ShieldCheck } from 'lucide-react';
 
 // Pages Import
-import Explore from './pages/Explore';
+import ExploreStays from './pages/ExploreStays'; // Separate page
+import ExploreRides from './pages/ExploreRides'; // Separate page
 import AddHotel from './pages/AddHotel';
 import AddTransport from './pages/AddTransport';
 import Bookings from './pages/Bookings';
 import ManageRides from './pages/ManageRides';
 import ManageStays from './pages/ManageStays';
-import AdminDashboard from './pages/AdminDashboard'; // ✅ Added Admin Import
+import AdminDashboard from './pages/AdminDashboard';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 // --- NAVIGATION COMPONENT ---
 const Navbar = () => {
   const location = useLocation();
+  const token = localStorage.getItem("token");
   
   const navItems = [
-    { to: "/", label: "EXPLORE" },
-    { to: "/add-hotel", label: "STAYS" },
-    { to: "/add-transport", label: "RIDES" },
+    { to: "/explore-stays", label: "STAYS" }, // Alag route
+    { to: "/explore-rides", label: "RIDES" },  // Alag route
+    { to: "/add-hotel", label: "LIST STAY" },
+    { to: "/add-transport", label: "OFFER RIDE" },
     { to: "/manage-stays", label: "MANAGE STAYS" },
     { to: "/manage-rides", label: "MANAGE RIDES" },
   ];
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  };
 
   return (
     <nav className="fixed top-0 w-full z-[1000] px-12 py-10 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
@@ -57,15 +68,18 @@ const Navbar = () => {
 
       {/* Admin & Logout Section */}
       <div className="flex items-center gap-6">
-        {/* Admin Secret Link */}
         <Link to="/admin-mate" className="text-white/20 hover:text-orange-500 transition-all flex items-center gap-2 font-black text-[9px] tracking-widest">
            <ShieldCheck size={16}/> ADMIN
         </Link>
 
-        <button className="text-white/40 hover:text-white transition-all flex items-center gap-2 font-black text-[10px] tracking-widest group">
-          <Settings2 size={18} className="group-hover:rotate-90 transition-transform duration-500"/>
-          <LogOut size={20}/>
-        </button>
+        {token ? (
+          <button onClick={handleLogout} className="text-white/40 hover:text-white transition-all flex items-center gap-2 font-black text-[10px] tracking-widest group">
+            <Settings2 size={18} className="group-hover:rotate-90 transition-transform duration-500"/>
+            <LogOut size={20}/>
+          </button>
+        ) : (
+          <Link to="/login" className="text-white/40 hover:text-orange-500 font-black text-[10px] tracking-widest">LOGIN</Link>
+        )}
       </div>
     </nav>
   );
@@ -93,15 +107,19 @@ function App() {
         <main className="relative z-10">
           <AnimatePresence mode="wait">
             <Routes>
-              <Route path="/" element={<Explore />} />
+              {/* Default landing on Stays */}
+              <Route path="/" element={<ExploreStays />} />
+              <Route path="/explore-stays" element={<ExploreStays />} />
+              <Route path="/explore-rides" element={<ExploreRides />} />
+              
               <Route path="/add-hotel" element={<AddHotel />} />
               <Route path="/add-transport" element={<AddTransport />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/manage-stays" element={<ManageStays />} />
               <Route path="/manage-rides" element={<ManageRides />} />
-              
-              {/* ✅ New Admin Route */}
               <Route path="/admin-mate" element={<AdminDashboard />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
             </Routes>
           </AnimatePresence>
         </main>
