@@ -1,64 +1,64 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { Lock, User, ArrowRight } from 'lucide-react';
+import API from '../utils/api';
 import { motion } from 'framer-motion';
+import { Mail, Lock, LogIn, Loader2, ArrowRight } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 
-const Login = ({ setToken }) => {
+const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      // Backend Auth Endpoint
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
-      const token = res.data.token;
+      const res = await API.post('/auth/login', { email, password });
       
-      localStorage.setItem('token', token); // Store JWT
-      setToken(token);
-      navigate('/'); // Redirect to Dashboard
+      // ✅ Token save karna sabse zaroori hai
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+
+      alert("Welcome back! 🏔️");
+      navigate('/explore'); // Login ke baad redirection
     } catch (err) {
-      alert('Invalid Credentials, Bhai!');
+      alert(err.response?.data?.message || "Invalid Credentials");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7fe] flex items-center justify-center p-6">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white rounded-[40px] shadow-2xl p-12 border border-gray-100"
-      >
+    <div className="min-h-screen flex items-center justify-center bg-[#050505] px-6">
+      <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="fixed inset-0 w-full h-full object-cover opacity-30 z-0" alt="bg" />
+      
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 max-w-md w-full bg-white/[0.03] backdrop-blur-3xl border border-white/10 p-12 rounded-[60px] shadow-2xl">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-green-900 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl">
-            <Lock size={28} />
-          </div>
-          <h2 className="text-3xl font-black tracking-tighter text-gray-900 uppercase">Admin Access</h2>
-          <p className="text-gray-400 font-bold text-xs mt-2 tracking-widest">MOUNTAIN MATE CONTROL PANEL</p>
+          <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">Login.</h2>
+          <p className="text-white/20 text-[10px] font-black tracking-[0.4em] uppercase mt-2">Access your M-Mate account</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
-          <div className="relative group">
-            <User className="absolute left-5 top-5 text-gray-300 group-focus-within:text-green-700 transition" size={20} />
-            <input 
-              type="email" placeholder="Admin Email" required
-              className="w-full bg-gray-50 border-none p-5 pl-14 rounded-2xl outline-none focus:ring-2 ring-green-700 transition font-semibold"
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-white/30 uppercase ml-4 tracking-widest flex items-center gap-2"><Mail size={12}/> Email Address</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 p-6 rounded-[30px] text-white outline-none focus:border-orange-600 transition-all font-bold" placeholder="your@email.com" />
           </div>
-          <div className="relative group">
-            <Lock className="absolute left-5 top-5 text-gray-300 group-focus-within:text-green-700 transition" size={20} />
-            <input 
-              type="password" placeholder="Password" required
-              className="w-full bg-gray-50 border-none p-5 pl-14 rounded-2xl outline-none focus:ring-2 ring-green-700 transition font-semibold"
-              onChange={(e) => setPassword(e.target.value)}
-            />
+
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-white/30 uppercase ml-4 tracking-widest flex items-center gap-2"><Lock size={12}/> Password</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 p-6 rounded-[30px] text-white outline-none focus:border-orange-600 transition-all font-bold" placeholder="••••••••" />
           </div>
-          <button type="submit" className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black hover:bg-green-800 transition-all flex items-center justify-center gap-3 shadow-xl">
-            AUTHENTICATE <ArrowRight size={20} />
+
+          <button disabled={loading} type="submit" className="w-full bg-white text-black p-6 rounded-[30px] font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 hover:bg-orange-600 hover:text-white transition-all shadow-xl">
+            {loading ? <Loader2 className="animate-spin" /> : <LogIn size={18} />}
+            {loading ? "AUTHENTICATING..." : "ENTER VAULT"}
           </button>
         </form>
+
+        <p className="text-center mt-8 text-white/30 text-[10px] font-black uppercase tracking-widest">
+          New here? <Link to="/register" className="text-orange-500 hover:underline">Create Account</Link>
+        </p>
       </motion.div>
     </div>
   );
