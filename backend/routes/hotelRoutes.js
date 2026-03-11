@@ -26,9 +26,8 @@ router.delete("/delete-image", authMiddleware, deleteHotelImage);
 
 // --- 3. ADMIN ROUTES (Vault Management) ---
 // Dashboard par saare pending/approved hotels dekhne ke liye
-router.get("/admin/all", getAllHotelsForAdmin); 
-
+router.get("/admin/all", authMiddleware, getAllHotelsForAdmin);
 // Status update karne ke liye (Approve/Reject)
-router.patch("/verify", verifyHotel);
+router.patch("/verify", authMiddleware, verifyHotel);
 
 module.exports = router;
