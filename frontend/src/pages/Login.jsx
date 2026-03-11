@@ -16,7 +16,7 @@ const Login = ({ setToken }) => {
       const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
       const token = res.data.token;
       
-      localStorage.setItem('adminToken', token); // Store JWT
+      localStorage.setItem('token', token); // Store JWT
       setToken(token);
       navigate('/'); // Redirect to Dashboard
     } catch (err) {
