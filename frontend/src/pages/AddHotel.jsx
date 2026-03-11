@@ -109,6 +109,8 @@ const AddHotel = () => {
               <option className="bg-gray-900" value="Guptakashi">GUPTAKASHI</option>
               <option className="bg-gray-900" value="Sonprayag">SONPRAYAG</option>
               <option className="bg-gray-900" value="Phata">PHATA</option>
+              <option className="bg-gray-900" value="Kedarnath">KEDARNATH</option>
+              <option className="bg-gray-900" value="Gaurikund">GAURIKUND</option>
             </select>
           </div>
 
@@ -171,6 +173,7 @@ const AddHotel = () => {
             <select name="roomType" value={formData.roomType} onChange={handleChange} className="w-full bg-white/5 border border-white/10 p-6 rounded-[30px] font-bold text-white outline-none appearance-none cursor-pointer">
               <option className="bg-gray-900" value="Standard">Standard Room</option>
               <option className="bg-gray-900" value="Deluxe">Deluxe Suite</option>
+              <option className="bg-gray-900" value="Swiss Tents">Swiss Tents</option>
             </select>
           </div>
 

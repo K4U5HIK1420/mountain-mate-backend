@@ -12,7 +12,7 @@ const AdminDashboard = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
 
-  const ADMIN_PASSWORD = "Pani@Kedarnath2026"; 
+  const ADMIN_PASSWORD = "1234"; 
 
   const handleLogin = (e) => {
     e.preventDefault();
