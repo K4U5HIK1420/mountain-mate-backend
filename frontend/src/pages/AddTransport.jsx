@@ -7,7 +7,7 @@ const AddTransport = () => {
   const [formData, setFormData] = useState({
     model: '',
     number: '', // Plate Number
-    capacity: '7',
+    capacity: '7', // Default to 7 Seater
     price: '',
     location: 'Guptakashi',
     contact: '' // Added contact for the driver

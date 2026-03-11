@@ -28,7 +28,11 @@ const transportSchema = new mongoose.Schema({
     contactNumber: {
         type: String,
         required: true
+    },
+    images: {
+       type: String
     }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("Transport", transportSchema);
