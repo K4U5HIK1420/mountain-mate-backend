@@ -3,7 +3,7 @@ const cloudinary = require("../config/cloudinary");
 const Hotel = require("../models/Hotel");
 const fs = require("fs");
 
-// 1. Add Hotel (Same as before - Multiple Images + Cleanup)
+// 1. Add Hotel (Synced with Frontend Keys)
 exports.addHotel = async (req, res, next) => {
   try {
     const imageUrls = [];
@@ -13,20 +13,23 @@ exports.addHotel = async (req, res, next) => {
           folder: "mountain_mate/hotels",
         });
         imageUrls.push(result.secure_url);
+        // Local file clean up
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
     }
 
+    // ✅ FIXED: req.body se wahi keys nikal rahe hain jo frontend bhej raha hai
     const hotel = new Hotel({
-      hotelName: req.body.name,
+      hotelName: req.body.hotelName,      
       location: req.body.location,
-      pricePerNight: req.body.price,
-      roomsAvailable: req.body.rooms || 10,
-      contactNumber: req.body.contact || "9999999999",
+      pricePerNight: req.body.pricePerNight, 
+      roomsAvailable: req.body.roomsAvailable || 10,
+      contactNumber: req.body.contactNumber || "9999999999",
       description: req.body.description || "",
+      distance: req.body.distance || "0",
       images: imageUrls,
       isVerified: false,
-      status: "pending"
+      status: "pending" // Default for Admin Dashboard
     });
 
     await hotel.save();
@@ -41,42 +44,14 @@ exports.addHotel = async (req, res, next) => {
   }
 };
 
-// 2. Get All VERIFIED Hotels (Sorted: Newest First)
-exports.getHotels = async (req, res, next) => {
-  try {
-    const hotels = await Hotel.find({ isVerified: true }).sort({ createdAt: -1 });
-    successResponse(res, "Verified hotels fetched successfully", hotels);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// 3. Search VERIFIED Hotels
-exports.searchHotels = async (req, res, next) => {
-  try {
-    const { location, maxPrice } = req.query;
-    let query = { isVerified: true };
-    if (location) query.location = { $regex: location, $options: "i" };
-    if (maxPrice) query.pricePerNight = { $lte: maxPrice };
-
-    const hotels = await Hotel.find(query).sort({ createdAt: -1 });
-    res.json(hotels);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// 4. UPGRADED: Admin Verification (Approve OR Delete on Reject)
+// 2. Admin Verification Logic
 exports.verifyHotel = async (req, res, next) => {
   try {
     const { hotelId, action } = req.body; 
-
-    // Find hotel first to get image details
     const hotel = await Hotel.findById(hotelId);
     if (!hotel) return res.status(404).json({ message: "Hotel record not found" });
 
     if (action === "approved") {
-      // Approve logic
       hotel.isVerified = true;
       hotel.status = "approved";
       await hotel.save();
@@ -84,25 +59,21 @@ exports.verifyHotel = async (req, res, next) => {
     } 
     
     if (action === "rejected") {
-      // 🚨 REJECT & DELETE LOGIC
-      // 1. Cloudinary se images delete karo
       if (hotel.images && hotel.images.length > 0) {
         for (const url of hotel.images) {
           const publicId = url.split('/').pop().split('.')[0];
           await cloudinary.uploader.destroy(`mountain_mate/hotels/${publicId}`);
         }
       }
-      // 2. Database se pura document delete karo
       await Hotel.findByIdAndDelete(hotelId);
       return res.json({ message: "Request Rejected and Data Deleted Permanently." });
     }
-
   } catch (error) {
     next(error);
   }
 };
 
-// 5. GET ALL HOTELS (Admin Dashboard - Shows Pending & Approved)
+// 3. Admin View (Pending & Approved)
 exports.getAllHotelsForAdmin = async (req, res, next) => {
   try {
     const hotels = await Hotel.find().sort({ createdAt: -1 });
@@ -112,21 +83,26 @@ exports.getAllHotelsForAdmin = async (req, res, next) => {
   }
 };
 
-// 6. Delete Single Image
-exports.deleteHotelImage = async (req, res, next) => {
+// 4. Get Verified Hotels (For Users)
+exports.getHotels = async (req, res, next) => {
   try {
-    const { hotelId, imageUrl } = req.body;
-    const publicId = imageUrl.split("/").pop().split(".")[0];
+    const hotels = await Hotel.find({ isVerified: true }).sort({ createdAt: -1 });
+    successResponse(res, "Verified hotels fetched successfully", hotels);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    await cloudinary.uploader.destroy(`mountain_mate/hotels/${publicId}`);
+// 5. Search Verified Hotels
+exports.searchHotels = async (req, res, next) => {
+  try {
+    const { location, maxPrice } = req.query;
+    let query = { isVerified: true };
+    if (location) query.location = { $regex: location, $options: "i" };
+    if (maxPrice) query.pricePerNight = { $lte: maxPrice };
 
-    const hotel = await Hotel.findByIdAndUpdate(
-      hotelId,
-      { $pull: { images: imageUrl } },
-      { new: true }
-    );
-
-    res.json({ message: "Image removed successfully", hotel });
+    const hotels = await Hotel.find(query).sort({ createdAt: -1 });
+    res.json(hotels);
   } catch (error) {
     next(error);
   }
