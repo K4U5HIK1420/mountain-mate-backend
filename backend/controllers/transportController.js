@@ -30,13 +30,19 @@ exports.addTransport = async (req, res, next) => {
 };
 
 // Get All Transports
-exports.getTransports = async (req, res, next) => {
-    try {
-        const transports = await Transport.find();
-        res.json(transports);
-    } catch (error) {
-        next(error);
-    }
+exports.getTransports = async (req, res) => {
+  try {
+    const rides = await Transport.find({
+      status: "approved",
+      isVerified: true
+    }).sort({ createdAt: -1 });
+
+    res.json(rides);
+
+  } catch (error) {
+    console.error("Fetch rides error:", error);
+    res.status(500).json({ message: "Failed to fetch rides" });
+  }
 };
 
 // Search Transport by Route
@@ -53,4 +59,45 @@ exports.searchTransport = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+exports.getAllRidesForAdmin = async (req, res) => {
+  try {
+    const rides = await Transport.find().sort({ createdAt: -1 });
+    res.json(rides);
+  } catch (error) {
+    console.error("Error fetching rides:", error);
+    res.status(500).json({ message: "Failed to fetch rides" });
+  }
+};
+
+exports.verifyTransport = async (req, res) => {
+  try {
+    const { rideId, action } = req.body;
+
+    console.log("VERIFY RIDE:", req.body);
+
+    const ride = await Transport.findById(rideId);
+
+    if (!ride) {
+      return res.status(404).json({ message: "Ride not found" });
+    }
+
+    if (action === "approved") {
+      ride.isVerified = true;
+      ride.status = "approved";
+      await ride.save();
+
+      return res.json({ message: "Ride approved", ride });
+    }
+
+    if (action === "rejected") {
+      await Transport.findByIdAndDelete(rideId);
+      return res.json({ message: "Ride rejected and deleted" });
+    }
+
+  } catch (error) {
+    console.error("Ride verification error:", error);
+    res.status(500).json({ message: "Verification failed" });
+  }
 };

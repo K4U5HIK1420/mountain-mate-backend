@@ -6,6 +6,10 @@ const fs = require("fs");
 // 1. Add Hotel (Synced with Frontend Keys)
 exports.addHotel = async (req, res, next) => {
   try {
+
+        console.log(req.body);
+        console.log(req.files);
+
     const imageUrls = [];
     if (req.files && req.files.length > 0) {
       for (let file of req.files) {
@@ -77,7 +81,7 @@ exports.verifyHotel = async (req, res, next) => {
 exports.getAllHotelsForAdmin = async (req, res, next) => {
   try {
     const hotels = await Hotel.find().sort({ createdAt: -1 });
-    successResponse(res, "All hotels fetched for admin vault", hotels);
+    res.json(hotels);
   } catch (error) {
     next(error);
   }
