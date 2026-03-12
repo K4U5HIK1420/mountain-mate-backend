@@ -6,7 +6,8 @@ const {
   getTransports, 
   searchTransport, 
   getAllRidesForAdmin,
-  verifyTransport
+  verifyTransport,
+  bookRide
 } = require("../controllers/transportController");
 const upload = require("../middleware/upload");
 
@@ -15,6 +16,7 @@ router.get("/all", getTransports);
 router.get("/search", searchTransport);
 router.get("/admin/all", getAllRidesForAdmin);
 router.patch("/verify", verifyTransport);
+router.post("/book", bookRide);
 
 
 module.exports = router;

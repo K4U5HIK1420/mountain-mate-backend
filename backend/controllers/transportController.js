@@ -101,3 +101,40 @@ exports.verifyTransport = async (req, res) => {
     res.status(500).json({ message: "Verification failed" });
   }
 };
+
+exports.bookRide = async (req, res) => {
+  try {
+
+    const { rideId, seats } = req.body;
+
+    const ride = await Transport.findById(rideId);
+
+    if (!ride) {
+      return res.status(404).json({ message: "Ride not found" });
+    }
+
+    if (ride.seatsAvailable < seats) {
+      return res.status(400).json({ message: "Not enough seats available" });
+    }
+
+    // decrease seats
+    await Transport.findByIdAndUpdate(
+      rideId,
+      { $inc: { seatsAvailable: -seats } },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: "Seats booked successfully",
+      ride
+    });
+
+  } catch (error) {
+
+    console.error("Booking error:", error);
+
+    res.status(500).json({ message: "Booking failed" });
+
+  }
+};
