@@ -107,3 +107,22 @@ exports.searchHotels = async (req, res, next) => {
     next(error);
   }
 };
+
+// 6. Delete Hotel Image
+exports.deleteHotelImage = async (req, res, next) => {
+  try {
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ message: "Image URL required" });
+    }
+
+    const publicId = imageUrl.split("/").pop().split(".")[0];
+
+    await cloudinary.uploader.destroy(`mountain_mate/hotels/${publicId}`);
+
+    res.json({ message: "Image deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
