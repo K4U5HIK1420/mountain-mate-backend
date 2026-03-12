@@ -31,6 +31,14 @@ const transportSchema = new mongoose.Schema({
     },
     images: {
        type: String
+    },
+    status: {
+        type: String,
+        default: "pending"
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
     }
 
 }, { timestamps: true });
