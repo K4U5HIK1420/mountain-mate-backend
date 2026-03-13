@@ -121,25 +121,31 @@ exports.bookRide = async (req, res) => {
 
     const { rideId, seats } = req.body;
 
-    const ride = await Transport.findOneAndUpdate(
-      {
-        _id: rideId,
-        seatsAvailable: { $gte: seats } // only book if seats exist
-      },
-      {
-        $inc: { seatsAvailable: -seats }
-      },
-      { new: true }
-    );
+    const ride = await Transport.findById(rideId);
 
     if (!ride) {
-      return res.status(400).json({
-        message: "Not enough seats available"
-      });
+      return res.status(404).json({ message: "Ride not found" });
     }
 
+    if (ride.seatsAvailable < seats) {
+      return res.status(400).json({ message: "Not enough seats available" });
+    }
+
+    // reduce seats
+    ride.seatsAvailable -= seats;
+    await ride.save();
+
+    // 🔴 SOCKET EVENT
     const io = req.app.get("io");
 
+    io.emit("driverBookingNotification", {
+      rideId: ride._id,
+      vehicle: ride.vehicleType,
+      seatsBooked: seats,
+      seatsRemaining: ride.seatsAvailable
+    });
+
+    // also update seat counters live
     io.emit("seatsUpdated", {
       rideId: ride._id,
       seatsAvailable: ride.seatsAvailable
@@ -152,7 +158,10 @@ exports.bookRide = async (req, res) => {
     });
 
   } catch (error) {
+
     console.error("Booking error:", error);
+
     res.status(500).json({ message: "Booking failed" });
+
   }
 };

@@ -3,6 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mountain, LogOut, Settings2, ShieldCheck } from 'lucide-react';
 import API from './utils/api';
+import { io } from "socket.io-client";
+const socket = io("http://localhost:5000");
+import Notification from "./components/Notification";
+import { useNotify } from "./context/NotificationContext";
 
 // Pages Import
 import ExploreStays from './pages/ExploreStays'; 
@@ -127,6 +131,7 @@ const Navbar = () => {
 
 // --- MAIN APP COMPONENT ---
 function App() {
+  const { notification } = useNotify();
   return (
     <Router>
       <div className="bg-[#0a0a0a] min-h-screen font-sans selection:bg-orange-600 selection:text-white overflow-x-hidden relative">
@@ -162,6 +167,7 @@ function App() {
 
         <div className="fixed bottom-0 w-full h-40 bg-gradient-to-t from-black/90 to-transparent pointer-events-none z-0"></div>
       </div>
+      <Notification notification={notification} />
     </Router>
   );
 }

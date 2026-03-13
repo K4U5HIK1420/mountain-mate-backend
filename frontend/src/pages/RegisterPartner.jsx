@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useNotify } from "../context/NotificationContext";
 
 const RegisterPartner = () => {
+    const { notify } = useNotify();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -17,7 +19,7 @@ const RegisterPartner = () => {
         e.preventDefault();
         console.log("Partner Data:", formData);
         // Yahan backend API call hogi: axios.post('/api/register', formData)
-        alert("Registration Successful! Admin approval pending.");
+        notify("Registration Successful! Admin approval pending", "success");
     };
 
     return (

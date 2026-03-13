@@ -3,8 +3,10 @@ import API from '../utils/api';
 import { motion } from 'framer-motion';
 import { Mail, Lock, LogIn, Loader2 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom'; // ✅ useLocation add kiya
+import { useNotify } from "../context/NotificationContext";
 
 const Login = () => {
+  const { notify } = useNotify();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ const Login = () => {
       window.location.reload(); 
       
     } catch (err) {
-      alert(err.response?.data?.message || "Invalid Credentials");
+      notify(err.response?.data?.message || "Invalid Credentials", "error");
     } finally {
       setLoading(false);
     }

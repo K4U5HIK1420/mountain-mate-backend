@@ -2,8 +2,10 @@ import API from "../utils/api";
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hotel, MapPin, IndianRupee, Star, ShieldCheck, Loader2, ImagePlus, X } from 'lucide-react';
+import { useNotify } from "../context/NotificationContext";
 
 const AddHotel = () => {
+  const { notify } = useNotify();
   const [formData, setFormData] = useState({
     name: '',
     location: 'Guptakashi',
@@ -34,7 +36,7 @@ const AddHotel = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (images.length === 0) return alert("Bhai, kam se kam ek photo toh dalo!");
+    if (images.length === 0) return notify("Bhai, kam se kam ek photo toh dalo!", "error");
     
     setLoading(true);
     const token = localStorage.getItem("token");
@@ -64,7 +66,7 @@ const AddHotel = () => {
       });      
       
       if (response.data) {
-        alert("Property Synced to Vault! Admin approval pending. 🏔️");
+        notify("Property Synced to Vault! Admin approval pending. 🏔️", "success");
         setFormData({ name: '', location: 'Guptakashi', price: '', roomType: 'Standard', distance: '0' });
         setImages([]);
         setPreviews([]);
@@ -73,7 +75,7 @@ const AddHotel = () => {
       console.error("Backend Error Detail:", error.response?.data);
       // Backend se jo validation error message aayega, wahi alert mein dikhega
       const errorMsg = error.response?.data?.message || "Validation Error: Check Server Fields";
-      alert(`Server Says: ${errorMsg}`);
+      notify(`Server Says: ${errorMsg}`, "error");
     } finally {
       setLoading(false);
     }

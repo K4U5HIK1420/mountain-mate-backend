@@ -4,8 +4,11 @@ import API from "../utils/api";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Navigation, Users, Calendar, Plus, Minus } from 'lucide-react';
+import { useNotify } from "../context/NotificationContext";
 
 const ExploreRides = () => {
+
+  const { notify } = useNotify();
 
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +102,7 @@ const ExploreRides = () => {
         seats: bookingSeats
       });
 
-      alert("Booking Successful!");
+      notify("Booking Successful!", "success");
 
       setSelectedRide(null);
 
@@ -107,7 +110,7 @@ const ExploreRides = () => {
 
     } catch (err) {
 
-      alert("Booking failed");
+      notify("Booking failed", "error");
 
     } finally {
 
