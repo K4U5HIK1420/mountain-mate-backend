@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 // Register Admin (only once)
-exports.registerAdmin = async (req, res) => {
+exports.registerAdmin = async (req, res,next) => {
     try {
         const { email, password } = req.body;
 
@@ -24,7 +24,7 @@ exports.registerAdmin = async (req, res) => {
 };
 
 // Login Admin
-exports.loginAdmin = async (req, res) => {
+exports.loginAdmin = async (req, res,next) => {
     try {
         const { email, password } = req.body;
 
