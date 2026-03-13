@@ -1,3 +1,5 @@
+import { io } from "socket.io-client";
+const socket = io("http://localhost:5000");
 import API from "../utils/api";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -113,6 +115,23 @@ const ExploreRides = () => {
 
     }
   };
+  useEffect(() => {
+
+  socket.on("seatsUpdated", (data) => {
+
+    setRides(prevRides =>
+      prevRides.map(ride =>
+        ride._id === data.rideId
+          ? { ...ride, seatsAvailable: data.seatsAvailable }
+          : ride
+      )
+    );
+
+  });
+
+  return () => socket.off("seatsUpdated");
+
+}, []);
 
   return (
 
