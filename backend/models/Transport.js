@@ -30,7 +30,8 @@ const transportSchema = new mongoose.Schema({
         required: true
     },
     images: {
-       type: String
+        type: [String],
+        required: true
     },
     status: {
         type: String,

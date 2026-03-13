@@ -1,4 +1,5 @@
 const Transport = require("../models/Transport");
+const cloudinary = require("cloudinary").v2;
 
 // Add Transport
 exports.addTransport = async (req, res, next) => {
@@ -16,16 +17,28 @@ exports.addTransport = async (req, res, next) => {
     }
 
     const transport = new Transport({
-      ...req.body,
-      images: imageUrls
-    });
+        vehicleType: req.body.vehicleName,
+        routeFrom: req.body.location,
+        routeTo: "Unknown", // temporary until you add destination field
+        pricePerSeat: req.body.pricePerDay,
+        seatsAvailable: req.body.capacity,
+        driverName: "Driver", // temporary
+        contactNumber: req.body.contactNumber,
+        images: imageUrls,
+        status: "pending"
+      });
 
     await transport.save();
 
-    res.status(201).json(transport);
+    res.json({
+      success: true,
+      message: "Vehicle Registered! Admin approval ka wait karo 🚕",
+      transport
+    });
 
   } catch (error) {
-    next(error);
+    console.error("Transport Error:", error);
+    res.status(400).json({ message: error.message });
   }
 };
 
@@ -87,6 +100,11 @@ exports.verifyTransport = async (req, res) => {
       ride.isVerified = true;
       ride.status = "approved";
       await ride.save();
+      const io = req.app.get("io");
+          io.emit("seatsUpdated", {
+          rideId: ride._id,
+          seatsAvailable: ride.seatsAvailable
+        });
 
       return res.json({ message: "Ride approved", ride });
     }
