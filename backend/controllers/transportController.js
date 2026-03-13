@@ -15,14 +15,15 @@ exports.addTransport = async (req, res, next) => {
       }
 
     }
-
     const transport = new Transport({
         vehicleType: req.body.vehicleName,
-        routeFrom: req.body.location,
-        routeTo: "Unknown", // temporary until you add destination field
-        pricePerSeat: req.body.pricePerDay,
-        seatsAvailable: req.body.capacity,
-        driverName: "Driver", // temporary
+        vehicleNumber: req.body.vehicleNumber,
+        driverName: req.body.driverName,
+        routeFrom: req.body.routeFrom,
+        routeTo: req.body.routeTo,
+        pricePerSeat: Number(req.body.pricePerSeat),
+        seatsAvailable: Number(req.body.seatsAvailable),
+        location: req.body.location,
         contactNumber: req.body.contactNumber,
         images: imageUrls,
         status: "pending"
@@ -100,12 +101,7 @@ exports.verifyTransport = async (req, res) => {
       ride.isVerified = true;
       ride.status = "approved";
       await ride.save();
-      const io = req.app.get("io");
-          io.emit("seatsUpdated", {
-          rideId: ride._id,
-          seatsAvailable: ride.seatsAvailable
-        });
-
+      
       return res.json({ message: "Ride approved", ride });
     }
 
@@ -125,22 +121,29 @@ exports.bookRide = async (req, res) => {
 
     const { rideId, seats } = req.body;
 
-    const ride = await Transport.findById(rideId);
-
-    if (!ride) {
-      return res.status(404).json({ message: "Ride not found" });
-    }
-
-    if (ride.seatsAvailable < seats) {
-      return res.status(400).json({ message: "Not enough seats available" });
-    }
-
-    // decrease seats
-    await Transport.findByIdAndUpdate(
-      rideId,
-      { $inc: { seatsAvailable: -seats } },
+    const ride = await Transport.findOneAndUpdate(
+      {
+        _id: rideId,
+        seatsAvailable: { $gte: seats } // only book if seats exist
+      },
+      {
+        $inc: { seatsAvailable: -seats }
+      },
       { new: true }
     );
+
+    if (!ride) {
+      return res.status(400).json({
+        message: "Not enough seats available"
+      });
+    }
+
+    const io = req.app.get("io");
+
+    io.emit("seatsUpdated", {
+      rideId: ride._id,
+      seatsAvailable: ride.seatsAvailable
+    });
 
     res.json({
       success: true,
@@ -149,10 +152,7 @@ exports.bookRide = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error("Booking error:", error);
-
     res.status(500).json({ message: "Booking failed" });
-
   }
 };
