@@ -63,7 +63,12 @@ const AddHotel = () => {
     const data = new FormData();
     
     // Append all text fields
-    Object.keys(formData).forEach(key => data.append(key, formData[key]));
+    data.append("hotelName", formData.name);
+    data.append("location", formData.location);
+    data.append("pricePerNight", formData.price);
+    data.append("roomsAvailable", formData.totalRooms);
+    data.append("contactNumber", formData.contactNumber);
+    data.append("description", formData.description);
     
     // Convert amenities to array and append
     const selectedAmenities = Object.keys(amenities).filter(key => amenities[key]);
