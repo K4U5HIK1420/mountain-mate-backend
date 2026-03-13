@@ -3,8 +3,10 @@ import API from '../utils/api';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, UserPlus, Loader2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useNotify } from "../context/NotificationContext";
 
 const Register = () => {
+  const { notify } = useNotify();
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -14,10 +16,10 @@ const Register = () => {
     setLoading(true);
     try {
       await API.post('/auth/register', formData);
-      alert("Account Created! Now Login. 🏔️");
+      notify("Account Created! Now Login. 🏔️", "success");
       navigate('/login');
     } catch (err) {
-      alert(err.response?.data?.message || "Registration Failed");
+      notify(err.response?.data?.message || "Registration Failed", "error");
     } finally {
       setLoading(false);
     }

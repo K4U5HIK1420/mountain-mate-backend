@@ -2,8 +2,10 @@ import API from "../utils/api";
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Car, MapPin, IndianRupee, Users, ShieldCheck, Navigation, Loader2, Image as ImageIcon, X, Phone, User as UserIcon } from 'lucide-react';
+import { useNotify } from "../context/NotificationContext";
 
 const AddTransport = () => {
+  const { notify } = useNotify();
   const [formData, setFormData] = useState({
     model: '', // maps to vehicleName
     number: '', // vehicleNumber
@@ -38,7 +40,7 @@ const AddTransport = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (images.length === 0) return alert("Bhai, kam se kam ek photo toh dalo gaadi ki!");
+    if (images.length === 0) return notify("Bhai, kam se kam ek photo toh dalo gaadi ki!", "error");
     
     setLoading(true);
     const token = localStorage.getItem("token");
@@ -68,13 +70,13 @@ const AddTransport = () => {
       });
 
       if (response.data) {
-        alert("Vehicle Registered! Admin approval ka wait karo. 🚕");
+        notify("Vehicle Registered! Admin approval ka wait karo. 🚕", "success");
         setFormData({ model: '', number: '', driverName: '', routeFrom: '', routeTo: '', pricePerSeat: '', seatsAvailable: '1', location: 'Guptakashi', contact: '' });
         setImages([]);
         setPreviews([]);
       }
     } catch (error) {
-      alert(error.response?.data?.message || "Access Denied: Please login first.");
+      notify(error.response?.data?.message || "Access Denied: Please login first.", "error");
     } finally {
       setLoading(false);
     }

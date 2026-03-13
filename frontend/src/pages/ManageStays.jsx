@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import API from '../utils/api'; // Tera axios instance
 import { motion } from 'framer-motion';
 import { Hotel, Bed, IndianRupee, Power, Plus, Minus, Loader2 } from 'lucide-react';
+import { useNotify } from "../context/NotificationContext";
 
 const ManageStays = () => {
+  const { notify } = useNotify();
   const [myHotels, setMyHotels] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,11 +29,12 @@ const ManageStays = () => {
   const handleUpdate = async (id, updatedFields) => {
     try {
       await API.patch(`/hotel/update/${id}`, updatedFields);
-      alert("Inventory Updated! 🏔️");
+      notify("Inventory Updated! 🏔️", "success");
       // Local state update karo taaki UI turant badle
       setMyHotels(myHotels.map(h => h._id === id ? { ...h, ...updatedFields } : h));
     } catch (err) {
-      alert("Update failed!");
+      notify("Update failed!", "error");
+      
     }
   };
 

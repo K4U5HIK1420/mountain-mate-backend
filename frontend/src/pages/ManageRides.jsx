@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import API from '../utils/api';
 import { motion } from 'framer-motion';
 import { Car, MapPin, RefreshCw, Loader2, Navigation, Users, Plus, Minus } from 'lucide-react';
+import { useNotify } from "../context/NotificationContext";
+
 
 const ManageRides = () => {
+  const { notify } = useNotify();
   const [myRides, setMyRides] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,9 +31,9 @@ const ManageRides = () => {
     try {
       await API.patch(`/transport/update/${id}`, updatedFields);
       setMyRides(myRides.map(ride => ride._id === id ? { ...ride, ...updatedFields } : ride));
-      // alert("Cloud Synced! 🚀");
+      // notify("Cloud Synced! 🚀", "success");
     } catch (err) {
-      alert("Sync failed!");
+      notify("Sync failed!", "error");
     }
   };
 

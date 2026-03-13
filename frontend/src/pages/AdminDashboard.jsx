@@ -10,16 +10,22 @@ import {
   Hotel
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { io } from "socket.io-client";
+const socket = io("http://localhost:5000");
+import { useNotify } from "../context/NotificationContext";
 
 const AdminDashboard = () => {
+
+  const { notify } = useNotify();
   const [hotels, setHotels] = useState([]);
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState("hotels");
   const [activeTab, setActiveTab] = useState("pending");
+  const [notification, setNotification] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
-
+  
   const ADMIN_PASSWORD = "1234";
 
   // 🔹 Fetch data after login
@@ -28,6 +34,31 @@ const AdminDashboard = () => {
       fetchAllData();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+
+    socket.on("driverBookingNotification", (data) => {
+
+      console.log("🚗 New booking received:", data);
+
+      setNotification({
+        vehicle: data.vehicle,
+        seatsBooked: data.seatsBooked,
+        seatsRemaining: data.seatsRemaining
+      });
+
+      // auto hide after 5 seconds
+      setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+
+    });
+
+    return () => {
+    socket.off("driverBookingNotification");
+  };
+
+}, []);
 
   const fetchAllData = async () => {
   setLoading(true);
@@ -68,7 +99,7 @@ const AdminDashboard = () => {
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
     } else {
-      alert("❌ ACCESS DENIED!");
+      notify("❌ ACCESS DENIED!", "error");
       setPassword("");
     }
   };
@@ -91,7 +122,7 @@ const AdminDashboard = () => {
 
   } catch (err) {
     console.error(err);
-    alert("Action failed!");
+    notify("Action failed!", "error");
   }
 };
 
@@ -212,6 +243,32 @@ const AdminDashboard = () => {
         >
           VERIFIED
         </button>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="fixed top-6 right-6 bg-black border border-white/10 p-6 rounded-2xl shadow-xl z-[5000]"
+          >
+
+          <h3 className="text-white font-bold text-lg mb-2">
+            🚗 New Ride Booking
+          </h3>
+
+          <p className="text-white/70 text-sm">
+            Vehicle: <span className="text-white">{notification.vehicle}</span>
+          </p>
+
+          <p className="text-white/70 text-sm">
+            Seats Booked: <span className="text-orange-500">{notification.seatsBooked}</span>
+          </p>
+
+          <p className="text-white/70 text-sm">
+            Seats Remaining: <span className="text-green-500">{notification.seatsRemaining}</span>
+          </p>
+
+          </motion.div>
+        )}
       </div>
 
       {/* DATA */}
