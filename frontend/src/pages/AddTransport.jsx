@@ -69,10 +69,10 @@ const AddTransport = () => {
         setImages([]);
         setPreviews([]);
       }
-    } catch (error) {
-      console.error("Transport Error:", error.response);
-      alert(error.response?.data?.message || "Access Denied: Please login first.");
-    } finally {
+    } catch (err) {
+        console.error("Transport Error:", err.response?.data || err.message);
+        alert(err.response?.data?.message || "Transport submission failed");
+      } finally {
       setLoading(false);
     }
   };

@@ -1,11 +1,21 @@
 const path = require("path");
+const cloudinary = require("cloudinary").v2;
 // Explicitly point to the .env file in the current directory
 require("dotenv").config({ path: path.resolve(__dirname, ".env") }); 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
+
+const http = require("http");
+const { Server } = require("socket.io");
 
 // --- CRITICAL ENV CHECK ---
 // This will tell you IMMEDIATELY if the file isn't being read
@@ -19,6 +29,24 @@ if (!process.env.MONGO_URI) {
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  console.log("🔌 User connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("❌ User disconnected:", socket.id);
+  });
+});
 
 // 2. Global Middlewares
 app.use(cors());
@@ -69,6 +97,7 @@ const errorHandler = require("./middleware/errorHandler");
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+
+server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });

@@ -11,7 +11,7 @@ const {
 } = require("../controllers/transportController");
 const upload = require("../middleware/upload");
 
-router.post("/add", auth, upload.array("images", 5), addTransport);
+router.post("/add", upload.array("images", 5), addTransport);
 router.get("/all", getTransports);
 router.get("/search", searchTransport);
 router.get("/admin/all", getAllRidesForAdmin);
