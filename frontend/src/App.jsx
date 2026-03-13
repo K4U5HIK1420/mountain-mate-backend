@@ -7,6 +7,9 @@ import { io } from "socket.io-client";
 const socket = io("http://localhost:5000");
 import Notification from "./components/Notification";
 import { useNotify } from "./context/NotificationContext";
+import "leaflet/dist/leaflet.css";
+import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
+import "leaflet-defaulticon-compatibility";
 
 // Pages Import
 import ExploreStays from './pages/ExploreStays'; 
@@ -79,7 +82,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-[1000] px-12 py-10 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+    <nav className="fixed top-0 w-full z-20 px-12 py-10 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
       {/* Brand Identity */}
       <div className="flex items-center gap-2">
         <div className="bg-[#0D4D2E] p-1.5 rounded-md text-white shadow-xl">
@@ -145,7 +148,7 @@ function App() {
           <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"></div>
         </div>
 
-        <Navbar />
+        {!document.querySelector('.ride-modal-open') && <Navbar />}
 
         <main className="relative z-10">
           <AnimatePresence mode="wait">
