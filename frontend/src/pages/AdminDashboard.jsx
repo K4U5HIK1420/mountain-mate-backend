@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../utils/api";
-import {
-  MapPin, Phone, Lock, LogOut, Zap, Car, Hotel, X, 
-  Info, Users, IndianRupee, Navigation, User
-} from "lucide-react";
+import {MapPin, Phone, Lock, LogOut, Zap, Car, Hotel, X, Info, Users, IndianRupee, Navigation, User} from "lucide-react";
 import { io } from "socket.io-client";
 const socket = io("http://localhost:5000");
 import { useNotify } from "../context/NotificationContext";
@@ -112,14 +109,19 @@ const AdminDashboard = () => {
   };
 
   const handleAction = async (id, action, type) => {
-    const confirmMsg = action === "rejected" ? "🚨 DELETE PERMANENTLY?" : "APPROVE?";
-    if (!window.confirm(confirmMsg)) return;
-
+    
     try {
       const endpoint = type === "hotels" ? "/hotel/verify" : "/transport/verify";
       const idKey = type === "hotels" ? "hotelId" : "rideId";
       await API.patch(endpoint, { [idKey]: id, action });
       
+      notify(
+        action === "rejected"
+          ? "🚨 Click REJECT again to permanently delete"
+          : "Approving submission...",
+        action === "rejected" ? "warning" : "info"
+      );
+
       setSelectedItem(null); // Close modal after action
       fetchAllData();
 
@@ -127,7 +129,7 @@ const AdminDashboard = () => {
     console.error(err);
     notify("Action failed!", "error");
   }
-
+};
   const currentSet = viewMode === "hotels" ? hotels : rides;
   const filteredData = currentSet.filter(item => 
     activeTab === "pending" ? item.status !== "approved" : item.status === "approved"
@@ -327,5 +329,5 @@ const AdminDashboard = () => {
     </div>
   );
 };
-}
+
 export default AdminDashboard;
