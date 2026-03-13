@@ -17,6 +17,7 @@ const AdminDashboard = () => {
   const [notification, setNotification] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   
   // Modal State
   const [selectedItem, setSelectedItem] = useState(null);
@@ -109,26 +110,47 @@ const AdminDashboard = () => {
   };
 
   const handleAction = async (id, action, type) => {
-    
-    try {
-      const endpoint = type === "hotels" ? "/hotel/verify" : "/transport/verify";
-      const idKey = type === "hotels" ? "hotelId" : "rideId";
-      await API.patch(endpoint, { [idKey]: id, action });
-      
-      notify(
-        action === "rejected"
-          ? "🚨 Click REJECT again to permanently delete"
-          : "Approving submission...",
-        action === "rejected" ? "warning" : "info"
-      );
 
-      setSelectedItem(null); // Close modal after action
-      fetchAllData();
+  if (action === "rejected" && confirmDeleteId !== id) {
+    setConfirmDeleteId(id);
+
+    notify("🚨 Click REJECT again to permanently delete", "warning");
+
+    return; // STOP here so it does not delete yet
+  }
+
+  try {
+
+    const endpoint =
+      type === "hotels"
+        ? "/hotel/verify"
+        : "/transport/verify";
+
+    const idKey =
+      type === "hotels"
+        ? "hotelId"
+        : "rideId";
+
+    await API.patch(endpoint, { [idKey]: id, action });
+
+    notify(
+      action === "approved"
+        ? "✅ Submission Approved"
+        : "🚨 Submission Deleted",
+      action === "approved" ? "success" : "error"
+    );
+
+    setConfirmDeleteId(null);
+    setSelectedItem(null);
+    fetchAllData();
 
   } catch (err) {
+
     console.error(err);
     notify("Action failed!", "error");
+
   }
+
 };
   const currentSet = viewMode === "hotels" ? hotels : rides;
   const filteredData = currentSet.filter(item => 
@@ -200,7 +222,15 @@ const AdminDashboard = () => {
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed top-6 right-6 bg-black border border-white/10 p-6 rounded-2xl shadow-xl z-[5000]"
+            className={`fixed top-6 right-6 p-6 rounded-2xl shadow-xl z-[5000] ${
+                notification.type === "warning"
+                  ? "bg-orange-600 text-white border border-orange-400"
+                  : notification.type === "error"
+                  ? "bg-red-600 text-white border border-red-400"
+                  : notification.type === "success"
+                  ? "bg-green-600 text-white border border-green-400"
+                  : "bg-zinc-900 text-white border border-white/10"
+              }`}
           >
 
           <h3 className="text-white font-bold text-lg mb-2">
