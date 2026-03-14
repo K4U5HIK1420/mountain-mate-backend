@@ -1,36 +1,45 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
-  // Debugging ke liye log
-  console.log("AUTH HEADER RECEIVED:", req.headers.authorization);
-
+  // Debugging: Request headers check
+  console.log("--- AUTH CHECK START ---");
   const authHeader = req.headers["authorization"];
+  console.log("Raw Header:", authHeader);
 
-  if (!authHeader) {
-    return res.status(401).json({ message: "Access denied. No token provided." });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log("❌ ERROR: No Bearer token found");
+    return res.status(401).json({ 
+      success: false, 
+      message: "Access denied. Please login again." 
+    });
   }
 
-  // "Bearer TOKEN_STRING" se TOKEN_STRING nikalna
-  const token = authHeader.split(" ")[1]; 
-
-  if (!token) {
-    return res.status(401).json({ message: "Access denied. Token missing after Bearer prefix." });
-  }
+  // "Bearer TOKEN_STRING" -> TOKEN_STRING
+  const token = authHeader.split(" ")[1];
 
   try {
+    // Token verify karna
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // ✅ FIXED: req.user mein data daal rahe hain taaki controller 'req.user.id' padh sake
+    // ✅ req.user ko set karna (Controller isi ko use karega)
     req.user = decoded; 
     
-    // Safety ke liye req.admin bhi rakh rahe hain agar kahin aur use ho raha ho
+    // Admin access ke liye bhi compatibility rakh rahe hain
     req.admin = decoded;
 
-    console.log("DECODED USER ID:", req.user.id); // Console check karo
+    console.log("✅ AUTH SUCCESS: User ID -", decoded.id);
+    console.log("--- AUTH CHECK END ---");
 
     next();
   } catch (error) {
-    console.error("JWT ERROR:", error.message);
-    res.status(400).json({ message: "Invalid token" });
+    console.error("❌ JWT ERROR:", error.message);
+    
+    // Agar token expire ho gaya ho toh user ko batao
+    const msg = error.name === "TokenExpiredError" ? "Session expired. Login again." : "Invalid session.";
+    
+    return res.status(401).json({ 
+      success: false, 
+      message: msg 
+    });
   }
 };

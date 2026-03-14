@@ -7,15 +7,15 @@ import { useNotify } from "../context/NotificationContext";
 const AddTransport = () => {
   const { notify } = useNotify();
   const [formData, setFormData] = useState({
-    model: '', // maps to vehicleName
-    number: '', // vehicleNumber
-    driverName: '', // New field
-    routeFrom: '', // New field
-    routeTo: '', // New field
-    pricePerSeat: '', // New field
-    seatsAvailable: '1', // New field
-    location: 'Guptakashi',
-    contact: ''
+    vehicleModel: '', // maps to model
+    plateNumber: '', // maps to number
+    vehicleType: 'SUV', // Default type
+    driverName: '', 
+    routeFrom: '', 
+    routeTo: '', 
+    pricePerSeat: '', 
+    seatsAvailable: '1', 
+    contactNumber: ''
   });
 
   const [images, setImages] = useState([]);
@@ -46,16 +46,16 @@ const AddTransport = () => {
     const token = localStorage.getItem("token");
 
     const data = new FormData();
-    // ✅ SYNCED WITH YOUR BACKEND KEYS
-    data.append("vehicleName", formData.model);
-    data.append("vehicleNumber", formData.number);
+    // ✅ BACKEND KEYS KE SAATH 100% SYNCED
+    data.append("vehicleModel", formData.vehicleModel);
+    data.append("plateNumber", formData.plateNumber);
+    data.append("vehicleType", formData.vehicleType);
     data.append("driverName", formData.driverName);
     data.append("routeFrom", formData.routeFrom);
     data.append("routeTo", formData.routeTo);
     data.append("pricePerSeat", formData.pricePerSeat);
     data.append("seatsAvailable", formData.seatsAvailable);
-    data.append("location", formData.location);
-    data.append("contactNumber", formData.contact);
+    data.append("contactNumber", formData.contactNumber);
     
     images.forEach((file) => {
       data.append("images", file);
@@ -69,14 +69,27 @@ const AddTransport = () => {
         }
       });
 
-      if (response.data) {
-        notify("Vehicle Registered! Admin approval ka wait karo. 🚕", "success");
-        setFormData({ model: '', number: '', driverName: '', routeFrom: '', routeTo: '', pricePerSeat: '', seatsAvailable: '1', location: 'Guptakashi', contact: '' });
+      if (response.data.success) {
+        notify("Fleet Registered! Admin approval ka wait karo. 🚕", "success");
+        
+        // ✅ NAVBAR UPDATE LOGIC: LocalStorage update taaki Manage Rides dikhne lage
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (user) {
+          user.hasRides = true;
+          localStorage.setItem("user", JSON.stringify(user));
+        }
+
+        // Reset Form
+        setFormData({ 
+            vehicleModel: '', plateNumber: '', vehicleType: 'SUV', 
+            driverName: '', routeFrom: '', routeTo: '', 
+            pricePerSeat: '', seatsAvailable: '1', contactNumber: '' 
+        });
         setImages([]);
         setPreviews([]);
       }
     } catch (error) {
-      notify(error.response?.data?.message || "Access Denied: Please login first.", "error");
+      notify(error.response?.data?.message || "Transmission Interrupted: Check Connection.", "error");
     } finally {
       setLoading(false);
     }
@@ -84,30 +97,28 @@ const AddTransport = () => {
 
   return (
     <div className="relative min-h-screen pt-40 pb-20 px-8">
-      <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="fixed inset-0 w-full h-full object-cover z-[-1]" alt="BG" />
+      <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="fixed inset-0 w-full h-full object-cover z-[-1] grayscale-[30%]" alt="BG" />
       <div className="fixed inset-0 bg-black/75 backdrop-blur-[6px] z-[-1]"></div>
 
       <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl mx-auto bg-white/[0.03] backdrop-blur-3xl border border-white/10 rounded-[80px] p-12 lg:p-16 shadow-2xl">
         <div className="mb-12">
-          <h2 className="text-6xl lg:text-7xl font-black text-white tracking-tighter uppercase leading-none italic text-glow">REGISTER <span className="text-orange-600">RIDE.</span></h2>
+          <h2 className="text-6xl lg:text-7xl font-black text-white tracking-tighter uppercase leading-none italic text-glow">OFFER <span className="text-orange-600">RIDE.</span></h2>
           <p className="text-white/30 font-bold text-[10px] tracking-[0.5em] uppercase mt-6 ml-2 italic">Secured Fleet Transmission</p>
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20">
           <div className="space-y-8">
-            {/* Row 1: Model & Driver */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                     <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><Car size={16}/> Vehicle Model</label>
-                    <input name="model" value={formData.model} onChange={handleChange} required type="text" placeholder="Innova Crysta" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all placeholder:text-white/10" />
+                    <input name="vehicleModel" value={formData.vehicleModel} onChange={handleChange} required type="text" placeholder="Innova Crysta" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
                 </div>
                 <div className="space-y-4">
                     <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><UserIcon size={16}/> Driver Name</label>
-                    <input name="driverName" value={formData.driverName} onChange={handleChange} required type="text" placeholder="Shardul Aswal" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all placeholder:text-white/10" />
+                    <input name="driverName" value={formData.driverName} onChange={handleChange} required type="text" placeholder="Shardul Aswal" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
                 </div>
             </div>
 
-            {/* Row 2: Route From & To */}
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-4">
                 <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><MapPin size={16}/> Route From</label>
@@ -119,7 +130,6 @@ const AddTransport = () => {
               </div>
             </div>
 
-            {/* Row 3: Price/Seat & Seats Available */}
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-4">
                 <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><IndianRupee size={16}/> Price / Seat</label>
@@ -131,44 +141,43 @@ const AddTransport = () => {
               </div>
             </div>
 
-            {/* Row 4: Plate No & Contact */}
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-4">
                 <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><Navigation size={16}/> Plate Number</label>
-                <input name="number" value={formData.number} onChange={handleChange} required type="text" placeholder="UK 13 TA 1234" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
+                <input name="plateNumber" value={formData.plateNumber} onChange={handleChange} required type="text" placeholder="UK 13 TA 1234" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
               </div>
               <div className="space-y-4">
                 <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><Phone size={16}/> Contact</label>
-                <input name="contact" value={formData.contact} onChange={handleChange} required type="text" placeholder="+91..." className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
+                <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} required type="text" placeholder="+91..." className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
               </div>
             </div>
           </div>
 
           <div className="space-y-10">
-             <div className="space-y-4">
+              <div className="space-y-4">
                 <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><ImageIcon size={16}/> Vehicle Photos</label>
                 <div className="relative group">
                   <input type="file" multiple accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
                   <div className="w-full bg-white/[0.02] border-4 border-dashed border-white/5 p-14 rounded-[50px] text-center group-hover:border-orange-600 transition-all">
-                    <p className="text-white/20 font-black text-[11px] tracking-[0.4em] uppercase text-center">Add Fleet Images</p>
+                    <p className="text-white/20 font-black text-[11px] tracking-[0.4em] uppercase text-center italic">Drop Images or Click to Upload</p>
                   </div>
                 </div>
-             </div>
+              </div>
 
-             <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-3 gap-6">
                 {previews.map((url, index) => (
                   <div key={index} className="relative aspect-square">
                     <img src={url} className="w-full h-full object-cover rounded-[30px] border-2 border-white/10 shadow-2xl" alt="preview" />
                     <button type="button" onClick={() => removeImage(index)} className="absolute -top-3 -right-3 bg-red-600 text-white p-2 rounded-full shadow-2xl z-30"><X size={16} /></button>
                   </div>
                 ))}
-             </div>
+              </div>
           </div>
 
           <div className="lg:col-span-2 pt-6">
-            <button disabled={loading} type="submit" className="w-full bg-orange-600 text-white p-8 rounded-[40px] font-black text-[13px] uppercase tracking-[0.6em] shadow-2xl transition-all flex items-center justify-center gap-6 disabled:opacity-20 hover:bg-white hover:text-black active:scale-95">
+            <button disabled={loading} type="submit" className="w-full bg-orange-600 text-white p-8 rounded-[40px] font-black text-[13px] uppercase tracking-[0.6em] shadow-[0_20px_50px_rgba(234,88,12,0.3)] transition-all flex items-center justify-center gap-6 disabled:opacity-20 hover:bg-white hover:text-black active:scale-95">
               {loading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24}/>}
-              {loading ? "TRANSMITTING..." : "INITIALIZE DEPLOYMENT"}
+              {loading ? "TRANSMITTING TO SYSTEM..." : "INITIALIZE FLEET DEPLOYMENT"}
             </button>
           </div>
         </form>

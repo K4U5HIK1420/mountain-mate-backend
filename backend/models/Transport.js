@@ -1,9 +1,24 @@
 const mongoose = require("mongoose");
 
 const transportSchema = new mongoose.Schema({
-    vehicleType: {
+    // ✅ OWNER LINKING (Sabse Zaruri)
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true
+    },
+    vehicleModel: { // Example: Innova Crysta, Bolero
         type: String,
         required: true
+    },
+    vehicleType: { // Example: SUV, Hatchback, Bus
+        type: String,
+        required: true
+    },
+    plateNumber: { // Example: UK 13 TA 1234
+        type: String,
+        required: true,
+        unique: true
     },
     routeFrom: {
         type: String,
@@ -35,13 +50,13 @@ const transportSchema = new mongoose.Schema({
     },
     status: {
         type: String,
+        enum: ["pending", "approved", "rejected"],
         default: "pending"
     },
     isVerified: {
         type: Boolean,
         default: false
     }
-
 }, { timestamps: true });
 
 module.exports = mongoose.model("Transport", transportSchema);
