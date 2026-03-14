@@ -27,10 +27,16 @@ const hotelSchema = new mongoose.Schema({
     images: {
         type: [String]
     },
-    // --- NAYE FIELDS YAHAN SE HAIN (APPROVED LOGIC) ---
+    // --- OWNER LINKING (Naya Field) ---
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // User model se link hai
+        required: true
+    },
+    // --- APPROVED LOGIC ---
     isVerified: { 
         type: Boolean, 
-        default: false // Jab tak admin 'true' nahi karega, false rahega
+        default: false 
     },
     status: {
         type: String,
