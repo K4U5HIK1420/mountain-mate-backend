@@ -9,7 +9,7 @@ const AddTransport = () => {
   const [formData, setFormData] = useState({
     vehicleModel: '', // maps to model
     plateNumber: '', // maps to number
-    vehicleType: 'SUV', // Default type
+    vehicleType: '', // Default type
     driverName: '', 
     routeFrom: '', 
     routeTo: '', 
@@ -38,12 +38,29 @@ const AddTransport = () => {
     setPreviews(previews.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => { 
     e.preventDefault();
     if (images.length === 0) return notify("Bhai, kam se kam ek photo toh dalo gaadi ki!", "error");
     
     setLoading(true);
     const token = localStorage.getItem("token");
+
+    const getCoords = async (place) => {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${place}&format=json&limit=1`
+      );
+      const data = await res.json();
+
+      if (!data.length) throw new Error("Location not found");
+
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    };
+
+    const fromCoords = await getCoords(formData.routeFrom);
+    const toCoords = await getCoords(formData.routeTo);
 
     const data = new FormData();
     // ✅ BACKEND KEYS KE SAATH 100% SYNCED
@@ -51,8 +68,13 @@ const AddTransport = () => {
     data.append("plateNumber", formData.plateNumber);
     data.append("vehicleType", formData.vehicleType);
     data.append("driverName", formData.driverName);
+
     data.append("routeFrom", formData.routeFrom);
     data.append("routeTo", formData.routeTo);
+
+    data.append("fromCoords", JSON.stringify(fromCoords));
+    data.append("toCoords", JSON.stringify(toCoords));
+    
     data.append("pricePerSeat", formData.pricePerSeat);
     data.append("seatsAvailable", formData.seatsAvailable);
     data.append("contactNumber", formData.contactNumber);
@@ -65,13 +87,11 @@ const AddTransport = () => {
       const response = await API.post("/transport/add", data, {
         headers: { 
           "Content-Type": "multipart/form-data",
-          "Authorization": `Bearer ${token}` 
         }
       });
 
       if (response.data.success) {
-        notify("Fleet Registered! Admin approval ka wait karo. 🚕", "success");
-        
+        notify(response.data.message, "success");        
         // ✅ NAVBAR UPDATE LOGIC: LocalStorage update taaki Manage Rides dikhne lage
         const user = JSON.parse(localStorage.getItem("user"));
         if (user) {
@@ -81,7 +101,7 @@ const AddTransport = () => {
 
         // Reset Form
         setFormData({ 
-            vehicleModel: '', plateNumber: '', vehicleType: 'SUV', 
+            vehicleModel: '', plateNumber: '', vehicleType: '', 
             driverName: '', routeFrom: '', routeTo: '', 
             pricePerSeat: '', seatsAvailable: '1', contactNumber: '' 
         });
@@ -89,8 +109,12 @@ const AddTransport = () => {
         setPreviews([]);
       }
     } catch (error) {
-      notify(error.response?.data?.message || "Transmission Interrupted: Check Connection.", "error");
-    } finally {
+        console.error("Add Transport Error:", error);
+
+        if (error.response && !error.response.data.success) {
+          notify(error.response.data.message, "error");
+        } 
+      } finally {
       setLoading(false);
     }
   };
@@ -162,6 +186,11 @@ const AddTransport = () => {
                     <p className="text-white/20 font-black text-[11px] tracking-[0.4em] uppercase text-center italic">Drop Images or Click to Upload</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-4">
+                    <label className="flex items-center gap-4 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] ml-2"><Car size={16}/> Vehicle Type</label>
+                    <input name="vehicleType" value={formData.vehicleType} onChange={handleChange} required type="text" placeholder="SUV" className="w-full bg-white/5 border border-white/10 p-6 rounded-[35px] font-black text-white outline-none focus:border-orange-600 transition-all" />
               </div>
 
               <div className="grid grid-cols-3 gap-6">

@@ -3,8 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mountain, LogOut, Settings2, ShieldCheck } from 'lucide-react';
 import API from './utils/api';
-import { io } from "socket.io-client";
-const socket = io("http://localhost:5000");
+import socket from "./utils/socket";
 import Notification from "./components/Notification";
 import { useNotify } from "./context/NotificationContext";
 import "leaflet/dist/leaflet.css";
@@ -82,7 +81,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-20 px-12 py-10 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+    <nav className="fixed top-0 w-full z-20 px-12 py-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
       {/* Brand Identity */}
       <div className="flex items-center gap-2">
         <div className="bg-[#0D4D2E] p-1.5 rounded-md text-white shadow-xl">

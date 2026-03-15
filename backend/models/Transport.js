@@ -28,6 +28,14 @@ const transportSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    fromCoords: {
+        lat: Number,
+        lng: Number
+    },
+    toCoords: {
+        lat: Number,
+        lng: Number
+    },
     pricePerSeat: {
         type: Number,
         required: true
