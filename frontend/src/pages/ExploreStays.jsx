@@ -23,6 +23,11 @@ const ExploreStays = () => {
   const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
+    if (selectedHotel) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "auto";
+  }, [selectedHotel]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowGuestMenu(false);
@@ -48,7 +53,6 @@ const ExploreStays = () => {
 
   useEffect(() => { fetchHotels(); }, []);
 
-  // WhatsApp Redirect Logic
   const handleBooking = (hotel) => {
     const message = `Namaste! I'm interested in booking ${hotel.hotelName} in ${hotel.location}.\nDates: ${checkInDate || 'Not selected'} to ${checkOutDate || 'Not selected'}\nGuests: ${adultCount + childCount}\nRooms: ${roomCount}`;
     const whatsappUrl = `https://wa.me/${hotel.contactNumber}?text=${encodeURIComponent(message)}`;
@@ -105,66 +109,127 @@ const ExploreStays = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {loading ? (
             <div className="col-span-full flex justify-center py-40"><Loader2 className="animate-spin text-orange-600" size={50} /></div>
-          ) : hotels.map((hotel) => (
-            <motion.div key={hotel._id} whileHover={{ y: -10 }} onClick={() => setSelectedHotel(hotel)} className="bg-white/[0.02] backdrop-blur-3xl border border-white/5 rounded-[50px] overflow-hidden flex flex-col group cursor-pointer hover:border-orange-600/30 transition-all duration-500">
-              <div className="h-64 relative overflow-hidden">
-                <img src={hotel.images?.[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="hotel" />
-                <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2"><Star size={12} className="text-orange-600 fill-orange-600" /><p className="text-white font-black text-[10px]">4.8</p></div>
-              </div>
-              <div className="p-10 space-y-6">
-                <div className="flex justify-between items-start">
-                  <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">{hotel.hotelName}</h3>
-                  <p className="text-2xl font-black text-white italic leading-none">₹{hotel.pricePerNight}</p>
+          ) : (
+            hotels.map((hotel) => (
+              <motion.div key={hotel._id} whileHover={{ y: -10 }} onClick={() => setSelectedHotel(hotel)} className="bg-white/[0.02] backdrop-blur-3xl border border-white/5 rounded-[50px] overflow-hidden flex flex-col group cursor-pointer hover:border-orange-600/30 transition-all duration-500">
+                <div className="h-64 relative overflow-hidden">
+                  <img src={hotel.images?.[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="hotel" />
+                  <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2"><Star size={12} className="text-orange-600 fill-orange-600" /><p className="text-white font-black text-[10px]">4.8</p></div>
                 </div>
-                <div className="flex items-center gap-2 text-white/30 text-[10px] font-black uppercase tracking-widest"><MapPin size={12} className="text-orange-500" /> {hotel.location}</div>
-                <button className="w-full bg-white/5 border border-white/10 group-hover:bg-orange-600 text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-widest transition-all">Check Details</button>
-              </div>
-            </motion.div>
-          ))}
+                <div className="p-10 space-y-6">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">{hotel.hotelName}</h3>
+                    <p className="text-2xl font-black text-white italic leading-none">₹{hotel.pricePerNight}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/30 text-[10px] font-black uppercase tracking-widest"><MapPin size={12} className="text-orange-500" /> {hotel.location}</div>
+                  <button className="w-full bg-white/5 border border-white/10 group-hover:bg-orange-600 text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-widest transition-all">Check Details</button>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </motion.div>
 
-      {/* --- DETAILED MODAL --- */}
+      {/* --- DETAILED MODAL (Exact Admin Style From Rides) --- */}
       <AnimatePresence>
         {selectedHotel && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedHotel(null)} className="absolute inset-0 bg-black/90 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative w-full max-w-5xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
-              <div className="w-full md:w-1/2 overflow-hidden h-80 md:h-auto">
-                <img src={selectedHotel.images?.[0]} className="w-full h-full object-cover" alt="" />
-              </div>
-              <div className="w-full md:w-1/2 p-10 md:p-14 overflow-y-auto">
-                <button onClick={() => setSelectedHotel(null)} className="absolute top-8 right-8 text-white/20 hover:text-white"><X/></button>
-                <span className="text-orange-500 text-[10px] font-black tracking-[0.4em] uppercase">Partner Verified Stay</span>
-                <h2 className="text-5xl font-black text-white italic tracking-tighter mt-2 uppercase leading-none">{selectedHotel.hotelName}</h2>
-                
-                <div className="grid grid-cols-2 gap-8 my-10">
-                  <div className="space-y-1"><p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Property Type</p><p className="text-white font-bold uppercase italic">{selectedHotel.propertyType || 'Resort'}</p></div>
-                  <div className="space-y-1"><p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Near Landmark</p><p className="text-white font-bold uppercase italic"><MapPin size={12} className="inline mr-1 text-orange-500"/>{selectedHotel.landmark || 'N/A'}</p></div>
-                  <div className="space-y-1"><p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Host / Manager</p><p className="text-white font-bold uppercase italic"><User size={12} className="inline mr-1 text-orange-500"/>{selectedHotel.ownerName || 'Staff'}</p></div>
-                  <div className="space-y-1"><p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Base Pricing</p><p className="text-white font-black text-2xl italic tracking-tighter">₹{selectedHotel.pricePerNight}<span className="text-[10px] text-white/20 font-bold tracking-normal ml-1">/Night</span></p></div>
-                </div>
+          <div className="fixed inset-0 z-[5000] flex items-center justify-center p-6">
+            {/* Background Overlay */}
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setSelectedHotel(null)} 
+              className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer" 
+            />
 
-                <div className="space-y-6 mb-10">
-                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Available Amenities</p>
-                  <div className="flex flex-wrap gap-3">
-                    {JSON.parse(selectedHotel.amenities || "[]").map(am => (
-                      <div key={am} className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full">
-                        <span className="text-orange-500">{amenityIcons[am] || <Check size={14}/>}</span>
-                        <span className="text-white text-[9px] font-black uppercase tracking-widest">{am}</span>
-                      </div>
-                    ))}
+            {/* Main Modal Card */}
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} 
+              animate={{ scale: 1, y: 0 }} 
+              exit={{ scale: 0.9, y: 20 }} 
+              className="relative w-full max-w-5xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden shadow-2xl z-[5500] max-h-[90vh] overflow-y-auto no-scrollbar"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                
+                {/* Left Side: Property Image */}
+                <div className="relative h-full min-h-[350px] bg-zinc-900 border-r border-white/5">
+                  <img src={selectedHotel.images?.[0]} className="w-full h-full object-cover grayscale-[10%] hover:grayscale-0 transition-all duration-700" alt="" />
+                  <div className="absolute bottom-8 left-8 bg-black/60 backdrop-blur-xl p-6 rounded-[35px] border border-white/10">
+                    <p className="text-orange-500 text-[10px] font-black tracking-[0.4em] uppercase mb-1">Stay Hub</p>
+                    <p className="text-white font-black italic text-2xl uppercase tracking-tight">{selectedHotel.propertyType || 'Resort'}</p>
                   </div>
                 </div>
 
-                <div className="bg-white/5 p-8 rounded-[35px] border border-white/10 mb-10">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 flex items-center gap-2"><Info size={14}/> Cancellation Policy</p>
-                    <p className="text-white/60 text-[11px] font-bold leading-relaxed">{selectedHotel.cancellationPolicy || "Standard policy applies. Contact host for details."}</p>
-                </div>
+                {/* Right Side: Details & Actions */}
+                <div className="p-12 space-y-8 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-orange-500 text-[10px] font-black tracking-[0.5em] uppercase italic">Partner Verified Stay</span>
+                        <h2 className="text-5xl font-black text-white italic tracking-tighter mt-2 leading-none uppercase">{selectedHotel.hotelName}</h2>
+                      </div>
+                      
+                      {/* ✅ ADMIN STYLE COMPACT CLOSE BUTTON (Exactly as Rides) */}
+                      <button 
+                        onClick={() => setSelectedHotel(null)} 
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 z-[9999] hover:bg-white hover:text-black transition-all border border-white/10 active:scale-90"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
 
-                <button onClick={() => handleBooking(selectedHotel)} className="w-full bg-white text-black hover:bg-orange-600 hover:text-white p-7 rounded-[25px] font-black uppercase text-[12px] tracking-[0.3em] transition-all flex items-center justify-center gap-4">
-                  <Phone size={18}/> BOOK VIA WHATSAPP
-                </button>
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Host / Manager</p>
+                        <p className="text-white font-bold flex items-center gap-2 uppercase"><User size={14} className="text-orange-500"/> {selectedHotel.ownerName || 'Staff'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Near Landmark</p>
+                        <p className="text-white font-bold flex items-center gap-2 uppercase truncate"><MapPin size={14} className="text-orange-500"/> {selectedHotel.landmark || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {/* Amenities Section */}
+                    <div className="space-y-4">
+                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest italic">Available Amenities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {JSON.parse(selectedHotel.amenities || "[]").map(am => (
+                            <div key={am} className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full">
+                              <span className="text-orange-500">{amenityIcons[am] || <Check size={12}/>}</span>
+                              <span className="text-white text-[9px] font-black uppercase tracking-widest">{am}</span>
+                            </div>
+                          ))}
+                        </div>
+                    </div>
+
+                    {/* Cancellation Policy */}
+                    <div className="bg-white/5 p-6 rounded-[30px] border border-white/5">
+                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2 flex items-center gap-2"><Info size={12}/> Cancellation Policy</p>
+                        <p className="text-white/60 text-[10px] font-bold leading-relaxed">{selectedHotel.cancellationPolicy || "Standard policy applies. Contact host for details."}</p>
+                    </div>
+                  </div>
+
+                  {/* Pricing & Booking Action */}
+                  <div className="pt-6 border-t border-white/5 flex flex-col gap-6">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Base Pricing</p>
+                            <p className="text-5xl font-black text-white italic tracking-tighter leading-none">₹{selectedHotel.pricePerNight}</p>
+                        </div>
+                        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-1 italic">Per Night</p>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleBooking(selectedHotel)} 
+                      className="w-full bg-orange-600 hover:bg-white hover:text-black text-white py-6 rounded-[30px] font-black uppercase tracking-[0.4em] text-xs transition-all flex items-center justify-center gap-4 shadow-2xl shadow-orange-600/20"
+                    >
+                      <Phone size={18}/> BOOK VIA WHATSAPP
+                    </button>
+                  </div>
+
+                </div>
               </div>
             </motion.div>
           </div>
