@@ -2,31 +2,19 @@ import React, { useState, useEffect } from "react";
 import socket from "../utils/socket";
 import API from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  MapPin,
-  Loader2,
-  Navigation,
-  Plus,
-  Minus,
-  X
-} from "lucide-react";
-
+import { MapPin, Loader2, Navigation, Plus, Minus, X, ShieldCheck, CreditCard, Phone, User } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
 import RoutePreview from "../components/RoutePreview";
 
 const ExploreRides = () => {
-
   const { notify } = useNotify();
-
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState(null);
   const [bookingSeats, setBookingSeats] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-
   const [pickupFilter, setPickupFilter] = useState("");
   const [dropFilter, setDropFilter] = useState("");
-
   const [fromCoords, setFromCoords] = useState(null);
   const [toCoords, setToCoords] = useState(null);
 
@@ -62,56 +50,31 @@ const ExploreRides = () => {
 
   /* load rides */
   const loadApprovedRides = async () => {
-
     setLoading(true);
-
     try {
-
       const res = await API.get("/transport/all");
       setRides(res.data.data || res.data || []);
-
     } catch (err) {
-
-      console.error("Ride fetch error:", err);
       setRides([]);
-
     } finally {
-
       setLoading(false);
-
     }
   };
 
-  useEffect(() => {
-    loadApprovedRides();
-  }, []);
+  useEffect(() => { loadApprovedRides(); }, []);
 
-
-  /* search */
   const fetchListings = async () => {
-
+    if (!pickupFilter && !dropFilter) return loadApprovedRides();
     setLoading(true);
-
     try {
-
       const response = await API.get("/transport/search", {
-        params: {
-          from: pickupFilter.toLowerCase(),
-          to: dropFilter.toLowerCase()
-        }
+        params: { from: pickupFilter, to: dropFilter }
       });
-
       setRides(response.data.data || response.data || []);
-
     } catch (error) {
-
-      console.error("Search error:", error);
       setRides([]);
-
     } finally {
-
       setLoading(false);
-
     }
   };
 
@@ -156,10 +119,10 @@ const ExploreRides = () => {
 
   /* booking */
   const bookRide = async () => {
-
     try {
-
       setIsProcessing(true);
+      const token = localStorage.getItem("token");
+      if (!token) return notify("Bhai, pehle login toh kar lo!", "error");
 
       const res = await API.post("/transport/book", {
         rideId: selectedRide._id,
@@ -193,9 +156,7 @@ const ExploreRides = () => {
       notify("Booking failed. Please try again.", "error");
 
     } finally {
-
       setIsProcessing(false);
-
     }
   };
 
@@ -359,13 +320,9 @@ const ExploreRides = () => {
                 </div>
 
               </motion.div>
-
-            ))
-
+          ))
           )}
-
-        </div>
-
+         </div>
       </motion.div>
 
 {/* MODAL */}
