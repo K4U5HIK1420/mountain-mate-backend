@@ -2,7 +2,7 @@ const Transport = require("../models/Transport");
 const User = require("../models/User");
 const cloudinary = require("cloudinary").v2;
 
-// 1. Add Transport (Owner Linking Fixed)
+// 1. Add Transport
 exports.addTransport = async (req, res, next) => {
   try {
     const imageUrls = [];
@@ -25,24 +25,20 @@ exports.addTransport = async (req, res, next) => {
       driverName: req.body.driverName || req.user.name,
       contactNumber: req.body.contactNumber,
       images: imageUrls,
-      status: "pending"
+      status: "pending",
+      isVerified: false // Default false
     });
 
     await transport.save();
     await User.findByIdAndUpdate(req.user.id, { hasRides: true });
 
-    res.json({
-      success: true,
-      message: "Fleet Transmission Successful! 🚕 Admin approval pending.",
-      transport
-    });
+    res.json({ success: true, message: "Fleet Transmission Successful! 🚕", transport });
   } catch (error) {
-    console.error("Transport Error:", error);
     res.status(400).json({ message: error.message });
   }
 };
 
-// 2. Get My Rides (Owner Dashboard)
+// 2. Get My Rides
 exports.getMyRides = async (req, res) => {
   try {
     const myRides = await Transport.find({ owner: req.user.id }).sort({ createdAt: -1 });
@@ -52,59 +48,43 @@ exports.getMyRides = async (req, res) => {
   }
 };
 
-// 3. ✅ UPDATE TRANSPORT (Missing Function Fixed)
+// 3. Update Transport
 exports.updateTransport = async (req, res) => {
     try {
-      const { id } = req.params;
       const updatedRide = await Transport.findByIdAndUpdate(
-        id,
+        req.params.id,
         { $set: req.body },
         { new: true }
       );
-  
-      if (!updatedRide) return res.status(404).json({ message: "Ride not found" });
-  
-      res.json({
-        success: true,
-        message: "Fleet Data Updated! 🚀",
-        data: updatedRide
-      });
+      res.json({ success: true, message: "Fleet Data Updated! 🚀", data: updatedRide });
     } catch (error) {
       res.status(500).json({ message: "Update failed" });
     }
 };
 
-// 4. ✅ BOOK RIDE (Missing Function Fixed)
+// 4. Book Ride
 exports.bookRide = async (req, res) => {
     try {
       const { rideId, seats } = req.body;
       const ride = await Transport.findById(rideId);
+      if (!ride || ride.seatsAvailable < seats) return res.status(400).json({ message: "No seats!" });
       
-      if (!ride) return res.status(404).json({ message: "Ride not found" });
-      
-      if (ride.seatsAvailable < seats) {
-        return res.status(400).json({ message: "Not enough seats available!" });
-      }
-  
       ride.seatsAvailable -= seats;
       await ride.save();
-  
-      res.json({
-        success: true,
-        message: "Seats reserved successfully! 🚕",
-        ride
-      });
+      res.json({ success: true, message: "Seats reserved! 🚕", ride });
     } catch (error) {
       res.status(500).json({ message: "Booking failed" });
     }
 };
 
-// 5. Get All Approved Transports
+// 5. Get Approved Transports (Explore Page Fix)
 exports.getTransports = async (req, res) => {
   try {
+    // ✅ STRICT CHECK: Approved aur Verified dono hona chahiye
     const rides = await Transport.find({
       status: "approved",
-      isVerified: true
+      isVerified: true,
+      seatsAvailable: { $gt: 0 } // Sirf wo jisme seats bachi ho
     }).sort({ createdAt: -1 });
     res.json(rides);
   } catch (error) {
@@ -112,14 +92,15 @@ exports.getTransports = async (req, res) => {
   }
 };
 
-// 6. Search Transport by Route
+// 6. Search Transport (Filter Fix)
 exports.searchTransport = async (req, res, next) => {
   try {
     const { from, to } = req.query;
     const transports = await Transport.find({
       routeFrom: { $regex: from, $options: "i" },
       routeTo: { $regex: to, $options: "i" },
-      status: "approved"
+      status: "approved",
+      isVerified: true // ✅ Search mein bhi verified check
     });
     res.json(transports);
   } catch (error) {
@@ -127,28 +108,28 @@ exports.searchTransport = async (req, res, next) => {
   }
 };
 
-// 7. Admin Verification
+// 7. Admin Verification (Sync Fix)
 exports.verifyTransport = async (req, res) => {
   try {
     const { rideId, action } = req.body;
     const ride = await Transport.findById(rideId);
-
     if (!ride) return res.status(404).json({ message: "Ride not found" });
 
     if (action === "approved") {
-      ride.isVerified = true;
-      ride.status = "approved";
+      ride.isVerified = true; // ✅ Mark verified
+      ride.status = "approved"; // ✅ Mark approved
       await ride.save();
       
+      // Socket emission if needed
       const io = req.app.get("io");
-      if(io) io.emit("seatsUpdated", { rideId: ride._id, seatsAvailable: ride.seatsAvailable });
+      if(io) io.emit("fleetUpdate", { rideId: ride._id, status: "live" });
 
-      return res.json({ message: "Ride approved and live!", ride });
+      return res.json({ success: true, message: "Ride approved and live!", ride });
     }
 
     if (action === "rejected") {
       await Transport.findByIdAndDelete(rideId);
-      return res.json({ message: "Ride rejected and removed from system" });
+      return res.json({ success: true, message: "Ride rejected and removed" });
     }
   } catch (error) {
     res.status(500).json({ message: "Verification failed" });
