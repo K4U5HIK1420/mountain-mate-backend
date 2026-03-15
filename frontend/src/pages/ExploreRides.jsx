@@ -1,8 +1,6 @@
-import { io } from "socket.io-client";
-const socket = io("http://localhost:5000");
-
-import API from "../utils/api";
 import React, { useState, useEffect } from "react";
+import socket from "../utils/socket";
+import API from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
@@ -10,9 +8,7 @@ import {
   Navigation,
   Plus,
   Minus,
-  X,
-  ShieldCheck,
-  CreditCard
+  X
 } from "lucide-react";
 
 import { useNotify } from "../context/NotificationContext";
@@ -34,11 +30,34 @@ const ExploreRides = () => {
   const [fromCoords, setFromCoords] = useState(null);
   const [toCoords, setToCoords] = useState(null);
 
+  const [modalMode, setModalMode] = useState(null);
+
+
   /* disable scroll when modal open */
   useEffect(() => {
     if (selectedRide) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "auto";
   }, [selectedRide]);
+
+
+  /* socket connection */
+  useEffect(() => {
+
+  socket.on("seatsUpdated", (data) => {
+    setRides(prev =>
+      prev.map(r =>
+        r._id === data.rideId
+          ? { ...r, seatsAvailable: data.seatsAvailable }
+          : r
+      )
+    );
+  });
+
+  return () => {
+    socket.off("seatsUpdated");
+  };
+
+}, []);
 
 
   /* load rides */
@@ -97,6 +116,44 @@ const ExploreRides = () => {
   };
 
 
+  /* convert location -> coords */
+  const getCoordinates = async (place) => {
+
+    try {
+
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${place}`
+      );
+
+      const data = await res.json();
+
+      if (data.length > 0)
+        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+
+      return null;
+
+    } catch {
+      return null;
+    }
+
+  };
+
+
+  /* open modal */
+  const openRide = async (ride) => {
+
+    const [from, to] = await Promise.all([
+      getCoordinates(ride.routeFrom),
+      getCoordinates(ride.routeTo)
+    ]);
+
+    setFromCoords(from);
+    setToCoords(to);
+    setSelectedRide(ride);
+    setBookingSeats(1);
+  };
+
+
   /* booking */
   const bookRide = async () => {
 
@@ -124,10 +181,15 @@ const ExploreRides = () => {
         setSelectedRide(null);
         loadApprovedRides();
 
+      } else {
+
+        notify("Booking failed. Please try again.", "error");
+
       }
 
-    } catch {
+    } catch (err) {
 
+      console.error("Booking error:", err);
       notify("Booking failed. Please try again.", "error");
 
     } finally {
@@ -138,56 +200,6 @@ const ExploreRides = () => {
   };
 
 
-  /* socket updates */
-  useEffect(() => {
-
-    socket.on("seatsUpdated", (data) => {
-
-      setRides(prev =>
-        prev.map(r =>
-          r._id === data.rideId
-            ? { ...r, seatsAvailable: data.seatsAvailable }
-            : r
-        )
-      );
-
-    });
-
-    return () => socket.off("seatsUpdated");
-
-  }, []);
-
-
-  /* convert location -> coords */
-  const getCoordinates = async (place) => {
-
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${place}`
-    );
-
-    const data = await res.json();
-
-    if (data.length > 0)
-      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-
-    return null;
-  };
-
-
-  /* open modal */
-  const openRide = async (ride) => {
-
-    const from = await getCoordinates(ride.routeFrom);
-    const to = await getCoordinates(ride.routeTo);
-
-    setFromCoords(from);
-    setToCoords(to);
-
-    setSelectedRide(ride);
-    setBookingSeats(1);
-  };
-
-
   return (
 
     <div className="relative min-h-screen pt-40 pb-32 px-8 selection:bg-orange-600 selection:text-white">
@@ -195,11 +207,12 @@ const ExploreRides = () => {
       {/* background */}
       <img
         src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500"
+        loading="lazy"
         className="fixed inset-0 w-full h-full object-cover grayscale-[30%] z-[-1]"
         alt=""
       />
 
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-[6px] z-[-1]" />
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[-1]" />
 
 
       <motion.div
@@ -216,7 +229,7 @@ const ExploreRides = () => {
           </h1>
 
 
-          <div className="bg-white/5 backdrop-blur-3xl p-4 rounded-[40px] border border-white/10 flex flex-col md:flex-row gap-3 shadow-2xl">
+          <div className="bg-white/5 backdrop-blur-md p-4 rounded-[40px] border border-white/10 flex flex-col md:flex-row gap-3 shadow-2xl">
 
             <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-[30px] flex-1 border border-white/5">
 
@@ -278,13 +291,16 @@ const ExploreRides = () => {
               <motion.div
                 key={ride._id}
                 whileHover={{ y: -12 }}
-                className="bg-white/[0.02] backdrop-blur-3xl border border-white/5 rounded-[50px] overflow-hidden flex flex-col group shadow-2xl relative"
+                className="bg-white/[0.02] backdrop-blur-md border border-white/5 rounded-[50px] overflow-hidden flex flex-col group shadow-2xl relative"
               >
 
                 {/* preview route */}
                 <button
-                  onClick={() => openRide(ride)}
-                  className="absolute top-4 right-4 bg-orange-600 text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-white hover:text-black transition-all"
+                  onClick={() => {
+                    setSelectedRide(ride);
+                    setModalMode("route");
+                  }}
+                  className="absolute top-4 right-4 z-20 bg-orange-600 text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-white hover:text-black transition-all"
                 >
                   Preview Route
                 </button>
@@ -331,7 +347,10 @@ const ExploreRides = () => {
 
 
                   <button
-                    onClick={() => openRide(ride)}
+                    onClick={() => {
+                      setSelectedRide(ride);
+                      setModalMode("booking");
+                    }}
                     className="w-full bg-white/5 border border-white/10 text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-[0.3em] transition-all hover:bg-orange-600 hover:shadow-lg hover:shadow-orange-600/40"
                   >
                     SECURE SEAT & VIEW DETAILS
@@ -349,95 +368,139 @@ const ExploreRides = () => {
 
       </motion.div>
 
+{/* MODAL */}
+<AnimatePresence>
 
-      {/* MODAL */}
-      <AnimatePresence>
+{selectedRide && (
 
-        {selectedRide && (
+  <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
 
-          <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={() => setSelectedRide(null)}
+      className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+    />
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedRide(null)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+    <motion.div
+      onClick={(e) => e.stopPropagation()}
+      initial={{ scale: 0.9 }}
+      animate={{ scale: 1 }}
+      exit={{ scale: 0.9 }}
+      className="relative w-full max-w-4xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden shadow-2xl flex flex-col md:flex-row"
+    >
+
+      <button
+        onClick={() => setSelectedRide(null)}
+        className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/80 text-white z-[9999]"
+      >
+        <X size={20}/>
+      </button>
+
+      {/* LEFT IMAGE */}
+      <div className="w-full md:w-1/2">
+        <img
+          src={selectedRide.images?.[0]}
+          className="w-full h-full object-cover"
+          alt=""
+        />
+      </div>
+
+      {/* RIGHT CONTENT */}
+      <div className="w-full md:w-1/2 p-10">
+
+        <h2 className="text-4xl font-black text-white italic mb-4">
+          {selectedRide.vehicleType}
+        </h2>
+
+        {/* ROUTE PREVIEW */}
+        {modalMode === "route" &&
+          selectedRide?.fromCoords &&
+          selectedRide?.toCoords && (
+            <RoutePreview
+              pickupCoords={selectedRide.fromCoords}
+              destinationCoords={selectedRide.toCoords}
             />
-
-            <motion.div
-              onClick={(e) => e.stopPropagation()}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="relative w-full max-w-4xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden shadow-2xl flex flex-col md:flex-row"
-            >
-
-              <button
-                onClick={() => setSelectedRide(null)}
-                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/80 text-white z-[9999]"
-              >
-                <X size={20}/>
-              </button>
-
-
-              <div className="w-full md:w-1/2">
-
-                <img
-                  src={selectedRide.images?.[0]}
-                  className="w-full h-full object-cover"
-                  alt=""
-                />
-
-              </div>
-
-
-              <div className="w-full md:w-1/2 p-10">
-
-                <h2 className="text-4xl font-black text-white italic mb-4">
-                  {selectedRide.vehicleType}
-                </h2>
-
-
-                {fromCoords && toCoords && (
-                  <RoutePreview
-                    fromCoords={fromCoords}
-                    toCoords={toCoords}
-                  />
-                )}
-
-
-                <div className="flex justify-between items-center mt-8">
-
-                  <button onClick={()=>setBookingSeats(p=>Math.max(1,p-1))}>
-                    <Minus/>
-                  </button>
-
-                  <span className="text-white text-xl">{bookingSeats}</span>
-
-                  <button onClick={()=>setBookingSeats(p=>Math.min(selectedRide.seatsAvailable,p+1))}>
-                    <Plus/>
-                  </button>
-
-                </div>
-
-
-                <button
-                  onClick={bookRide}
-                  className="mt-8 w-full bg-orange-600 text-white py-4 rounded-xl"
-                >
-                  CONFIRM & TRANSMIT
-                </button>
-
-              </div>
-
-            </motion.div>
-
-          </div>
-
         )}
 
-      </AnimatePresence>
+        {/* BOOKING UI */}
+        {modalMode === "booking" && (
+          <>
+            {/* Ride Details */}
+            <div className="space-y-2 text-white/70 text-sm mb-6">
+
+              <p>
+                <span className="text-white font-semibold">Route:</span> {selectedRide.routeFrom} ➝ {selectedRide.routeTo}
+              </p>
+
+              <p>
+                <span className="text-white font-semibold">Driver:</span> {selectedRide.driverName}
+              </p>
+
+              <p>
+                <span className="text-white font-semibold">Vehicle:</span> {selectedRide.vehicleModel}
+              </p>
+
+              <p>
+                <span className="text-white font-semibold">Plate:</span> {selectedRide.plateNumber}
+              </p>
+
+              <p>
+                <span className="text-white font-semibold">Price per seat:</span> ₹{selectedRide.pricePerSeat}
+              </p>
+
+              <p>
+                <span className="text-white font-semibold">Seats left:</span> {selectedRide.seatsAvailable}
+              </p>
+
+            </div>
+            {/* Seat selector */}
+            <div className="flex items-center justify-center gap-6 mt-8">
+
+              <button
+                className="bg-white/10 p-3 rounded-full hover:bg-white/20"
+                onClick={() => setBookingSeats(p => Math.max(1, p - 1))}
+              >
+                <Minus className="text-white"/>
+              </button>
+
+              <span className="text-white text-xl font-bold">
+                {bookingSeats}
+              </span>
+
+              <button
+                className="bg-white/10 p-3 rounded-full hover:bg-white/20"
+                onClick={() =>
+                  setBookingSeats(p =>
+                    Math.min(selectedRide.seatsAvailable, p + 1)
+                  )
+                }
+              >
+                <Plus className="text-white"/>
+              </button>
+
+            </div>
+
+            <button
+              disabled={isProcessing}
+              onClick={bookRide}
+              className="mt-8 w-full bg-orange-600 hover:bg-orange-500 text-white py-4 rounded-xl font-bold transition-all"
+            >
+              {isProcessing ? "PROCESSING..." : "CONFIRM & TRANSMIT"}
+            </button>
+          </>
+        )}
+
+      </div>
+
+    </motion.div>
+
+  </div>
+
+)}
+
+</AnimatePresence>
 
     </div>
   );

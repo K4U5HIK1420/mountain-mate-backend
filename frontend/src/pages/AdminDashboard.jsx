@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../utils/api";
 import {MapPin, Phone, Lock, LogOut, Zap, Car, Hotel, X, Info, Users, IndianRupee, Navigation, User} from "lucide-react";
-import { io } from "socket.io-client";
-const socket = io("http://localhost:5000");
+import socket from "../utils/socket";
 import { useNotify } from "../context/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
 

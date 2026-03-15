@@ -18,8 +18,13 @@ exports.addTransport = async (req, res, next) => {
       vehicleModel: req.body.vehicleModel,
       vehicleType: req.body.vehicleType,
       plateNumber: req.body.plateNumber,
+
       routeFrom: req.body.routeFrom,
       routeTo: req.body.routeTo,
+
+      fromCoords: JSON.parse(req.body.fromCoords),
+      toCoords: JSON.parse(req.body.toCoords),
+
       pricePerSeat: req.body.pricePerSeat,
       seatsAvailable: req.body.seatsAvailable,
       driverName: req.body.driverName || req.user.name,
