@@ -66,7 +66,7 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
       <MapContainer
         center={[pickupCoords.lat, pickupCoords.lng]}
         zoom={10}
-        style={{ height: "400px" }}
+        style={{ height: "260px", borderRadius: "16px"}}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
