@@ -15,8 +15,7 @@ const ExploreRides = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [pickupFilter, setPickupFilter] = useState("");
   const [dropFilter, setDropFilter] = useState("");
-  const [fromCoords, setFromCoords] = useState(null);
-  const [toCoords, setToCoords] = useState(null);
+  const [expandedRideId, setExpandedRideId] = useState(null);
 
   const [modalMode, setModalMode] = useState(null);
 
@@ -251,6 +250,7 @@ const ExploreRides = () => {
 
               <motion.div
                 key={ride._id}
+                layout
                 whileHover={{ y: -12 }}
                 className="bg-white/[0.02] backdrop-blur-md border border-white/5 rounded-[50px] overflow-hidden flex flex-col group shadow-2xl relative"
               >
@@ -258,12 +258,11 @@ const ExploreRides = () => {
                 {/* preview route */}
                 <button
                   onClick={() => {
-                    setSelectedRide(ride);
-                    setModalMode("route");
+                    setExpandedRideId(prev => prev === ride._id ? null : ride._id);
                   }}
                   className="absolute top-4 right-4 z-20 bg-orange-600 text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg hover:bg-white hover:text-black transition-all"
                 >
-                  Preview Route
+                  {expandedRideId === ride._id ? "Hide Route" : "Preview Route"}
                 </button>
 
 
@@ -305,7 +304,27 @@ const ExploreRides = () => {
                     </p>
 
                   </div>
+                   {/* ROUTE PREVIEW EXPANDS HERE */}
+                    {expandedRideId === ride._id &&
+                      ride.fromCoords &&
+                      ride.toCoords && (
 
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.35 }}
+                          className="mt-6"
+                        >
+
+                          <RoutePreview
+                            pickupCoords={ride.fromCoords}
+                            destinationCoords={ride.toCoords}
+                          />
+
+                        </motion.div>
+
+                      )}
 
                   <button
                     onClick={() => {
