@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, Loader2, Navigation, Plus, Minus, X, ShieldCheck, CreditCard, Phone, User, Car, ArrowRight, Info, CheckCircle2 } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
 import RoutePreview from "../components/RoutePreview";
+import { RidesGridSkeleton } from "../components/Skeletons";
 
 const ExploreRides = () => {
   const { notify } = useNotify();
@@ -88,10 +89,7 @@ const ExploreRides = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#050505] pt-40 pb-32 px-8 selection:bg-orange-600">
-      {/* Dynamic Background */}
-      <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="fixed inset-0 w-full h-full object-cover opacity-30 grayscale-[40%] z-[-1]" alt="" />
-      <div className="fixed inset-0 bg-gradient-to-b from-black/80 via-black/40 to-[#050505] z-[-1]" />
+    <div className="relative min-h-screen pt-40 pb-32 px-8 selection:bg-orange-600">
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 max-w-7xl mx-auto">
         
@@ -114,17 +112,22 @@ const ExploreRides = () => {
         </div>
 
         {/* RIDES GRID - UPDATED FOR FULL IMAGE */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {loading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-40 gap-4">
-              <Loader2 className="animate-spin text-orange-600" size={40}/>
-              <p className="text-[10px] font-black tracking-[0.3em] text-white/20 uppercase italic">Locating nearby fleets...</p>
-            </div>
-          ) : rides.length === 0 ? (
-            <div className="col-span-full text-center text-white/10 font-black tracking-[0.8em] py-40 uppercase italic text-xl">NO FLEET DETECTED</div>
-          ) : (
-            rides.map((ride) => (
-              <motion.div key={ride._id} whileHover={{ y: -10 }} className="group relative bg-[#0d0d0d] border border-white/5 rounded-[45px] overflow-hidden shadow-2xl transition-all duration-500 hover:border-orange-600/30 flex flex-col">
+        {loading ? (
+          <div className="pt-6">
+            <RidesGridSkeleton />
+          </div>
+        ) : rides.length === 0 ? (
+          <div className="col-span-full text-center text-white/10 font-black tracking-[0.8em] py-40 uppercase italic text-xl">NO FLEET DETECTED</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {rides.map((ride) => (
+              <motion.div
+                key={ride._id}
+                whileHover={{ y: -10 }}
+                whileTap={{ scale: 0.985 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                className="group relative bg-[#0d0d0d] border border-white/5 rounded-[45px] overflow-hidden shadow-2xl transition-all duration-500 hover:border-orange-600/30 flex flex-col"
+              >
                 
                 {/* Visual Accent */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-orange-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -161,12 +164,14 @@ const ExploreRides = () => {
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-white/5">
-                    <button 
+                    <motion.button
+                       whileTap={{ scale: 0.985 }}
+                       transition={{ type: "spring", stiffness: 520, damping: 30 }}
                        onClick={() => { setSelectedRide(ride); setModalMode("booking"); }}
                        className="w-full bg-orange-600 text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-2xl active:scale-95"
                     >
                       SECURE SEAT <ArrowRight size={14}/>
-                    </button>
+                    </motion.button>
                     
                     <button 
                       onClick={() => setExpandedRideId(expandedRideId === ride._id ? null : ride._id)}
@@ -185,9 +190,9 @@ const ExploreRides = () => {
                   </AnimatePresence>
                 </div>
               </motion.div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* MODAL REDESIGN - UPDATED FOR FULL IMAGE & THUMBNAILS */}

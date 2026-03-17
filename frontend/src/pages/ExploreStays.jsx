@@ -1,5 +1,3 @@
-import { io } from "socket.io-client";
-const socket = io("http://localhost:5000");
 import API from "../utils/api";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +6,7 @@ import {
   Wifi, Car, Coffee, Thermometer, ShieldCheck, Phone, User, Info, 
   ChevronLeft, ChevronRight, FileText, Layout, ArrowRight, Wallet, Compass
 } from 'lucide-react';
+import { StaysGridSkeleton } from "../components/Skeletons";
 
 const ExploreStays = () => {
   const [hotels, setHotels] = useState([]);
@@ -73,16 +72,7 @@ const ExploreStays = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#050505] text-white selection:bg-orange-600">
-      {/* --- DIVINE KEDARNATH BACKGROUND --- */}
-      <div className="fixed inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" 
-          className="w-full h-full object-cover opacity-30 grayscale-[20%] blur-[1px]" 
-          alt="Kedarnath Divine View" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-[#050505]"></div>
-      </div>
+    <div className="relative min-h-screen text-white selection:bg-orange-600">
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 max-w-7xl mx-auto pt-32 pb-20 px-6">
         
@@ -125,17 +115,28 @@ const ExploreStays = () => {
         </div>
 
         {/* --- STAYS GRID --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {loading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-40 gap-4">
-              <Loader2 className="animate-spin text-orange-600" size={40} />
-              <p className="text-[9px] font-black tracking-[0.4em] text-white/20 uppercase italic">Linking to Himalayan Vault...</p>
-            </div>
-          ) : (
-            hotels.map((hotel) => (
-              <motion.div key={hotel._id} whileHover={{ y: -15 }} onClick={() => setSelectedHotel(hotel)} className="group cursor-pointer">
+        {loading ? (
+          <div className="pt-6">
+            <StaysGridSkeleton />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {hotels.map((hotel) => (
+              <motion.div
+                key={hotel._id}
+                whileHover={{ y: -15 }}
+                whileTap={{ scale: 0.985 }}
+                transition={{ type: "spring", stiffness: 360, damping: 28 }}
+                onClick={() => setSelectedHotel(hotel)}
+                className="group cursor-pointer"
+              >
                 <div className="relative h-[480px] rounded-[50px] overflow-hidden border border-white/5 shadow-2xl transition-all duration-700 group-hover:border-orange-500/40">
-                  <img src={hotel.images?.[0]} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="" />
+                  <img
+                    src={hotel.images?.[0] || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1600"}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                    alt={hotel.hotelName || "Stay"}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
                   
                   <div className="absolute top-8 left-8 bg-black/50 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-2">
@@ -155,9 +156,9 @@ const ExploreStays = () => {
                   </div>
                 </div>
               </motion.div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* --- PREMIER MODAL --- */}
@@ -172,7 +173,11 @@ const ExploreStays = () => {
               
               {/* Left Gallery */}
               <div className="w-full md:w-1/2 relative bg-black flex items-center justify-center border-r border-white/5 overflow-hidden">
-                <img src={selectedHotel.images?.[currentImgIndex]} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125" alt="" />
+                <img
+                  src={selectedHotel.images?.[currentImgIndex]}
+                  className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125"
+                  alt=""
+                />
                 <AnimatePresence mode="wait">
                   <motion.img 
                     key={currentImgIndex} src={selectedHotel.images?.[currentImgIndex]} 

@@ -2,6 +2,8 @@ const { successResponse, errorResponse } = require("../utils/response");
 const cloudinary = require("../config/cloudinary");
 const Hotel = require("../models/Hotel");
 const fs = require("fs");
+const { getDataStore } = require("../utils/dataStore");
+const supabaseHotels = require("../services/supabaseHotelsStore");
 
 // 1. Add Hotel (Synced with Owner ID)
 exports.addHotel = async (req, res, next) => {
@@ -17,22 +19,30 @@ exports.addHotel = async (req, res, next) => {
       }
     }
 
+    if (getDataStore() === "supabase") {
+      const created = await supabaseHotels.addHotel({
+        ownerId: req.user.id,
+        payload: { ...req.body, images: imageUrls },
+      });
+      return res.status(201).json(created);
+    }
+
     const hotel = new Hotel({
-      hotelName: req.body.hotelName,      
+      hotelName: req.body.hotelName,
       location: req.body.location,
-      pricePerNight: Number(req.body.pricePerNight), 
+      pricePerNight: Number(req.body.pricePerNight),
       roomsAvailable: Number(req.body.roomsAvailable) || 10,
       contactNumber: req.body.contactNumber || "9999999999",
       description: req.body.description || "",
       distance: req.body.distance || "0",
       images: imageUrls,
-      owner: req.user.id, // Auth middleware se logged-in user ki ID
+      owner: req.user.id,
       isVerified: false,
-      status: "pending" 
+      status: "pending",
     });
 
     await hotel.save();
-    res.status(201).json(hotel);
+    return res.status(201).json(hotel);
   } catch (error) {
     if (req.files) {
       req.files.forEach(file => {
@@ -46,8 +56,13 @@ exports.addHotel = async (req, res, next) => {
 // 2. Get My Hotels (Sirf logged-in owner ke liye)
 exports.getMyHotels = async (req, res, next) => {
   try {
+    if (getDataStore() === "supabase") {
+      const myHotels = await supabaseHotels.getMyHotels(req.user.id);
+      return successResponse(res, "Your listed hotels fetched successfully", myHotels);
+    }
+
     const myHotels = await Hotel.find({ owner: req.user.id }).sort({ createdAt: -1 });
-    successResponse(res, "Your listed hotels fetched successfully", myHotels);
+    return successResponse(res, "Your listed hotels fetched successfully", myHotels);
   } catch (error) {
     next(error);
   }
@@ -57,6 +72,19 @@ exports.getMyHotels = async (req, res, next) => {
 exports.updateHotel = async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    if (getDataStore() === "supabase") {
+      const updated = await supabaseHotels.updateHotel({
+        ownerId: req.user.id,
+        id,
+        updateData: req.body,
+      });
+      return res.json({
+        success: true,
+        message: "Property details updated successfully! 🏔️",
+        data: updated,
+      });
+    }
     
     // Check property owner (Security check)
     const hotel = await Hotel.findOne({ _id: id, owner: req.user.id });

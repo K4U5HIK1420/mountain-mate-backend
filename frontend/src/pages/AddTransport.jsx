@@ -80,7 +80,12 @@ const AddTransport = () => {
         setPreviews([]);
       }
     } catch (error) {
-      notify("Uplink Failed: Check Connection", "error");
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Uplink Failed: Check Connection";
+      notify(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -141,6 +146,25 @@ const AddTransport = () => {
                       <div className="space-y-3">
                           <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] ml-4 italic">Vehicle Model</label>
                           <input name="vehicleModel" value={formData.vehicleModel} onChange={handleChange} required placeholder="Innova Crysta / Premium SUV" className="w-full bg-black/40 border border-white/10 p-6 rounded-[28px] outline-none focus:border-orange-500/50 transition-all font-bold text-white text-sm shadow-inner" />
+                      </div>
+                      <div className="space-y-3">
+                          <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] ml-4 italic">Vehicle Type</label>
+                          <select
+                            name="vehicleType"
+                            value={formData.vehicleType}
+                            onChange={handleChange}
+                            required
+                            className="w-full bg-black/40 border border-white/10 p-6 rounded-[28px] outline-none focus:border-orange-500/50 transition-all font-bold text-white text-sm shadow-inner appearance-none cursor-pointer"
+                          >
+                            <option value="" className="bg-black">SELECT TYPE</option>
+                            <option value="SUV" className="bg-black">SUV</option>
+                            <option value="MUV" className="bg-black">MUV</option>
+                            <option value="Sedan" className="bg-black">Sedan</option>
+                            <option value="Hatchback" className="bg-black">Hatchback</option>
+                            <option value="Tempo Traveller" className="bg-black">Tempo Traveller</option>
+                            <option value="Taxi" className="bg-black">Taxi</option>
+                            <option value="Other" className="bg-black">Other</option>
+                          </select>
                       </div>
                       <div className="space-y-3">
                           <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] ml-4 italic">Lead Pilot Name</label>

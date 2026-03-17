@@ -29,8 +29,8 @@ const hotelSchema = new mongoose.Schema({
     },
     // --- OWNER LINKING (Naya Field) ---
     owner: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User", // User model se link hai
+        // Supabase uses UUID strings; legacy records may still have ObjectId.
+        type: mongoose.Schema.Types.Mixed,
         required: true
     },
     // --- APPROVED LOGIC ---

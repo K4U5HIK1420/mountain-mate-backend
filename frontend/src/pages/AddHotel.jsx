@@ -59,7 +59,6 @@ const AddHotel = () => {
     if (images.length === 0) return notify("Bhai, kam se kam ek photo toh dalo!", "error");
     
     setLoading(true);
-    const token = localStorage.getItem("token");
     const data = new FormData();
     
     // Append all text fields
@@ -78,9 +77,7 @@ const AddHotel = () => {
     images.forEach((file) => data.append("images", file));
 
     try {
-      const response = await API.post("/hotel/add", data, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });      
+      const response = await API.post("/hotel/add", data);      
       
       if (response.data) {
         notify("Property Synced to Vault! Admin approval pending. 🏔️", "success");

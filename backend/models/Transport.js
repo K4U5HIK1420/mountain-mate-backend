@@ -3,8 +3,8 @@ const mongoose = require("mongoose");
 const transportSchema = new mongoose.Schema({
     // ✅ OWNER LINKING (Sabse Zaruri)
     owner: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        // Supabase uses UUID strings; legacy records may still have ObjectId.
+        type: mongoose.Schema.Types.Mixed,
         required: true
     },
     vehicleModel: { // Example: Innova Crysta, Bolero
