@@ -1,6 +1,7 @@
 const Transport = require("../models/Transport");
-const User = require("../models/User");
 const cloudinary = require("cloudinary").v2;
+const { getDataStore } = require("../utils/dataStore");
+const supabaseTransports = require("../services/supabaseTransportsStore");
 
 // 1. Add Transport
 exports.addTransport = async (req, res, next) => {
@@ -11,6 +12,18 @@ exports.addTransport = async (req, res, next) => {
         const result = await cloudinary.uploader.upload(file.path);
         imageUrls.push(result.secure_url);
       }
+    }
+
+    if (getDataStore() === "supabase") {
+      const created = await supabaseTransports.addTransport({
+        ownerId: req.user.id,
+        payload: { ...req.body, images: imageUrls },
+      });
+      return res.json({
+        success: true,
+        message: "Fleet Transmission Successful! 🚕",
+        transport: created,
+      });
     }
 
     const transport = new Transport({
@@ -35,7 +48,8 @@ exports.addTransport = async (req, res, next) => {
     });
 
     await transport.save();
-    await User.findByIdAndUpdate(req.user.id, { hasRides: true });
+    // Legacy Mongo user update (pre-Supabase). Supabase user IDs won't exist in Mongo `User` collection.
+    // This should not block transport creation.
 
     res.json({ success: true, message: "Fleet Transmission Successful! 🚕", transport });
   } catch (error) {
@@ -46,6 +60,10 @@ exports.addTransport = async (req, res, next) => {
 // 2. Get My Rides
 exports.getMyRides = async (req, res) => {
   try {
+    if (getDataStore() === "supabase") {
+      const myRides = await supabaseTransports.getMyRides(req.user.id);
+      return res.json({ success: true, data: myRides });
+    }
     const myRides = await Transport.find({ owner: req.user.id }).sort({ createdAt: -1 });
     res.json({ success: true, data: myRides });
   } catch (error) {
@@ -56,6 +74,14 @@ exports.getMyRides = async (req, res) => {
 // 3. Update Transport
 exports.updateTransport = async (req, res) => {
     try {
+      if (getDataStore() === "supabase") {
+        const updated = await supabaseTransports.updateTransport({
+          ownerId: req.user.id,
+          id: req.params.id,
+          updateFields: req.body,
+        });
+        return res.json({ success: true, message: "Fleet Data Updated! 🚀", data: updated });
+      }
       const updatedRide = await Transport.findByIdAndUpdate(
         req.params.id,
         { $set: req.body },
@@ -144,7 +170,7 @@ exports.verifyTransport = async (req, res) => {
 // 8. Admin All Rides
 exports.getAllRidesForAdmin = async (req, res) => {
   try {
-    const rides = await Transport.find().populate('owner', 'name email').sort({ createdAt: -1 });
+    const rides = await Transport.find().sort({ createdAt: -1 });
     res.json(rides);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch admin data" });

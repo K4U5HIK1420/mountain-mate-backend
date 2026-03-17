@@ -1,5 +1,5 @@
 const upload = require("../middleware/upload");
-const authMiddleware = require("../middleware/authMiddleware");
+const { supabaseAuth, requireRole } = require("../middleware/supabaseAuthMiddleware");
 const express = require("express");
 const router = express.Router();
 
@@ -23,20 +23,20 @@ router.get("/search", searchHotels);
 // --- 2. PARTNER/OWNER ROUTES (Property Management) ---
 
 // Naya property add karne ke liye
-router.post("/add", authMiddleware, upload.array("images", 5), addHotel);
+router.post("/add", supabaseAuth, upload.array("images", 5), addHotel);
 
 // Sirf login user ke apne hotels fetch karne ke liye (Manage Stays Page)
-router.get("/my-hotels", authMiddleware, getMyHotels);
+router.get("/my-hotels", supabaseAuth, getMyHotels);
 
 // ✅ Inventory update karne ke liye (Rooms/Price change)
-router.patch("/update/:id", authMiddleware, updateHotel);
+router.patch("/update/:id", supabaseAuth, updateHotel);
 
 // Image delete karne ke liye
-router.delete("/delete-image", authMiddleware, deleteHotelImage);
+router.delete("/delete-image", supabaseAuth, deleteHotelImage);
 
 
 // --- 3. ADMIN ROUTES (Vault Management) ---
-router.get("/admin/all", getAllHotelsForAdmin);
-router.patch("/verify", verifyHotel);
+router.get("/admin/all", supabaseAuth, requireRole("admin"), getAllHotelsForAdmin);
+router.patch("/verify", supabaseAuth, requireRole("admin"), verifyHotel);
 
 module.exports = router;

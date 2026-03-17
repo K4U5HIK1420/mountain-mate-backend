@@ -7,25 +7,23 @@ import {
 import socket from "../utils/socket";
 import { useNotify } from "../context/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../context/AuthContext";
 
 const AdminDashboard = () => {
   const { notify } = useNotify();
+  const { loading: authLoading, user, role, signOut } = useAuth();
   const [hotels, setHotels] = useState([]);
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState("hotels");
   const [activeTab, setActiveTab] = useState("pending");
   const [notification, setNotification] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const ADMIN_PASSWORD = "1234";
-
   useEffect(() => {
-    if (isAuthenticated) fetchAllData();
-  }, [isAuthenticated]);
+    if (user && role === "admin") fetchAllData();
+  }, [user, role]);
 
   useEffect(() => {
     socket.on("driverBookingNotification", (data) => {
@@ -52,10 +50,9 @@ const AdminDashboard = () => {
     finally { setLoading(false); }
   };
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) setIsAuthenticated(true);
-    else { notify("❌ ACCESS DENIED!", "error"); setPassword(""); }
+  const handleLogout = async () => {
+    await signOut();
+    window.location.href = "/login";
   };
 
   const handleAction = async (id, action, type) => {
@@ -80,7 +77,17 @@ const AdminDashboard = () => {
     activeTab === "pending" ? item.status !== "approved" : item.status === "approved"
   );
 
-  if (!isAuthenticated) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050505] px-6 fixed inset-0 z-[9999]">
+        <div className="text-white/20 font-black tracking-[0.5em] uppercase text-[10px] italic animate-pulse">
+          Verifying access…
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || role !== "admin") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050505] px-6 fixed inset-0 z-[9999]">
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full bg-white/[0.02] border border-white/10 p-12 rounded-[50px] text-center backdrop-blur-3xl shadow-[0_0_100px_rgba(234,88,12,0.1)]">
@@ -88,11 +95,25 @@ const AdminDashboard = () => {
             <Lock className="text-white" size={32} />
           </div>
           <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">SENTINEL <span className="text-orange-500">VAULT.</span></h2>
-          <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.5em] mt-2 mb-10 italic">Secure Administrator Terminal</p>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <input type="password" placeholder="ENTER ACCESS CODE" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 p-6 rounded-2xl text-center text-white outline-none focus:border-orange-500 font-black tracking-[0.3em]" />
-            <button className="w-full bg-white text-black font-black p-6 rounded-2xl hover:bg-orange-600 hover:text-white transition-all uppercase text-xs tracking-widest active:scale-95 shadow-xl">Initiate Sequence</button>
-          </form>
+          <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.5em] mt-2 mb-10 italic">Admin account required</p>
+
+          {!user ? (
+            <a href="/login" className="block w-full bg-white text-black font-black p-6 rounded-2xl hover:bg-orange-600 hover:text-white transition-all uppercase text-xs tracking-widest active:scale-95 shadow-xl">
+              Login with Supabase
+            </a>
+          ) : (
+            <>
+              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-8">
+                Signed in as <span className="text-white">{user.email}</span>
+              </p>
+              <button
+                onClick={handleLogout}
+                className="w-full bg-white/5 border border-white/10 text-white font-black p-6 rounded-2xl hover:bg-white hover:text-black transition-all uppercase text-xs tracking-widest active:scale-95"
+              >
+                Sign out
+              </button>
+            </>
+          )}
         </motion.div>
       </div>
     );
@@ -115,7 +136,7 @@ const AdminDashboard = () => {
                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Fleet / Stays</p>
                 <p className="text-2xl font-black italic text-white leading-none">{rides.length} / {hotels.length}</p>
             </div>
-            <button onClick={() => { setIsAuthenticated(false); window.location.reload(); }} className="flex items-center gap-3 bg-white/5 border border-white/10 px-8 py-4 rounded-full hover:bg-red-600/20 hover:text-red-500 hover:border-red-600/30 transition-all active:scale-95 group">
+            <button onClick={handleLogout} className="flex items-center gap-3 bg-white/5 border border-white/10 px-8 py-4 rounded-full hover:bg-red-600/20 hover:text-red-500 hover:border-red-600/30 transition-all active:scale-95 group">
               <span className="text-[10px] font-black tracking-widest">LOGOUT TERMINAL</span>
               <LogOut size={18} className="text-white/20 group-hover:text-red-500" />
             </button>

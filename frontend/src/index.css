@@ -1,12 +1,113 @@
 @import "tailwindcss";
 
-/* Agar normal Tailwind setup hai to ye use kar: */
-/* @tailwind base; */
-/* @tailwind components; */
-/* @tailwind utilities; */
-
 body {
   margin: 0;
   padding: 0;
   display: block !important; /* Vite ka default centering hatao */
+}
+
+/* Remove Vite template max-width behavior */
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Smooth text + better selection feel */
+html {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide scrollbars for modal panes (opt-in via class) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes aurora {
+  0% {
+    transform: translate3d(-2%, -2%, 0) rotate(0deg) scale(1);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: translate3d(2%, 1%, 0) rotate(20deg) scale(1.04);
+    filter: hue-rotate(25deg);
+  }
+  100% {
+    transform: translate3d(-2%, -2%, 0) rotate(0deg) scale(1);
+    filter: hue-rotate(0deg);
+  }
+}
+
+@keyframes floatSlow {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(20px, -24px, 0) scale(1.05);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes floatSlower {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-22px, 18px, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes floatSlowest {
+  0% {
+    transform: translate3d(-10px, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10px, -14px, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(-10px, 0, 0) scale(1);
+  }
+}
+
+.animate-aurora {
+  animation: aurora 16s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: floatSlow 12s ease-in-out infinite;
+}
+.animate-float-slower {
+  animation: floatSlower 16s ease-in-out infinite;
+}
+.animate-float-slowest {
+  animation: floatSlowest 20s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora,
+  .animate-float-slow,
+  .animate-float-slower,
+  .animate-float-slowest {
+    animation: none !important;
+  }
+}
+
+/* Simple noise texture using layered gradients */
+.bg-noise {
+  background-image: radial-gradient(
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 0
+    ),
+    radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 0);
+  background-position: 0 0, 6px 6px;
+  background-size: 12px 12px;
 }
