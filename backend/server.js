@@ -1,7 +1,27 @@
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
-// Explicitly point to the .env file in the current directory
-require("dotenv").config({ path: path.resolve(__dirname, ".env") }); 
+const express = require("express");
+const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const http = require("http");
+const { Server } = require("socket.io");
+
+// Custom Modules
+const connectDB = require("./config/db");
+const errorHandler = require("./middleware/errorHandler");
+
+// Load Environment Variables
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
+
+// 1. Initialize DB Connection
+// Isse pehle hi call kar rahe hain taaki DB connect hone par hi server chale
+connectDB().then(() => {
+  console.log("📂 DATABASE: Himalayan Database Connected.");
+}).catch((err) => {
+  console.error("❌ FATAL ERROR: Database connection failed!", err.message);
+  process.exit(1);
+});
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -9,28 +29,10 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const express = require("express");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const connectDB = require("./config/db");
-
-const http = require("http");
-const { Server } = require("socket.io");
-
-// --- CRITICAL ENV CHECK ---
-// This will tell you IMMEDIATELY if the file isn't being read
-if (!process.env.MONGO_URI) {
-  console.error("❌ FATAL ERROR: MONGO_URI is not defined in .env file.");
-  console.error("Current Directory:", __dirname);
-  process.exit(1); 
-}
-
-// 1. Initialize DB Connection
-connectDB();
-
 const app = express();
 const server = http.createServer(app);
 
+// Socket.io Setup
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -41,10 +43,10 @@ const io = new Server(server, {
 app.set("io", io);
 
 io.on("connection", (socket) => {
-  console.log("🔌 User connected:", socket.id);
+  console.log(`🔌 SIGNAL: Explorer connected (${socket.id})`);
 
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
+    console.log(`🔌 SIGNAL: Explorer lost connection.`);
   });
 });
 
@@ -52,11 +54,11 @@ io.on("connection", (socket) => {
 app.use(cors());
 app.use(express.json());
 
-// 3. Rate Limiter
+// 3. Rate Limiter (Protection against spam)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
-  message: "Too many requests, try later",
+  message: "Too many requests from this telemetry node, try again in 15 mins",
 });
 app.use("/api/", limiter);
 
@@ -66,9 +68,12 @@ const hotelRoutes = require("./routes/hotelRoutes");
 const transportRoutes = require("./routes/transportRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const userAuthRoutes = require("./routes/userAuthRoutes");
-
+const userFeaturesRoutes = require("./routes/userFeaturesRoutes");
+const tripRoutes = require("./routes/tripRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 // 5. Route Definitions
 app.use("/api/auth", authRoutes);
@@ -76,28 +81,36 @@ app.use("/api/hotel", hotelRoutes);
 app.use("/api/transport", transportRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/review", reviewRoutes);
+app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/user", userAuthRoutes);
+app.use("/api/user", userFeaturesRoutes);
+app.use("/api/trips", tripRoutes);
+app.use("/api/admin", adminRoutes);
 
-// 6. Health & Base Routes
+// 6. Base Routes
 app.get("/", (req, res) => {
-  res.send("Mountain-Mate Backend Running 🚀");
+  res.send("🏔️ Mountain-Mate Strategic Backend Running...");
 });
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Mountain-Mate API is running 🚀",
+    status: "UP",
+    message: "Mountain-Mate API is online 🚀",
     timestamp: new Date().toISOString(),
   });
 });
 
-// 7. Error Handler (Must be last)
-const errorHandler = require("./middleware/errorHandler");
+// 7. Global Error Handler
 app.use(errorHandler);
 
+// --- START SERVER ---
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`--------------------------------------------------`);
+  console.log(`🚀 STRATEGIC UPLINK ESTABLISHED ON PORT: ${PORT}`);
+  console.log(`🛰️  HEALTH CHECK: http://localhost:${PORT}/api/health`);
+  console.log(`--------------------------------------------------`);
 });

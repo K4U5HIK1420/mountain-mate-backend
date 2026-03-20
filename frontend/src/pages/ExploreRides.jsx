@@ -2,7 +2,11 @@ import React, { useState, useEffect } from "react";
 import socket from "../utils/socket";
 import API from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Loader2, Navigation, Plus, Minus, X, ShieldCheck, CreditCard, Phone, User, Car, ArrowRight, Info, CheckCircle2 } from "lucide-react";
+import { 
+  MapPin, Navigation, Plus, Minus, X, ShieldCheck, 
+  Phone, User, Car, ArrowRight, CheckCircle2, 
+  Sparkles, Gauge, Fuel, Briefcase, Info, TrendingUp
+} from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
 import RoutePreview from "../components/RoutePreview";
 import { RidesGridSkeleton } from "../components/Skeletons";
@@ -12,23 +16,15 @@ const ExploreRides = () => {
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState(null);
-  
-  // ✅ NEW STATE: For Modal Image Gallery
   const [currentModalImgIndex, setCurrentModalImgIndex] = useState(0);
-
   const [bookingSeats, setBookingSeats] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pickupFilter, setPickupFilter] = useState("");
   const [dropFilter, setDropFilter] = useState("");
   const [expandedRideId, setExpandedRideId] = useState(null);
-  const [modalMode, setModalMode] = useState("booking");
 
   useEffect(() => {
-    if (selectedRide) {
-        document.body.style.overflow = "hidden";
-        setCurrentModalImgIndex(0); // Reset to first image when opening
-    }
-    else document.body.style.overflow = "auto";
+    document.body.style.overflow = selectedRide ? "hidden" : "auto";
   }, [selectedRide]);
 
   useEffect(() => {
@@ -43,11 +39,7 @@ const ExploreRides = () => {
     try {
       const res = await API.get("/transport/all");
       setRides(res.data.data || res.data || []);
-    } catch (err) {
-      setRides([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setRides([]); } finally { setLoading(false); }
   };
 
   useEffect(() => { loadApprovedRides(); }, []);
@@ -58,11 +50,7 @@ const ExploreRides = () => {
     try {
       const response = await API.get("/transport/search", { params: { from: pickupFilter, to: dropFilter } });
       setRides(response.data.data || response.data || []);
-    } catch (error) {
-      setRides([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { setRides([]); } finally { setLoading(false); }
   };
 
   const bookRide = async () => {
@@ -73,242 +61,227 @@ const ExploreRides = () => {
 
       const res = await API.post("/transport/book", { rideId: selectedRide._id, seats: bookingSeats });
       if (res.data.success) {
-        notify("Booking Successful! Redirecting...", "success");
-        const message = `Namaste! I just booked ${bookingSeats} seat(s) in your ${selectedRide.vehicleType} (${selectedRide.vehicleNumber}) for the route ${selectedRide.routeFrom} to ${selectedRide.routeTo} via Mountain Mate. 🏔️`;
+        notify("Expedition Secured!", "success");
+        const message = `Namaste! I just booked ${bookingSeats} seat(s) in your ${selectedRide.vehicleType} via Mountain Mate. 🏔️`;
         window.open(`https://wa.me/${selectedRide.contactNumber}?text=${encodeURIComponent(message)}`, "_blank");
         setSelectedRide(null);
         loadApprovedRides();
-      } else {
-        notify("Booking failed.", "error");
       }
-    } catch (err) {
-      notify("Booking error.", "error");
-    } finally {
-      setIsProcessing(false);
-    }
+    } catch (err) { notify("Logistics Error.", "error"); } finally { setIsProcessing(false); }
   };
 
   return (
-    <div className="relative min-h-screen pt-40 pb-32 px-8 selection:bg-orange-600">
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-orange-600 relative overflow-x-hidden font-sans">
+      
+      {/* Cinematic Ambiance */}
+      <div className="fixed top-[-10%] right-[-10%] w-[300px] md:w-[800px] h-[300px] md:h-[800px] bg-orange-600/5 blur-[120px] md:blur-[180px] rounded-full pointer-events-none" />
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 max-w-7xl mx-auto">
+      <Container className="pt-28 md:pt-40 pb-20 md:pb-32 relative z-10 px-4">
         
-        {/* HERO SECTION (Same as Stays) */}
-        <div className="max-w-5xl mx-auto mb-24 text-center">
-          <p className="text-orange-600 font-black tracking-[0.5em] text-[10px] uppercase mb-4">Mountain Fleet Logistics</p>
-          <h1 className="text-7xl md:text-8xl font-black text-white italic uppercase tracking-tighter mb-12 leading-none">
-            HIRE YOUR <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-800">EXPEDITION.</span>
+        {/* --- HEADER --- */}
+        <div className="max-w-5xl mx-auto mb-16 md:mb-32 text-center relative">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center gap-2 px-4 md:px-6 py-2 rounded-full border border-orange-600/20 bg-orange-600/5 backdrop-blur-xl mb-6 md:mb-10">
+            <Sparkles size={12} className="text-orange-500 animate-pulse" />
+            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] italic text-orange-400">Fleet Deployment Active</span>
+          </motion.div>
+          
+          <h1 className="text-4xl md:text-8xl lg:text-[10rem] font-black italic uppercase tracking-tighter leading-[0.85] md:leading-[0.75] mb-10 md:mb-16">
+            HIRE YOUR <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-orange-600 to-white">EXPEDITION.</span>
           </h1>
 
-          <div className="max-w-5xl mx-auto bg-white/5 backdrop-blur-3xl p-3 rounded-[40px] border border-white/10 flex flex-col md:flex-row gap-2 shadow-3xl">
-            <div className="flex items-center gap-4 px-8 py-5 bg-white/[0.03] rounded-[30px] flex-1 border border-white/5">
-              <MapPin className="text-orange-600" size={18} /><input onChange={(e) => setPickupFilter(e.target.value)} placeholder="FROM WHERE?" className="bg-transparent w-full text-white font-bold outline-none uppercase text-[10px] tracking-widest placeholder:text-white/20" />
+          {/* Search Box */}
+          <div className="max-w-4xl mx-auto bg-white/5 backdrop-blur-3xl p-2 md:p-3 rounded-[30px] md:rounded-[45px] border border-white/10 flex flex-col md:flex-row gap-2 md:gap-3 shadow-3xl">
+            <div className="flex-1 flex items-center px-6 md:px-10 py-4 md:py-5 gap-3 md:gap-5 bg-white/[0.03] rounded-[22px] md:rounded-[35px] border border-white/5 focus-within:border-orange-600">
+              <MapPin className="text-orange-600" size={18} />
+              <input onChange={(e) => setPickupFilter(e.target.value)} placeholder="SOURCE" className="bg-transparent w-full text-white font-black uppercase text-[10px] md:text-[12px] tracking-widest outline-none placeholder:text-white/20 italic" />
             </div>
-            <div className="flex items-center gap-4 px-8 py-5 bg-white/[0.03] rounded-[30px] flex-1 border border-white/5">
-              <Navigation className="text-orange-600" size={18} /><input onChange={(e) => setDropFilter(e.target.value)} placeholder="TO WHERE?" className="bg-transparent w-full text-white font-bold outline-none uppercase text-[10px] tracking-widest placeholder:text-white/20" />
+            <div className="flex-1 flex items-center px-6 md:px-10 py-4 md:py-5 gap-3 md:gap-5 bg-white/[0.03] rounded-[22px] md:rounded-[35px] border border-white/5 focus-within:border-orange-600">
+              <Navigation className="text-orange-600" size={18} />
+              <input onChange={(e) => setDropFilter(e.target.value)} placeholder="DESTINATION" className="bg-transparent w-full text-white font-black uppercase text-[10px] md:text-[12px] tracking-widest outline-none placeholder:text-white/20 italic" />
             </div>
-            <button onClick={fetchListings} className="bg-orange-600 hover:bg-white hover:text-black text-white px-12 py-5 rounded-[30px] font-black uppercase text-[11px] tracking-widest transition-all active:scale-95 shadow-xl shadow-orange-600/20">Find Rides</button>
+            <button onClick={fetchListings} className="bg-orange-600 hover:bg-white hover:text-black text-white px-8 md:px-14 py-4 md:py-6 rounded-[22px] md:rounded-[35px] font-black uppercase text-[10px] md:text-[12px] tracking-[0.3em] transition-all shadow-xl">
+              SCAN FLEET
+            </button>
           </div>
         </div>
 
-        {/* RIDES GRID - UPDATED FOR FULL IMAGE */}
+        {/* --- GRID --- */}
         {loading ? (
-          <div className="pt-6">
-            <RidesGridSkeleton />
-          </div>
-        ) : rides.length === 0 ? (
-          <div className="col-span-full text-center text-white/10 font-black tracking-[0.8em] py-40 uppercase italic text-xl">NO FLEET DETECTED</div>
+          <RidesGridSkeleton />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
             {rides.map((ride) => (
-              <motion.div
-                key={ride._id}
-                whileHover={{ y: -10 }}
-                whileTap={{ scale: 0.985 }}
-                transition={{ type: "spring", stiffness: 380, damping: 28 }}
-                className="group relative bg-[#0d0d0d] border border-white/5 rounded-[45px] overflow-hidden shadow-2xl transition-all duration-500 hover:border-orange-600/30 flex flex-col"
-              >
-                
-                {/* Visual Accent */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-orange-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                {/* ✅ CHANGE 1: Full Image Logic (object-contain + blur) */}
-                <div className="h-64 relative bg-black overflow-hidden flex items-center justify-center">
-                  
-                  {/* Blurred Background */}
-                  <img src={ride.images?.[0]} className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-30" alt="" />
-                  
-                  {/* Main Contained Image */}
-                  <img src={ride.images?.[0]} className="relative h-[90%] w-[90%] object-contain z-10 transition-transform duration-1000 group-hover:scale-105" alt="vehicle" />
-                  
-                  <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 z-20">
-                    <CheckCircle2 size={12} className="text-orange-500" />
-                    <p className="text-white font-black text-[9px] tracking-widest uppercase">{ride.seatsAvailable} SEATS AVAILABLE</p>
-                  </div>
-                </div>
-
-                <div className="p-10 space-y-8 flex-grow flex flex-col justify-between">
-                  <div className="flex justify-between items-start gap-3">
-                    <div>
-                      <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none truncate">{ride.vehicleType || "Fleet Vehicle"}</h3>
-                      <div className="flex items-center gap-2 mt-2">
-                         <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{ride.routeFrom}</span>
-                         <ArrowRight size={10} className="text-orange-600"/>
-                         <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{ride.routeTo}</span>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1 leading-none">Per Seat</p>
-                        <p className="text-2xl font-black text-white leading-none">₹{ride.pricePerSeat}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 pt-4 border-t border-white/5">
-                    <motion.button
-                       whileTap={{ scale: 0.985 }}
-                       transition={{ type: "spring", stiffness: 520, damping: 30 }}
-                       onClick={() => { setSelectedRide(ride); setModalMode("booking"); }}
-                       className="w-full bg-orange-600 text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-2xl active:scale-95"
-                    >
-                      SECURE SEAT <ArrowRight size={14}/>
-                    </motion.button>
-                    
-                    <button 
-                      onClick={() => setExpandedRideId(expandedRideId === ride._id ? null : ride._id)}
-                      className="w-full text-white/20 text-[9px] font-black uppercase tracking-[0.4em] hover:text-orange-600 transition-colors"
-                    >
-                      {expandedRideId === ride._id ? "Hide Route" : "Live Route Preview"}
-                    </button>
-                  </div>
-
-                  <AnimatePresence>
-                    {expandedRideId === ride._id && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pt-4">
-                        <RoutePreview pickupCoords={ride.fromCoords} destinationCoords={ride.toCoords} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
+              <RideCard 
+                key={ride._id} 
+                ride={ride} 
+                onSelect={() => setSelectedRide(ride)}
+                isExpanded={expandedRideId === ride._id}
+                onToggleExpand={() => setExpandedRideId(expandedRideId === ride._id ? null : ride._id)}
+              />
             ))}
           </div>
         )}
-      </motion.div>
+      </Container>
 
-      {/* MODAL REDESIGN - UPDATED FOR FULL IMAGE & THUMBNAILS */}
+      {/* --- MODAL (Responsive) --- */}
       <AnimatePresence>
         {selectedRide && (
-          <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 md:p-8">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedRide(null)} className="absolute inset-0 bg-black/95 backdrop-blur-xl" />
-
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-6xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden shadow-3xl z-[5500] flex flex-col md:flex-row h-full max-h-[85vh]">
-              
-              <button onClick={() => setSelectedRide(null)} className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:bg-white hover:text-black transition-all z-[6000] border border-white/10 active:scale-90"><X size={24}/></button>
-
-              {/* LEFT: IMAGE VIEW (object-contain) */}
-              <div className="w-full md:w-[45%] relative bg-black border-r border-white/5 flex items-center justify-center">
-                
-                {/* Blur BG */}
-                <img src={selectedRide.images?.[currentModalImgIndex]} className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-30" alt="" />
-
-                {/* Main Full Image */}
-                <img src={selectedRide.images?.[currentModalImgIndex]} className="relative h-[95%] w-[95%] object-contain z-10" alt="vehicle_detail" />
-                
-                {/* Image Count/Indicator (Optional) */}
-                {selectedRide.images?.length > 1 && (
-                    <div className="absolute bottom-6 left-6 bg-black/60 px-3 py-1.5 rounded-full text-white/60 font-black text-[9px] z-20 border border-white/10">{currentModalImgIndex + 1} / {selectedRide.images.length}</div>
-                )}
-
-                <div className="absolute top-10 left-10 z-20">
-                   <p className="text-orange-500 text-[9px] font-black tracking-[0.5em] uppercase italic px-4 py-2 bg-black/40 rounded-full border border-white/10">Partner Verified Fleet</p>
-                </div>
-              </div>
-
-              {/* RIGHT: CONFIGURATION & GALLERY THUMBNAILS */}
-              <div className="flex-1 p-10 md:p-12 overflow-y-auto no-scrollbar space-y-10 flex flex-col">
-                <div className="flex-grow space-y-10">
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest italic leading-none">Expedition Route</p>
-                        <p className="text-white font-bold text-sm uppercase flex items-center gap-2 truncate pt-1"><MapPin size={14} className="text-orange-500"/> {selectedRide.routeFrom} ➔ {selectedRide.routeTo}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest italic leading-none">Pilot / Manager</p>
-                        <p className="text-white font-bold text-sm uppercase flex items-center gap-2 truncate pt-1"><User size={14} className="text-orange-600"/> {selectedRide.driverName || "Fleet Official"}</p>
-                      </div>
-                    </div>
-
-                    {/* Technical Specs from Screenshot 1 & 2 */}
-                    <div className="bg-white/5 p-6 rounded-[35px] border border-white/5 space-y-5">
-                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] italic">Vehicle Technical Specifications</p>
-                        <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-xs font-bold text-white/80 uppercase">
-                            <p>● Vehicle: <span className="text-white font-black">{selectedRide.vehicleModel || selectedRide.vehicleType}</span></p>
-                            <p>● Car Type: <span className="text-white font-black">{selectedRide.carType || "SUV/MUV"}</span></p>
-                            <p>● Color: <span className="text-white font-black">{selectedRide.color || "Standard"}</span></p>
-                            <p>● Year: <span className="text-white font-black">{selectedRide.yearOfManufacture || "N/A"}</span></p>
-                            <p className="col-span-2 border-t border-white/5 pt-2">● Plate: <span className="text-white font-black">{selectedRide.plateNumber || "Verified"}</span></p>
-                        </div>
-                    </div>
-
-                    {/* ✅ CHANGE 2: Image Gallery Thumbnails Added */}
-                    {selectedRide.images?.length > 1 && (
-                        <div className="space-y-4">
-                            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] italic">Explore All Angles ({selectedRide.images.length})</p>
-                            <div className="flex flex-wrap gap-3">
-                                {selectedRide.images.map((img, index) => (
-                                    <img 
-                                        key={index} 
-                                        src={img} 
-                                        onClick={() => setCurrentModalImgIndex(index)} // ✅ SET ACTIVE IMAGE
-                                        className={`w-20 h-20 object-cover rounded-2xl border-4 cursor-pointer transition-all hover:border-orange-600 ${currentModalImgIndex === index ? 'border-orange-600 scale-105' : 'border-white/5'}`} 
-                                        alt={`thumbnail_${index}`} 
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="bg-white/[0.02] p-8 rounded-[40px] border border-white/5 space-y-6">
-                        <div className="flex justify-between items-end pb-6 border-b border-white/5">
-                            <div>
-                                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 leading-none">Pricing Configuration</p>
-                                <p className="text-4xl font-black text-white italic tracking-tighter leadin-none">₹{selectedRide.pricePerSeat}<span className="text-xs text-white/20 ml-2 italic uppercase font-black tracking-widest leading-none">/ SEAT</span></p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                                <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Availability</p>
-                                <p className="text-white font-black text-xl italic leading-none">{selectedRide.seatsAvailable} Left</p>
-                            </div>
-                        </div>
-
-                        <div className="pt-4 space-y-5 text-center">
-                            <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.4em] leading-none">Select Required Capacity</p>
-                            <div className="flex items-center justify-center gap-10">
-                                <button onClick={() => setBookingSeats(p => Math.max(1, p - 1))} className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 text-white transition-all active:scale-90"><Minus/></button>
-                                <span className="text-5xl font-black italic text-white w-12 text-center leading-none">{bookingSeats}</span>
-                                <button onClick={() => setBookingSeats(p => Math.min(selectedRide.seatsAvailable, p + 1))} className="w-14 h-14 rounded-full bg-orange-600 flex items-center justify-center hover:bg-orange-500 text-white transition-all shadow-xl shadow-orange-600/30 active:scale-90"><Plus/></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="pt-6 border-t border-white/5 space-y-4">
-                  <button 
-                    disabled={isProcessing} 
-                    onClick={bookRide}
-                    className="w-full bg-white text-black py-6 rounded-[30px] font-black uppercase text-[12px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-orange-600 hover:text-white transition-all active:scale-95 shadow-2xl shadow-white/5"
-                  >
-                    {isProcessing ? "TRANSMITTING DATA..." : <><Phone size={18}/> CONFIRM & TRANSMIT</>}
-                  </button>
-                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em] text-center">Encrypted fleet secured booking gateway via Mountain Mate logistics</p>
-                </div>
-
-              </div>
-            </motion.div>
-          </div>
+          <Modal 
+            ride={selectedRide} 
+            onClose={() => setSelectedRide(null)} 
+            bookingSeats={bookingSeats}
+            setBookingSeats={setBookingSeats}
+            isProcessing={isProcessing}
+            onConfirm={bookRide}
+            currentImgIndex={currentModalImgIndex}
+            setCurrentImgIndex={setCurrentModalImgIndex}
+          />
         )}
       </AnimatePresence>
     </div>
   );
 };
+
+// --- SUB-COMPONENTS ---
+
+const RideCard = ({ ride, onSelect, isExpanded, onToggleExpand }) => (
+  <motion.div whileHover={{ y: -10 }} className="group bg-white/[0.02] border border-white/5 rounded-[40px] md:rounded-[60px] overflow-hidden backdrop-blur-3xl shadow-2xl hover:border-orange-600/30 transition-all duration-500">
+    <div className="h-48 md:h-72 relative bg-black/40 p-4 md:p-8 flex items-center justify-center overflow-hidden">
+      <img src={ride.images?.[0]} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20" alt="" />
+      <motion.img 
+        layoutId={`ride-img-${ride._id}`}
+        src={ride.images?.[0]} 
+        className="relative h-full w-[90%] object-contain z-10 transition-transform duration-700 group-hover:scale-105" 
+      />
+      <div className="absolute top-4 right-4 md:top-8 md:right-8 bg-orange-600 px-4 py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest shadow-xl">
+        ₹{ride.pricePerSeat}
+      </div>
+    </div>
+
+    <div className="p-6 md:p-10 space-y-6 md:space-y-8">
+      <div className="flex justify-between items-start">
+        <div className="space-y-1">
+          <h3 className="text-2xl md:text-4xl font-black text-white italic uppercase tracking-tighter leading-none">{ride.vehicleType}</h3>
+          <div className="flex items-center gap-2 text-[8px] md:text-[10px] font-black text-white/30 tracking-widest uppercase italic">
+            <span>{ride.routeFrom}</span>
+            <div className="w-4 md:w-8 h-[1px] bg-orange-600/50" />
+            <span>{ride.routeTo}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end bg-white/5 p-2 md:p-3 rounded-xl border border-white/10">
+           <p className="text-orange-500 text-[10px] font-black italic">{ride.seatsAvailable} OPEN</p>
+        </div>
+      </div>
+
+      <div className="bg-orange-600/5 p-4 rounded-2xl border border-orange-500/10 flex items-start gap-3">
+        <Sparkles size={14} className="text-orange-500 mt-0.5" />
+        <p className="text-[9px] font-bold text-white/40 leading-relaxed uppercase italic line-clamp-2 md:line-clamp-none">Terrain nominal. Fast route via Sector-7 detected.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={onSelect} className="bg-orange-600 hover:bg-white hover:text-black text-white py-4 rounded-2xl font-black uppercase text-[9px] md:text-[10px] tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 italic">
+          BOOK <ArrowRight size={14} />
+        </button>
+        <button onClick={onToggleExpand} className="bg-white/5 text-white/40 py-4 rounded-2xl font-black uppercase text-[9px] md:text-[10px] tracking-widest transition-all italic border border-white/5">
+          {isExpanded ? "HIDE" : "MAP"}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pt-4">
+            <div className="rounded-3xl border border-white/10 overflow-hidden bg-black/40 p-1">
+                <RoutePreview pickupCoords={ride.fromCoords} destinationCoords={ride.toCoords} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  </motion.div>
+);
+
+const Modal = ({ ride, onClose, bookingSeats, setBookingSeats, isProcessing, onConfirm, currentImgIndex, setCurrentImgIndex }) => (
+  <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 md:p-6 overflow-hidden">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/98 backdrop-blur-3xl" />
+
+    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-6xl bg-[#0a0a0a] border border-orange-950/20 rounded-[40px] md:rounded-[70px] overflow-hidden shadow-3xl z-[5500] flex flex-col lg:flex-row h-full max-h-[90vh]">
+      
+      <button onClick={onClose} className="absolute top-6 right-6 md:top-10 md:right-10 w-10 h-10 md:w-16 md:h-16 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:bg-orange-600 hover:text-white transition-all z-[6000] border border-white/10"><X size={20}/></button>
+
+      {/* Visualizer */}
+      <div className="w-full lg:w-[55%] relative bg-black/60 border-r border-white/5 flex flex-col h-[40%] md:h-auto overflow-hidden">
+        <div className="flex-1 relative flex items-center justify-center p-8 md:p-20">
+            <img src={ride.images?.[currentImgIndex]} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20" alt="" />
+            <motion.img 
+              key={currentImgIndex}
+              initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+              src={ride.images?.[currentImgIndex]} 
+              className="relative h-full w-full object-contain z-10" 
+            />
+        </div>
+
+        <div className="p-4 md:p-12 flex gap-3 overflow-x-auto no-scrollbar justify-center bg-gradient-to-t from-black to-transparent">
+          {ride.images?.map((img, idx) => (
+            <img key={idx} src={img} onClick={() => setCurrentImgIndex(idx)} className={`w-12 h-12 md:w-20 md:h-20 rounded-2xl md:rounded-[30px] object-cover cursor-pointer transition-all ${currentImgIndex === idx ? 'border-2 border-orange-600 scale-105' : 'opacity-30'}`} />
+          ))}
+        </div>
+      </div>
+
+      {/* Logistics Panel */}
+      <div className="flex-1 p-6 md:p-16 overflow-y-auto no-scrollbar space-y-10 md:space-y-16">
+        <div className="space-y-4 md:space-y-8">
+          <div className="flex items-center gap-3 px-4 py-1.5 rounded-full border border-orange-600/30 w-fit bg-orange-600/5">
+            <ShieldCheck className="text-orange-500" size={14} />
+            <span className="text-orange-400 font-black text-[8px] md:text-[10px] tracking-widest uppercase italic">Vetted Fleet</span>
+          </div>
+          <h2 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter leading-[0.85] text-white">{ride.vehicleType} <br/> <span className="text-white/20">LOGISTICS.</span></h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:gap-6">
+          <SpecBox icon={<Gauge size={16}/>} label="Category" val={ride.carType || "SUV"} />
+          <SpecBox icon={<Fuel size={16}/>} label="Uplink" val={`${ride.seatsAvailable} Free`} />
+        </div>
+
+        <div className="bg-white/[0.03] border border-white/5 p-6 md:p-12 rounded-[30px] md:rounded-[50px] space-y-8 md:space-y-12">
+          <div className="flex justify-between items-end border-b border-white/5 pb-6 md:pb-10">
+            <div className="space-y-1">
+              <p className="text-[8px] font-black text-white/20 uppercase tracking-widest italic">Mission Fare</p>
+              <p className="text-3xl md:text-6xl font-black text-white italic tracking-tighter leading-none">₹{ride.pricePerSeat}</p>
+            </div>
+            <TrendingUp size={30} className="text-orange-600/20" />
+          </div>
+
+          <div className="space-y-4 md:space-y-6 text-center">
+            <p className="text-[8px] md:text-[10px] font-black text-orange-500 uppercase tracking-widest italic">Capacity Assign</p>
+            <div className="flex items-center justify-center gap-8 md:gap-16">
+              <button onClick={() => setBookingSeats(p => Math.max(1, p - 1))} className="w-12 h-12 md:w-20 md:h-20 rounded-2xl md:rounded-[30px] border border-white/10 flex items-center justify-center bg-white/5"><Minus size={18}/></button>
+              <span className="text-4xl md:text-7xl font-black italic text-white leading-none">{bookingSeats}</span>
+              <button onClick={() => setBookingSeats(p => Math.max(1, Math.min(ride.seatsAvailable, p + 1)))} className="w-12 h-12 md:w-20 md:h-20 rounded-2xl md:rounded-[30px] bg-orange-600 flex items-center justify-center text-white"><Plus size={18}/></button>
+            </div>
+          </div>
+        </div>
+
+        <button disabled={isProcessing} onClick={onConfirm} className="w-full bg-white text-black py-6 md:py-10 rounded-3xl md:rounded-[40px] font-black uppercase text-[10px] md:text-[14px] tracking-widest md:tracking-[0.6em] flex items-center justify-center gap-3 md:gap-6 hover:bg-orange-600 hover:text-white transition-all active:scale-95 italic">
+          {isProcessing ? "PROCESSING..." : <><Phone size={18}/> CONFIRM DEPLOYMENT</>}
+        </button>
+      </div>
+    </motion.div>
+  </div>
+);
+
+const SpecBox = ({ icon, label, val }) => (
+  <div className="bg-white/[0.03] border border-white/5 p-4 md:p-8 rounded-3xl md:rounded-[40px] flex items-center gap-3 md:gap-6">
+    <div className="text-orange-500">{icon}</div>
+    <div>
+      <p className="text-[7px] md:text-[9px] font-black text-white/20 uppercase tracking-widest">{label}</p>
+      <p className="text-[10px] md:text-sm font-black italic uppercase text-white tracking-widest truncate max-w-[80px] md:max-w-none">{val}</p>
+    </div>
+  </div>
+);
+
+const Container = ({ children, className }) => (
+  <div className={`max-w-7xl mx-auto ${className}`}>{children}</div>
+);
 
 export default ExploreRides;

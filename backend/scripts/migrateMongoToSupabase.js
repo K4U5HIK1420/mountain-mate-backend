@@ -166,23 +166,14 @@ async function main() {
 
   await mongoose.connect(process.env.MONGO_URI);
 
-  // eslint-disable-next-line no-console
-  console.log("Connected to Mongo");
+  // Connected to Mongo
 
   const hotelsRes = await migrateHotels(supabase);
   const ridesRes = await migrateTransports(supabase);
   const bookingsRes = await migrateBookings(supabase);
   const reviewsRes = await migrateReviews(supabase);
 
-  // eslint-disable-next-line no-console
-  console.log("Hotels migrated:", hotelsRes);
-  // eslint-disable-next-line no-console
-  console.log("Transports migrated:", ridesRes);
-  // eslint-disable-next-line no-console
-  console.log("Bookings migrated:", bookingsRes);
-  // eslint-disable-next-line no-console
-  console.log("Reviews migrated:", reviewsRes);
-
+  // Migration results logged
   await mongoose.disconnect();
 }
 

@@ -17,7 +17,7 @@ const RegisterPartner = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        console.log("Partner Data:", formData);
+        // Partner data processed
         // Yahan backend API call hogi: axios.post('/api/register', formData)
         notify("Registration Successful! Admin approval pending", "success");
     };

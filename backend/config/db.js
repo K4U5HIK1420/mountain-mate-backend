@@ -1,22 +1,20 @@
 const mongoose = require("mongoose");
+const { getDataStore } = require("../utils/dataStore");
 
 const connectDB = async () => {
-    // Check if the URI actually exists
-    const uri = process.env.MONGO_URI;
+    const store = getDataStore();
+    if (store !== "mongo") return;
 
-    if (!uri) {
-        console.error("❌ ERROR: MONGO_URI is undefined. Check your .env file!");
-        process.exit(1);
-    }
+    const uri = process.env.MONGO_URI;
+    if (!uri) throw new Error("MONGO_URI is undefined. Check your backend/.env");
 
     try {
         // Added some standard connection options for stability
         const conn = await mongoose.connect(uri);
         
-        console.log(`MongoDB Connected: ${conn.connection.host} ✅`);
+        // MongoDB connected
     } catch (error) {
-        console.error(`❌ MongoDB Connection Error: ${error.message}`);
-        process.exit(1);
+        throw new Error(`MongoDB Connection Error: ${error.message}`);
     }
 };
 

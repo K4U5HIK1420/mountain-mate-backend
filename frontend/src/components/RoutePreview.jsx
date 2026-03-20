@@ -9,10 +9,6 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
   const [distance, setDistance] = useState(null);
   const [eta, setEta] = useState(null);
 
-  if (!pickupCoords || !destinationCoords) {
-    return <div style={{color:"white"}}>Loading route...</div>;
-  }
-
   useEffect(() => {
 
     if (!pickupCoords || !destinationCoords) return;
@@ -37,7 +33,7 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
         setEta(Math.round(routeData.duration / 60));
 
       } catch (err) {
-        console.error("Route fetch failed", err);
+        // Route fetch failed
       }
 
     };
@@ -48,6 +44,10 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
 
   return (
     <>
+      {(!pickupCoords || !destinationCoords) && (
+        <div style={{ color: "white" }}>Loading route...</div>
+      )}
+
       {distance && eta && (
         <div
           style={{
@@ -64,7 +64,10 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
       )}
 
       <MapContainer
-        center={[pickupCoords.lat, pickupCoords.lng]}
+        center={[
+          pickupCoords?.lat ?? 30.7333,
+          pickupCoords?.lng ?? 79.0667,
+        ]}
         zoom={10}
         style={{ height: "260px", borderRadius: "16px"}}
       >
@@ -72,8 +75,10 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <Marker position={[pickupCoords.lat, pickupCoords.lng]} />
-        <Marker position={[destinationCoords.lat, destinationCoords.lng]} />
+        {pickupCoords ? <Marker position={[pickupCoords.lat, pickupCoords.lng]} /> : null}
+        {destinationCoords ? (
+          <Marker position={[destinationCoords.lat, destinationCoords.lng]} />
+        ) : null}
 
         {route.length > 0 && (
           <>
