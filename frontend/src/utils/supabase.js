@@ -6,10 +6,7 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 export const hasSupabaseEnv = !!(supabaseUrl && supabaseAnonKey);
 
 if (!hasSupabaseEnv) {
-  // eslint-disable-next-line no-console
-  console.warn(
-    "Supabase env missing: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (restart Vite after editing .env)"
-  );
+  // Supabase environment variables missing
 }
 
 export const supabase = hasSupabaseEnv

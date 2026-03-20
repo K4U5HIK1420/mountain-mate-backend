@@ -16,19 +16,13 @@ exports.createOrder = async (req, res) => {
     const order = await razorpay.orders.create(options);
         
     // save orderId in booking
+    await Booking.findByIdAndUpdate(
+      bookingId,
+      { orderId: order.id, paymentStatus: "pending" },
+      { new: true }
+    );
 
-    const booking = await Booking.findById(bookingId);
-
-        booking.orderId = order.id;
-        booking.paymentStatus = "pending";
-
-        await booking.save();
-        res.json(order);
-    await Booking.findByIdAndUpdate(bookingId, {
-      orderId: order.id,
-    });
-
-    res.json(order);
+    return res.json(order);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

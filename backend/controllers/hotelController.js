@@ -173,12 +173,20 @@ exports.getHotels = async (req, res, next) => {
 // 7. Search Verified Hotels
 exports.searchHotels = async (req, res, next) => {
   try {
-    const { location, maxPrice } = req.query;
+    const { location, maxPrice, minPrice, sort } = req.query;
     let query = { isVerified: true };
     if (location) query.location = { $regex: location, $options: "i" };
-    if (maxPrice) query.pricePerNight = { $lte: Number(maxPrice) };
+    const priceQuery = {};
+    if (minPrice) priceQuery.$gte = Number(minPrice);
+    if (maxPrice) priceQuery.$lte = Number(maxPrice);
+    if (Object.keys(priceQuery).length) query.pricePerNight = priceQuery;
 
-    const hotels = await Hotel.find(query).sort({ createdAt: -1 });
+    const sortMap = {
+      price_asc: { pricePerNight: 1 },
+      price_desc: { pricePerNight: -1 },
+      newest: { createdAt: -1 },
+    };
+    const hotels = await Hotel.find(query).sort(sortMap[sort] || { createdAt: -1 });
     res.json(hotels);
   } catch (error) {
     next(error);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react';
 import API from "../utils/api";
 import {
   MapPin, Phone, Lock, LogOut, Zap, Car, Hotel, X, Info, Users, 
@@ -46,7 +46,9 @@ const AdminDashboard = () => {
         const rideRes = await API.get("/transport/admin/all");
         setRides(rideRes.data.data || rideRes.data || []);
       } catch (err) { setRides([]); }
-    } catch (err) { console.error(err); }
+    } catch (err) { // Error in dashboard fetch
+      // Dashboard fetch error handled
+    }
     finally { setLoading(false); }
   };
 
