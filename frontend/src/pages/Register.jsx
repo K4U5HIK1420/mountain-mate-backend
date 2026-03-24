@@ -21,6 +21,13 @@ export default function Register() {
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
     if (value && index < 5) inputRefs.current[index + 1].focus();
+
+    // Auto-submit when all digits are entered
+    if (newOtp.join('').length === 6 && !loading) {
+      setTimeout(() => {
+        attemptVerifyOtp(newOtp.join(''));
+      }, 80);
+    }
   };
 
   const handleKeyDown = (index, e) => {
@@ -29,36 +36,66 @@ export default function Register() {
     }
   };
 
-  // Phase 1: Sign Up
+  // Phase 1: Send OTP (signInWithOtp for immediate access after verify)
   const handleSignUp = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: { data: { name: formData.name } }
-      });
-      if (error) throw error;
-      setIsVerifying(true);
-      notify("Tactical OTP sent to your inbox!", "success");
-    } catch (err) {
-      notify(err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: formData.email,
+      options: {
+        shouldCreateUser: true,
+        data: {
+          full_name: formData.name
+        }
+      }
+    });
+
+    if (error) throw error;
+
+    setIsVerifying(true);
+    notify("OTP sent to your email!", "success");
+
+  } catch (err) {
+    notify(err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
+const handleResendOtp = async () => {
+  setLoading(true);
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: formData.email,
+    });
+
+    if (error) throw error;
+
+    notify("OTP sent successfully!", "success");
+
+  } catch (err) {
+    notify(err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Phase 2: Verify
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
+  const attemptVerifyOtp = async (codeInput) => {
+    if (loading) return;
+    const fullOtp = (codeInput ?? otp.join('')).trim();
+    if (fullOtp.length !== 6) {
+      notify("Enter complete 6-digit code.", "error");
+      return;
+    }
     setLoading(true);
-    const fullOtp = otp.join('');
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: formData.email,
         token: fullOtp,
-        type: 'signup'
+        type: 'email'
       });
       if (error) throw error;
       notify("Access Granted. Welcome to the Expedition!", "success");
@@ -68,6 +105,11 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    await attemptVerifyOtp();
   };
 
   return (
@@ -124,9 +166,16 @@ export default function Register() {
                <button type="button" onClick={() => setIsVerifying(false)} className="text-[9px] text-white/20 font-black uppercase tracking-widest hover:text-white block w-full transition-colors">
                 Update Email Identity
               </button>
-              <button type="button" onClick={handleSignUp} className="text-[9px] text-orange-500/50 font-black uppercase tracking-widest flex items-center justify-center gap-2 mx-auto hover:text-orange-500 transition-colors">
+              <button type="button" onClick={handleResendOtp} className="text-[9px] text-orange-500/50 font-black uppercase tracking-widest flex items-center justify-center gap-2 mx-auto hover:text-orange-500 transition-colors">
                 <RefreshCcw size={10}/> Resend Code
               </button>
+              {/* Save profile data post-login */}
+              {formData.name && (
+                <p className="text-[8px] text-white/30 font-mono">Name: {formData.name}</p>
+              )}
+              {formData.password && (
+                <p className="text-[8px] text-white/30 font-mono">Saved for profile setup</p>
+              )}
             </div>
           </motion.form>
         )}

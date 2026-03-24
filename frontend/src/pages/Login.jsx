@@ -28,6 +28,13 @@ const Login = () => {
     if (element.nextSibling && element.value) {
       element.nextSibling.focus();
     }
+
+    // Auto-submit when all 6 digits are entered
+    if (newOtp.join("").length === 6 && !loading) {
+      setTimeout(() => {
+        attemptOtpVerify(newOtp.join(""));
+      }, 80);
+    }
   };
 
   const handlePasswordLogin = async (e) => {
@@ -59,6 +66,36 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const attemptOtpVerify = async (codeInput) => {
+    if (loading) return;
+    const code = (codeInput ?? otp.join("")).trim();
+    if (code.length !== 6) {
+      notify("Enter complete 6-digit code.", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "email",
+      });
+      if (error) throw error;
+      notify("Identity verified. Access granted.", "success");
+      navigate(from, { replace: true });
+    } catch (err) {
+      notify(err?.message || "Invalid OTP code.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpVerify = async (e) => {
+    e.preventDefault();
+    await attemptOtpVerify();
   };
 
   return (
@@ -149,10 +186,11 @@ const Login = () => {
             </motion.div>
           ) : (
             /* --- OTP VERIFICATION SCREEN (GRID FIX) --- */
-            <motion.div 
+            <motion.form 
               key="otp-verify" 
               initial={{ opacity: 0, x: 20 }} 
               animate={{ opacity: 1, x: 0 }} 
+              onSubmit={handleOtpVerify}
               className="text-center space-y-10"
             >
               <div className="space-y-4">
@@ -178,8 +216,12 @@ const Login = () => {
                 ))}
               </div>
 
-              <button className="w-full bg-white text-black py-5 rounded-full font-black uppercase text-[11px] tracking-[0.4em] shadow-3xl hover:bg-orange-600 hover:text-white transition-all active:scale-95 italic">
-                Confirm Identity
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-white text-black py-5 rounded-full font-black uppercase text-[11px] tracking-[0.4em] shadow-3xl hover:bg-orange-600 hover:text-white transition-all active:scale-95 italic disabled:opacity-60"
+              >
+                {loading ? "Verifying..." : "Confirm Identity"}
               </button>
 
               <div className="flex flex-col gap-4 pt-6 border-t border-white/5">
@@ -189,11 +231,15 @@ const Login = () => {
                 >
                   <ChevronLeft size={12}/> Update Email Identity
                 </button>
-                <button className="flex items-center justify-center gap-2 text-[9px] font-black text-orange-600 uppercase tracking-widest hover:text-orange-400 transition-all italic">
+                <button
+                  type="button"
+                  onClick={handleOtpRequest}
+                  className="flex items-center justify-center gap-2 text-[9px] font-black text-orange-600 uppercase tracking-widest hover:text-orange-400 transition-all italic"
+                >
                    <RefreshCw size={12} /> Resend Security Code
                 </button>
               </div>
-            </motion.div>
+            </motion.form>
           )}
         </AnimatePresence>
 

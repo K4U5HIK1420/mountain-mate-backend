@@ -66,3 +66,41 @@ exports.getMyBookings = async (req, res) => {
   return res.json({ success: true, data: bookings });
 };
 
+// Setup profile after OTP registration (Supabase users)
+exports.setupProfile = async (req, res) => {
+  const UserMeta = require("../models/UserMeta");
+  const { getSupabaseClient } = require("../utils/supabaseClient");
+  
+  try {
+    const supabase = getSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser(req.user.supabase_user.access_token);
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: "No Supabase user found" });
+    }
+    
+    // Upsert UserMeta
+    const metaData = {
+      userId: user.id,
+      email: user.email,
+      displayName: req.body.name || user.user_metadata?.name || "",
+      avatarUrl: user.user_metadata?.avatar_url || "",
+      referral: {
+        code: require("crypto").randomBytes(4).toString("hex").toUpperCase(),
+      }
+    };
+    
+    const { data, error } = await supabase
+      .from("user_meta") // Assuming table exists
+      .upsert(metaData, { onConflict: "userId" })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    res.json({ success: true, message: "Profile setup complete", data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
