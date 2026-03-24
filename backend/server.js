@@ -14,7 +14,6 @@ const errorHandler = require("./middleware/errorHandler");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 // 1. Initialize DB Connection
-// Isse pehle hi call kar rahe hain taaki DB connect hone par hi server chale
 connectDB().then(() => {
   console.log("📂 DATABASE: Himalayan Database Connected.");
 }).catch((err) => {
@@ -54,7 +53,7 @@ io.on("connection", (socket) => {
 app.use(cors());
 app.use(express.json());
 
-// 3. Rate Limiter (Protection against spam)
+// 3. Rate Limiter
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -68,12 +67,13 @@ const hotelRoutes = require("./routes/hotelRoutes");
 const transportRoutes = require("./routes/transportRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
-const recommendationRoutes = require("./routes/recommendationRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes"); // ✅ Fixed Path (added /routes/)
 const paymentRoutes = require("./routes/paymentRoutes");
 const userAuthRoutes = require("./routes/userAuthRoutes");
 const userFeaturesRoutes = require("./routes/userFeaturesRoutes");
 const tripRoutes = require("./routes/tripRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const aiRoutes = require("./routes/aiRoutes"); // ✅ AI Route Import
 
 // 5. Route Definitions
 app.use("/api/auth", authRoutes);
@@ -87,6 +87,7 @@ app.use("/api/user", userAuthRoutes);
 app.use("/api/user", userFeaturesRoutes);
 app.use("/api/trips", tripRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/ai", aiRoutes); // ✅ AI Route Register
 
 // 6. Base Routes
 app.get("/", (req, res) => {

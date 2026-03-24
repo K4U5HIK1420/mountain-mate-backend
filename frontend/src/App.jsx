@@ -1,53 +1,62 @@
 import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mountain, LogOut, Settings2, ShieldCheck, Menu, X, Heart, Sparkles, CalendarDays, MessageSquareText, Gift, User } from 'lucide-react';
+import { Mountain, LogOut, Settings2, ShieldCheck, Menu, X, Sparkles, User, PlusCircle, Car, Heart, Gift, LayoutDashboard, Bot } from 'lucide-react';
+
+// --- CORE UTILS & CONTEXT ---
 import API from './utils/api';
-import Notification from "./components/Notification";
 import { useNotify } from "./context/NotificationContext";
-import AnimatedBackground from "./components/AnimatedBackground";
 import { useAuth } from "./context/AuthContext";
+import { useTheme } from "./context/ThemeContext";
 import { hasSupabaseEnv } from "./utils/supabase";
+
+// --- COMPONENTS ---
+import Notification from "./components/Notification";
+import AnimatedBackground from "./components/AnimatedBackground";
+import ParticlesCanvas from "./components/ParticlesCanvas";
 import EnvBanner from "./components/EnvBanner";
 import Footer from "./components/Footer";
 import LiveChatSupport from "./components/LiveChatSupport";
-import { useTheme } from "./context/ThemeContext";
-import "leaflet/dist/leaflet.css";
-import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
-import "leaflet-defaulticon-compatibility";
+import ErrorBoundary from "./components/ErrorBoundary";
+import AIAdvisor from "./components/Features/AIAdvisor";
 
-// Lazy pages
+import "leaflet/dist/leaflet.css";
+
+// --- LAZY PAGES ---
+const Home = React.lazy(() => import("./pages/Home"));
 const ExploreStays = React.lazy(() => import("./pages/ExploreStays"));
 const ExploreRides = React.lazy(() => import("./pages/ExploreRides"));
-const Home = React.lazy(() => import("./pages/Home"));
 const AddHotel = React.lazy(() => import("./pages/AddHotel"));
 const AddTransport = React.lazy(() => import("./pages/AddTransport"));
 const Bookings = React.lazy(() => import("./pages/Bookings"));
-const ManageRides = React.lazy(() => import("./pages/ManageRides"));
 const ManageStays = React.lazy(() => import("./pages/ManageStays"));
+const ManageRides = React.lazy(() => import("./pages/ManageRides"));
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
+const AdminBookings = React.lazy(() => import("./pages/AdminBookings"));
 const Login = React.lazy(() => import("./pages/Login"));
 const Register = React.lazy(() => import("./pages/Register"));
+const RegisterPartner = React.lazy(() => import("./pages/RegisterPartner"));
 const Recommendations = React.lazy(() => import("./pages/Recommendations"));
+const Planner = React.lazy(() => import("./pages/Planner"));
+const Profile = React.lazy(() => import("./pages/Profile"));
+const Referral = React.lazy(() => import("./pages/Referral"));
+const Wishlist = React.lazy(() => import("./pages/Wishlist"));
+const SupportChat = React.lazy(() => import("./pages/SupportChat"));
 const BookingConfirm = React.lazy(() => import("./pages/BookingConfirm"));
 const PaymentResult = React.lazy(() => import("./pages/PaymentResult"));
-const Planner = React.lazy(() => import("./pages/Planner"));
-const Wishlist = React.lazy(() => import("./pages/Wishlist"));
-const Referral = React.lazy(() => import("./pages/Referral"));
-const SupportChat = React.lazy(() => import("./pages/SupportChat"));
-const AdminBookings = React.lazy(() => import("./pages/AdminBookings"));
-const Profile = React.lazy(() => import("./pages/Profile"));
 
+// --- NAVBAR COMPONENT ---
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isDark, toggle: toggleTheme } = useTheme();
   const token = !!user;
-  const [hasListedItems, setHasListedItems] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false); // Tooltip state
+  const [hasListedItems, setHasListedItems] = useState(false);
 
+  // ✅ Fix 403 Forbidden: Only check for content if token exists
   useEffect(() => {
     const checkUserContent = async () => {
       if (!token) {
@@ -63,11 +72,20 @@ const Navbar = () => {
         const rData = rideRes.data?.data || rideRes.data || [];
         if (hData.length > 0 || rData.length > 0) setHasListedItems(true);
       } catch (err) {
-        // Partner check failed
+        setHasListedItems(false);
       }
     };
     checkUserContent();
   }, [token]);
+
+  const navLinks = useMemo(() => [
+    { to: "/explore-stays", label: "STAYS" },
+    { to: "/explore-rides", label: "RIDES" },
+    { to: "/ai-advisor", label: "AI ADVISOR", icon: <Bot size={12}/> },
+    { to: "/planner", label: "PLANNER" },
+    { to: "/wishlist", label: "WISHLIST", isProtected: true, icon: <Heart size={12}/> },
+    { to: "/dashboard", label: "DASHBOARD", isProtected: true, icon: <LayoutDashboard size={12}/> },
+  ], []);
 
   const handleProtectedClick = (e, targetPath) => {
     if (!token) {
@@ -75,120 +93,50 @@ const Navbar = () => {
       navigate('/login', { state: { from: targetPath } });
     }
   };
-  
-  const navItems = useMemo(() => ([
-    { to: "/explore-stays", label: "STAYS", isProtected: false },
-    { to: "/explore-rides", label: "RIDES", isProtected: false },
-    { to: "/recommendations", label: "AI PICKS", isProtected: false },
-    { to: "/planner", label: "PLANNER", isProtected: false },
-    { to: "/wishlist", label: "WISHLIST", isProtected: true },
-    { to: "/support", label: "SUPPORT", isProtected: false },
-    { to: "/referral", label: "REFERRAL", isProtected: true },
-    { to: "/add-hotel", label: "LIST STAY", isProtected: true },
-    { to: "/add-transport", label: "OFFER RIDE", isProtected: true },
-    { to: "/manage-stays", label: "MANAGE STAYS", isProtected: true, hide: !token || !hasListedItems },
-    { to: "/manage-rides", label: "MANAGE RIDES", isProtected: true, hide: !token || !hasListedItems },
-  ]), [token, hasListedItems]);
-
-  const handleLogout = () => {
-    signOut();
-    navigate("/login", { replace: true });
-  };
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
 
   return (
-    <nav className="fixed top-0 w-full z-50">
-      <div className={`px-5 sm:px-8 lg:px-12 py-4 flex justify-between items-center backdrop-blur-2xl border-b ${isDark ? 'border-white/10' : 'border-black/10'}`}>
-        <Link to="/" className="flex items-center gap-2">
-          <div className="bg-gradient-to-br from-[#F97316] to-[#EA580C] p-1.5 rounded-md text-white shadow-xl">
-            <Mountain size={22}/>
-          </div>
-          <h1 className="font-black tracking-tighter text-2xl uppercase italic leading-none text-white">M-Mate</h1>
+    <nav className="fixed top-0 w-full z-50 px-4 py-3 sm:px-8 lg:px-12">
+      <div className={`flex justify-between items-center backdrop-blur-3xl border rounded-[30px] px-6 py-4 transition-all duration-500 shadow-2xl ${isDark ? 'border-white/10 bg-black/40 shadow-orange-900/5' : 'border-black/10 bg-white/60'}`}>
+        
+        <Link to="/" className="flex items-center gap-3">
+          <div className="bg-orange-600 p-2 rounded-xl text-white shadow-lg rotate-3"><Mountain size={20}/></div>
+          <h1 className="font-black tracking-tighter text-xl uppercase italic text-white hidden sm:block">M-Mate</h1>
         </Link>
         
-        <div className="hidden lg:flex gap-10 absolute left-1/2 -translate-x-1/2">
-          {navItems.filter(item => !item.hide).map((item) => (
-            <Link 
-              key={item.to} 
-              to={item.to} 
-              onClick={(e) => item.isProtected && handleProtectedClick(e, item.to)}
-              className={`text-[10px] font-black tracking-[0.28em] transition-all duration-300 hover:text-[#F97316] relative ${
-                location.pathname === item.to ? 'text-[#F97316]' : 'text-white/70'
-              }`}>
-              {item.label}
-              {location.pathname === item.to && (
-                <motion.div layoutId="navLine" className="absolute -bottom-2 left-0 w-full h-[2px] bg-[#F97316]" />
-              )}
+        <div className="hidden lg:flex gap-6 absolute left-1/2 -translate-x-1/2">
+          {navLinks.map((item) => (
+            <Link key={item.to} to={item.to} onClick={(e) => item.isProtected && handleProtectedClick(e, item.to)} className={`text-[9px] font-black tracking-[0.15em] transition-all hover:text-orange-500 flex items-center gap-1 ${location.pathname === item.to ? 'text-orange-500' : 'text-white/50'}`}>
+              {item.icon}{item.label}
             </Link>
           ))}
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-6">
-          <button type="button" onClick={toggleTheme} className={`hidden sm:inline-flex items-center justify-center w-11 h-11 rounded-full border transition-all active:scale-95 ${isDark ? "bg-white/5 border-white/10 text-white/70" : "bg-black/5 border-black/10 text-slate-700"}`}>
-            <span className="text-[10px] font-black tracking-widest">{isDark ? "DARK" : "LIGHT"}</span>
+        <div className="hidden xl:flex items-center gap-2 ml-auto mr-6 border-l border-white/10 pl-6">
+            <Link to="/add-hotel" onClick={(e) => handleProtectedClick(e, "/add-hotel")} className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-xl font-black text-[8px] tracking-widest transition-all italic flex items-center gap-2">
+              <PlusCircle size={12} className="text-orange-500"/> LIST STAY
+            </Link>
+            <Link to="/add-transport" onClick={(e) => handleProtectedClick(e, "/add-transport")} className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl font-black text-[8px] tracking-widest transition-all italic shadow-lg flex items-center gap-2">
+              <Car size={12}/> OFFER RIDE
+            </Link>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button onClick={toggleTheme} className="hidden sm:flex w-10 h-10 rounded-full border border-white/10 items-center justify-center text-white/50 hover:bg-white/5">
+            {isDark ? <Sparkles size={14}/> : <Settings2 size={14}/>}
           </button>
           
-          <Link to="/admin-mate" className={`${isDark ? "text-white/25" : "text-slate-500"} hover:text-orange-500 transition-all flex items-center gap-2 font-black text-[9px] tracking-widest leading-none`}>
-             <ShieldCheck size={16}/> ADMIN
-          </Link>
-
           {token ? (
             <div className="flex items-center gap-4">
-              {/* --- GOL PROFILE ICON WITH TOOLTIP --- */}
-              <div className="relative flex items-center justify-center">
-                <Link 
-                  to="/profile" 
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                  className="relative group"
-                >
-                  <div className="absolute -inset-1 bg-gradient-to-tr from-blue-500 via-purple-500 to-orange-500 rounded-full opacity-0 group-hover:opacity-40 blur-md transition-opacity duration-500" />
-                  <div className="relative w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-b from-white/20 to-transparent backdrop-blur-3xl overflow-hidden border border-white/10 group-hover:border-orange-500/50 transition-all shadow-xl">
-                    <div className="w-full h-full rounded-full bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
-                      {user.user_metadata?.avatar_url ? (
-                        <img src={user.user_metadata.avatar_url} alt="User" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-[12px] font-black italic text-orange-500">
-                          {user.email?.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-
-                {/* --- TOOLTIP --- */}
-                <AnimatePresence>
-                  {showTooltip && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute top-14 right-0 min-w-[150px] bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl pointer-events-none z-[60]"
-                    >
-                      <p className="text-white font-black italic uppercase text-[11px] tracking-tighter">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0]}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Active Explorer</span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <button onClick={handleLogout} className={`${isDark ? "text-white/30 hover:text-red-500" : "text-slate-400 hover:text-red-600"} transition-all group`}>
-                <LogOut size={20}/>
-              </button>
+              <Link to="/profile" className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-orange-500 to-purple-500 overflow-hidden shadow-xl">
+                <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-black text-orange-500 uppercase">{user.email?.charAt(0)}</div>
+              </Link>
+              <button onClick={() => { signOut(); navigate("/login"); }} className="text-white/20 hover:text-red-500 active:scale-90 transition-all"><LogOut size={18}/></button>
             </div>
           ) : (
-            <Link to="/login" className={`${isDark ? "text-white/50" : "text-slate-600"} hover:text-orange-500 font-black text-[10px] tracking-widest`}>LOGIN</Link>
+            <Link to="/login" className="bg-orange-600 hover:bg-white hover:text-black text-white px-5 py-2.5 rounded-full font-black text-[9px] tracking-widest italic shadow-lg transition-all">LOGIN</Link>
           )}
 
-          <button type="button" onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white/70">
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white/50 bg-white/5 p-2 rounded-xl border border-white/10">
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
@@ -196,18 +144,16 @@ const Navbar = () => {
 
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }} className={`lg:hidden fixed top-20 right-4 left-4 border rounded-[28px] shadow-2xl overflow-hidden ${isDark ? "bg-[#0b0b0b]/95 border-white/10" : "bg-white/90 border-black/10"}`}>
-            <div className="p-6 grid gap-2">
-              {navItems.filter(item => !item.hide).map((item) => (
-                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)} className={`px-4 py-3 rounded-2xl border font-black uppercase tracking-[0.25em] text-[10px] ${location.pathname === item.to ? "bg-orange-600 text-white" : "bg-white/5 text-white/70"}`}>
-                  {item.label}
-                </Link>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`lg:hidden fixed top-24 right-4 left-4 border rounded-[40px] p-8 shadow-3xl z-[99] ${isDark ? "bg-black/98 border-white/10" : "bg-white/95 border-black/10"}`}>
+            <div className="grid gap-3">
+              {navLinks.map((item) => (
+                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)} className="px-6 py-4 rounded-[20px] bg-white/5 border border-white/5 text-white/50 font-black uppercase text-[9px]">{item.label}</Link>
               ))}
-              {token && (
-                 <Link to="/profile" className="px-4 py-3 rounded-2xl border bg-white/5 text-white/70 font-black uppercase tracking-[0.25em] text-[10px] flex items-center gap-2">
-                   <User size={14}/> MY PROFILE
-                 </Link>
-              )}
+              <Link to="/referral" onClick={() => setMobileOpen(false)} className="px-6 py-4 rounded-[20px] bg-orange-600/10 text-orange-500 font-black text-[9px] flex items-center gap-2 italic"><Gift size={12}/> REFER & EARN</Link>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                  <Link to="/add-hotel" onClick={() => setMobileOpen(false)} className="bg-white/5 p-4 rounded-2xl text-[8px] font-black text-center italic border border-white/5 uppercase">LIST STAY</Link>
+                  <Link to="/add-transport" onClick={() => setMobileOpen(false)} className="bg-orange-600 p-4 rounded-2xl text-[8px] font-black text-center italic uppercase">OFFER RIDE</Link>
+              </div>
             </div>
           </motion.div>
         )}
@@ -217,7 +163,7 @@ const Navbar = () => {
 };
 
 const PageShell = ({ children }) => (
-  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }}>
+  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="min-h-screen">
     {children}
   </motion.div>
 );
@@ -225,30 +171,33 @@ const PageShell = ({ children }) => (
 const AnimatedRoutes = () => {
   const location = useLocation();
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#050505]"><p className="text-orange-500 font-black animate-pulse uppercase tracking-[0.5em]">Syncing Terrain...</p></div>}>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-black"><p className="text-orange-500 font-black animate-pulse uppercase tracking-widest">TRANSMITTING...</p></div>}>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<PageShell><Home /></PageShell>} />
           <Route path="/explore-stays" element={<PageShell><ExploreStays /></PageShell>} />
           <Route path="/explore-rides" element={<PageShell><ExploreRides /></PageShell>} />
+          <Route path="/ai-advisor" element={<PageShell><AIAdvisor /></PageShell>} />
           <Route path="/add-hotel" element={<PageShell><AddHotel /></PageShell>} />
           <Route path="/add-transport" element={<PageShell><AddTransport /></PageShell>} />
           <Route path="/bookings" element={<PageShell><Bookings /></PageShell>} />
           <Route path="/manage-stays" element={<PageShell><ManageStays /></PageShell>} />
           <Route path="/manage-rides" element={<PageShell><ManageRides /></PageShell>} />
+          <Route path="/dashboard" element={<PageShell><Dashboard /></PageShell>} />
           <Route path="/admin-mate" element={<PageShell><AdminDashboard /></PageShell>} />
+          <Route path="/admin-bookings" element={<PageShell><AdminBookings /></PageShell>} />
           <Route path="/login" element={<PageShell><Login /></PageShell>} />
           <Route path="/register" element={<PageShell><Register /></PageShell>} />
+          <Route path="/register-partner" element={<PageShell><RegisterPartner /></PageShell>} />
           <Route path="/recommendations" element={<PageShell><Recommendations /></PageShell>} />
+          <Route path="/planner" element={<PageShell><Planner /></PageShell>} />
+          <Route path="/profile" element={<PageShell><Profile /></PageShell>} />
+          <Route path="/referral" element={<PageShell><Referral /></PageShell>} />
+          <Route path="/wishlist" element={<PageShell><Wishlist /></PageShell>} />
+          <Route path="/support" element={<PageShell><SupportChat /></PageShell>} />
           <Route path="/booking/:id/confirm" element={<PageShell><BookingConfirm /></PageShell>} />
           <Route path="/payment/success" element={<PageShell><PaymentResult ok={true} /></PageShell>} />
           <Route path="/payment/failure" element={<PageShell><PaymentResult ok={false} /></PageShell>} />
-          <Route path="/planner" element={<PageShell><Planner /></PageShell>} />
-          <Route path="/wishlist" element={<PageShell><Wishlist /></PageShell>} />
-          <Route path="/referral" element={<PageShell><Referral /></PageShell>} />
-          <Route path="/support" element={<PageShell><SupportChat /></PageShell>} />
-          <Route path="/admin-bookings" element={<PageShell><AdminBookings /></PageShell>} />
-          <Route path="/profile" element={<PageShell><Profile /></PageShell>} />
         </Routes>
       </AnimatePresence>
     </Suspense>
@@ -257,28 +206,35 @@ const AnimatedRoutes = () => {
 
 function App() {
   const { notification } = useNotify();
+
   if (!hasSupabaseEnv) {
     return (
-      <Router>
-        <div className="bg-[#0a0a0a] min-h-screen relative flex items-center justify-center">
-          <EnvBanner title="Configuration Missing" lines={["Please check your environment variables."]} />
-        </div>
-      </Router>
+      <div className="bg-black min-h-screen flex items-center justify-center p-10">
+        <EnvBanner title="Config Mismatch" lines={["Establishing contact with server..."]} />
+      </div>
     );
   }
+
   return (
     <Router>
-      <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden relative">
-        <AnimatedBackground />
-        <Navbar />
-        <main className="relative z-10">
-          <AnimatedRoutes />
-        </main>
-        <Footer />
-        <LiveChatSupport />
-        <div className="fixed bottom-0 w-full h-40 bg-gradient-to-t from-[#050505] to-transparent pointer-events-none z-0"></div>
-      </div>
-      <Notification notification={notification} />
+      <ErrorBoundary>
+        {/* ✅ Flex Layout Fix: Footer stays at bottom */}
+        <div className="min-h-screen flex flex-col bg-[#050505] text-white overflow-x-hidden relative font-sans">
+          <AnimatedBackground />
+          <ParticlesCanvas />
+          <Navbar />
+          
+          {/* ✅ main area expands to push footer down */}
+          <main className="relative z-10 pt-28 flex-1">
+            <AnimatedRoutes />
+          </main>
+          
+          <Footer />
+          <LiveChatSupport />
+          <Notification notification={notification} />
+          <div className="fixed bottom-0 w-full h-32 bg-gradient-to-t from-black to-transparent pointer-events-none z-0 opacity-50"></div>
+        </div>
+      </ErrorBoundary>
     </Router>
   );
 }
