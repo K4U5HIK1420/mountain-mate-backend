@@ -13,10 +13,11 @@ import Dashboard from "./Dashboard";
 
 const AdminDashboard = () => {
   const { notify } = useNotify();
-  const { loading: authLoading, user, role, signOut } = useAuth();
+  const { loading: authLoading, user, signOut } = useAuth();
   const [hotels, setHotels] = useState([]);
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [viewMode, setViewMode] = useState("hotels");
   const [activeTab, setActiveTab] = useState("pending");
   const [notification, setNotification] = useState(null);
@@ -24,8 +25,13 @@ const AdminDashboard = () => {
   const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
-    if (user && role === "admin") fetchAllData();
-  }, [user, role]);
+    if (authLoading) return;
+    if (!user) {
+      setAccessDenied(true);
+      return;
+    }
+    fetchAllData();
+  }, [authLoading, user]);
 
   useEffect(() => {
     socket.on("driverBookingNotification", (data) => {
@@ -41,6 +47,7 @@ const AdminDashboard = () => {
 
   const fetchAllData = async () => {
     setLoading(true);
+    setAccessDenied(false);
     try {
       const hotelRes = await API.get("/hotel/admin/all");
       setHotels(hotelRes.data.data || hotelRes.data || []);
@@ -48,7 +55,11 @@ const AdminDashboard = () => {
         const rideRes = await API.get("/transport/admin/all");
         setRides(rideRes.data.data || rideRes.data || []);
       } catch (err) { setRides([]); }
-    } catch (err) { }
+    } catch (err) {
+      if ([401, 403].includes(err?.response?.status)) {
+        setAccessDenied(true);
+      }
+    }
     finally { setLoading(false); }
   };
 
@@ -81,15 +92,15 @@ const AdminDashboard = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050505] fixed inset-0 z-[9999]">
+      <div className="min-h-screen flex items-center justify-center bg-[#050505] pt-32 px-6">
         <div className="text-orange-500 font-black tracking-[0.5em] uppercase text-[10px] animate-pulse italic">Accessing Central Core...</div>
       </div>
     );
   }
 
-  if (!user || role !== "admin") {
+  if (!user || accessDenied) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050505] px-6 fixed inset-0 z-[9999]">
+      <div className="min-h-screen flex items-center justify-center bg-[#050505] px-6 pt-32 pb-24">
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full bg-white/[0.02] border border-white/10 p-12 rounded-[50px] text-center backdrop-blur-3xl shadow-3xl">
           <div className="bg-orange-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-2xl">
             <Lock className="text-white" size={32} />
