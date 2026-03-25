@@ -5,17 +5,17 @@ export const Input = React.forwardRef(function Input(
   { className, leftIcon: LeftIcon, ...props },
   ref
 ) {
+  const iconNode = React.isValidElement(LeftIcon)
+    ? LeftIcon
+    : LeftIcon
+      ? <LeftIcon size={16} />
+      : null;
+
   return (
     <div className={cn("relative group w-full", className)}>
-      {/* Logic Update: Check if LeftIcon is a valid component before rendering */}
-      {LeftIcon && typeof LeftIcon === 'function' ? (
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-orange-600 pointer-events-none z-10">
-          <LeftIcon size={16} />
-        </div>
-      ) : LeftIcon ? (
-        /* Fallback if Icon is passed as an element instead of a component */
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-orange-600 pointer-events-none z-10">
-          {LeftIcon}
+      {iconNode ? (
+        <div className="pointer-events-none absolute left-6 top-1/2 z-10 -translate-y-1/2 text-orange-600">
+          {iconNode}
         </div>
       ) : null}
 

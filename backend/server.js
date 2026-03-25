@@ -76,6 +76,7 @@ const userAuthRoutes = require("./routes/userAuthRoutes");
 const userFeaturesRoutes = require("./routes/userFeaturesRoutes"); // Referral & Wishlist yahan hai
 const tripRoutes = require("./routes/tripRoutes");
 const adminRoutes = require("./routes/adminRoutes"); // Dashboard Stats yahan hai
+const adminConsoleRoutes = require("./routes/adminConsoleRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
 // 5. Route Definitions
@@ -93,6 +94,7 @@ app.use("/api/user", userFeaturesRoutes); // Frontend calls like /api/user/refer
 
 app.use("/api/trips", tripRoutes);
 app.use("/api/admin", adminRoutes); // Admin Dashboard: /api/admin/stats
+app.use("/api/admin-console", adminConsoleRoutes);
 app.use("/api/ai", aiRoutes);
 
 // 6. Base Routes
