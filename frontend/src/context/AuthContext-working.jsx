@@ -27,7 +27,6 @@ export function AuthProvider({ children }) {
     let mounted = true;
 
     if (!supabase) {
-      // Fallback when Supabase is not available
       setSession(null);
       setLoading(false);
       return () => {
@@ -52,66 +51,77 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // 🔐 LOGIN
   const login = async ({ email, password }) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      return { user: (await supabase.auth.getUser()).data.user };
-    } catch (error) {
-      throw error;
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return { user: (await supabase.auth.getUser()).data.user };
   };
 
-  const loginLegacy = async ({ email, password }) => {
-    try {
-      const res = await API.post("/auth/login", { email, password });
-      if (res.data?.token) {
-        localStorage.setItem(LEGACY_TOKEN_KEY, res.data.token);
-        localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(res.data.user));
-        return { user: res.data.user };
-      }
-      throw new Error(res.data?.message || "Login failed");
-    } catch (error) {
-      throw error;
-    }
-  };
-
+  // 📝 REGISTER (Email link sent automatically)
   const register = async ({ email, password, fullName }) => {
-    try {
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
-      if (error) throw error;
-      return { user: (await supabase.auth.getUser()).data.user };
-    } catch (error) {
-      throw error;
-    }
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+      },
+    });
+    if (error) throw error;
+    return true;
   };
 
+  // 🔢 SEND OTP (manual trigger)
+  const sendOtp = async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+    });
+    if (error) throw error;
+    return true;
+  };
+
+  // ✅ VERIFY OTP
+  const verifyOtp = async (email, token) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+    if (error) throw error;
+    return true;
+  };
+
+  // 🧓 LEGACY LOGIN
+  const loginLegacy = async ({ email, password }) => {
+    const res = await API.post("/auth/login", { email, password });
+    if (res.data?.token) {
+      localStorage.setItem(LEGACY_TOKEN_KEY, res.data.token);
+      localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(res.data.user));
+      return { user: res.data.user };
+    }
+    throw new Error(res.data?.message || "Login failed");
+  };
+
+  // 🧓 LEGACY REGISTER
   const registerLegacy = async ({ email, password, fullName }) => {
-    try {
-      const res = await API.post("/auth/register", { email, password, fullName });
-      if (res.data?.user) {
-        localStorage.setItem(LEGACY_TOKEN_KEY, res.data.token);
-        localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(res.data.user));
-        return { user: res.data.user };
-      }
-      throw new Error(res.data?.message || "Registration failed");
-    } catch (error) {
-      throw error;
+    const res = await API.post("/auth/register", { email, password, fullName });
+    if (res.data?.user) {
+      localStorage.setItem(LEGACY_TOKEN_KEY, res.data.token);
+      localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(res.data.user));
+      return { user: res.data.user };
     }
+    throw new Error(res.data?.message || "Registration failed");
   };
 
+  // 🚪 SIGN OUT
   const signOut = async () => {
-    try {
-      if (supabase) {
-        await supabase.auth.signOut();
-      }
-      localStorage.removeItem(LEGACY_TOKEN_KEY);
-      localStorage.removeItem(LEGACY_USER_KEY);
-      setSession(null);
-      setLegacyUser(null);
-    } catch (error) {
-      // Ignore signout errors
+    if (supabase) {
+      await supabase.auth.signOut();
     }
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_USER_KEY);
+    setSession(null);
+    setLegacyUser(null);
   };
 
   const value = {
@@ -121,10 +131,12 @@ export function AuthProvider({ children }) {
     session,
     login,
     register,
+    sendOtp,       // ✅ NEW
+    verifyOtp,     // ✅ NEW
     registerLegacy,
     loginLegacy,
     signOut,
-    isSupabaseAvailable: !!supabase
+    isSupabaseAvailable: !!supabase,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

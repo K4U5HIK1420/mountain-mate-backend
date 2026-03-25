@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../utils/supabase";
 import API from "../utils/api";
 
@@ -51,88 +51,97 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // Keep legacy user in sync across tabs
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === LEGACY_USER_KEY || e.key === LEGACY_TOKEN_KEY) {
-        setLegacyUser(getLegacyAuth().user);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  // 🔐 LOGIN
+  const login = async ({ email, password }) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return { user: (await supabase.auth.getUser()).data.user };
+  };
 
-  const value = useMemo(() => {
-    const sbUser = session?.user ?? null;
-    const accessToken = session?.access_token ?? null;
-    const sbRole =
-      sbUser?.app_metadata?.role || sbUser?.user_metadata?.role || sbUser?.role || null;
+  // 📝 REGISTER (Email link sent automatically)
+  const register = async ({ email, password, fullName }) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+      },
+    });
+    if (error) throw error;
+    return true;
+  };
 
-    const legacyToken = localStorage.getItem(LEGACY_TOKEN_KEY);
-    const isLegacy = !!legacyToken && !!legacyUser;
+  // 🔢 SEND OTP (manual trigger)
+  const sendOtp = async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+    });
+    if (error) throw error;
+    return true;
+  };
 
-    const user = sbUser || legacyUser || null;
-    const role = sbRole || legacyUser?.role || null;
+  // ✅ VERIFY OTP
+  const verifyOtp = async (email, token) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+    if (error) throw error;
+    return true;
+  };
 
-    return {
-      loading,
-      session,
-      user,
-      accessToken,
-      role,
-      isSupabase: !!sbUser,
-      isLegacy,
-      signOut: async () => {
-        // sign out both systems safely
-        try {
-          if (sbUser) await supabase.auth.signOut();
-        } catch {
-          // ignore signout errors
-        }
-        localStorage.removeItem(LEGACY_TOKEN_KEY);
-        localStorage.removeItem(LEGACY_USER_KEY);
-        setLegacyUser(null);
-      },
-      loginLegacy: async ({ email, password }) => {
-        const res = await API.post("/user/login", { email, password });
-        const token = res.data?.token;
-        const u = res.data?.user;
-        if (!token || !u) throw new Error(res.data?.message || "Login failed");
-        localStorage.setItem(LEGACY_TOKEN_KEY, token);
-        localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(u));
-        setLegacyUser(u);
-        return u;
-      },
-      registerLegacy: async ({ name, email, password }) => {
-        const res = await API.post("/user/register", { name, email, password });
-        const token = res.data?.token;
-        const u = res.data?.user;
-        if (!token || !u) throw new Error(res.data?.message || "Registration failed");
-        localStorage.setItem(LEGACY_TOKEN_KEY, token);
-        localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(u));
-        setLegacyUser(u);
-        return u;
-      },
-      refreshLegacyMe: async () => {
-        const token = localStorage.getItem(LEGACY_TOKEN_KEY);
-        if (!token) return null;
-        const res = await API.get("/user/me");
-        const u = res.data?.user;
-        if (u) {
-          localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(u));
-          setLegacyUser(u);
-        }
-        return u || null;
-      },
-    };
-  }, [loading, session, legacyUser]);
+  // 🧓 LEGACY LOGIN
+  const loginLegacy = async ({ email, password }) => {
+    const res = await API.post("/auth/login", { email, password });
+    if (res.data?.token) {
+      localStorage.setItem(LEGACY_TOKEN_KEY, res.data.token);
+      localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(res.data.user));
+      return { user: res.data.user };
+    }
+    throw new Error(res.data?.message || "Login failed");
+  };
+
+  // 🧓 LEGACY REGISTER
+  const registerLegacy = async ({ email, password, fullName }) => {
+    const res = await API.post("/auth/register", { email, password, fullName });
+    if (res.data?.user) {
+      localStorage.setItem(LEGACY_TOKEN_KEY, res.data.token);
+      localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(res.data.user));
+      return { user: res.data.user };
+    }
+    throw new Error(res.data?.message || "Registration failed");
+  };
+
+  // 🚪 SIGN OUT
+  const signOut = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_USER_KEY);
+    setSession(null);
+    setLegacyUser(null);
+  };
+
+  const value = {
+    user: session?.user || legacyUser,
+    token: session?.access_token || localStorage.getItem(LEGACY_TOKEN_KEY),
+    loading,
+    session,
+    login,
+    register,
+    sendOtp,       // ✅ NEW
+    verifyOtp,     // ✅ NEW
+    registerLegacy,
+    loginLegacy,
+    signOut,
+    isSupabaseAvailable: !!supabase,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  return useContext(AuthContext);
 }
-
