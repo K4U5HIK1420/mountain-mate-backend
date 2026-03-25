@@ -9,6 +9,9 @@ const {
   getWishlistItems,
   toggleWishlist,
   getMyBookings,
+  // Role-Based Booking Features (Naye wale)
+  getPartnerIncomingBookings,
+  updateBookingStatus,
   // Tere Features
   getReferralStats,
   redeemCode,
@@ -16,16 +19,23 @@ const {
   setupProfile,
 } = require("../controllers/userFeaturesController");
 
-// Standard Routes
+// --- Standard User Routes ---
 router.get("/wishlist", auth, getWishlist);
 router.get("/wishlist/items", auth, getWishlistItems);
 router.post("/wishlist/toggle", auth, toggleWishlist);
-router.get("/bookings", auth, getMyBookings);
 
-// Dost ka Profile Setup (Supabase Auth use kar raha hai)
+// --- Booking Routes (Role Based) ---
+// 1. User apni bookings dekhega
+router.get("/bookings", auth, getMyBookings);
+// 2. Partner apne listed items ki bookings dekhega
+router.get("/partner/incoming", auth, getPartnerIncomingBookings);
+// 3. Partner booking status update karega
+router.post("/bookings/update-status", auth, updateBookingStatus);
+
+// --- Dost ka Profile Setup ---
 router.post("/setup-profile", supabaseAuth, setupProfile);
 
-// Tere Referral Routes
+// --- Tere Referral Routes ---
 router.get("/referral", auth, getReferralStats);
 router.post("/referral/redeem", auth, redeemCode);
 
