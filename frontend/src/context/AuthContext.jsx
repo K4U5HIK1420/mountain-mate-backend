@@ -18,16 +18,46 @@ function getLegacyAuth() {
   }
 }
 
+function resolveRole(user) {
+  if (!user) return null;
+  return (
+    user.role ||
+    user.app_metadata?.role ||
+    user.user_metadata?.role ||
+    null
+  );
+}
+
 export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
+  const [supabaseUser, setSupabaseUser] = useState(null);
   const [legacyUser, setLegacyUser] = useState(() => getLegacyAuth().user);
 
   useEffect(() => {
     let mounted = true;
 
+    const syncAuthState = async (sessionValue) => {
+      if (!mounted) return;
+
+      setSession(sessionValue ?? null);
+
+      if (!sessionValue) {
+        setSupabaseUser(null);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.auth.getUser();
+      if (!mounted) return;
+
+      setSupabaseUser(error ? sessionValue.user ?? null : data.user ?? sessionValue.user ?? null);
+      setLoading(false);
+    };
+
     if (!supabase) {
       setSession(null);
+      setSupabaseUser(null);
       setLoading(false);
       return () => {
         mounted = false;
@@ -35,14 +65,11 @@ export function AuthProvider({ children }) {
     }
 
     supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session ?? null);
-      setLoading(false);
+      syncAuthState(data.session ?? null);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession ?? null);
-      setLoading(false);
+      syncAuthState(newSession ?? null);
     });
 
     return () => {
@@ -121,11 +148,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(LEGACY_USER_KEY);
     setSession(null);
+    setSupabaseUser(null);
     setLegacyUser(null);
   };
 
+  const user = supabaseUser || legacyUser;
+  const role = resolveRole(user);
+
   const value = {
-    user: session?.user || legacyUser,
+    user,
+    role,
     token: session?.access_token || localStorage.getItem(LEGACY_TOKEN_KEY),
     loading,
     session,

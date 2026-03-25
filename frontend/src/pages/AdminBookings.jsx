@@ -8,20 +8,23 @@ import { Button } from "../components/ui/Button";
 
 export default function AdminBookings() {
   const { notify } = useNotify();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [savingId, setSavingId] = useState(null);
-
-  const isJwtAdmin = useMemo(() => role === "admin" && !!localStorage.getItem("token"), [role]);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setAccessDenied(false);
     try {
       const res = await API.get("/admin/bookings");
       setRows(res.data?.data || []);
     } catch (e) {
       setRows([]);
+      if ([401, 403].includes(e?.response?.status)) {
+        setAccessDenied(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -32,15 +35,15 @@ export default function AdminBookings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!user || !isJwtAdmin) {
+  if (!user || accessDenied) {
     return (
       <div className="min-h-screen pt-40 pb-24 px-6 text-white">
         <div className="max-w-xl mx-auto bg-white/[0.03] border border-white/10 rounded-[40px] p-10 backdrop-blur-2xl shadow-2xl">
           <div className="flex items-center gap-3 text-orange-400 font-black uppercase tracking-widest text-[10px]">
-            <ShieldCheck size={18} /> Admin access required (JWT admin)
+            <ShieldCheck size={18} /> Admin access required
           </div>
           <p className="text-white/40 mt-4 text-sm">
-            Login with a JWT admin account to manage bookings here.
+            This area unlocks only when the backend confirms your admin access.
           </p>
         </div>
       </div>

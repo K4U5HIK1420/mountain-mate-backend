@@ -1,9 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, TrendingUp, Hotel, Car, Activity, Loader2 } from 'lucide-react';
-import { XAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { motion } from 'framer-motion';
 import { Container } from "../components/ui/Container";
-import { getDashboardStats } from '../utils/api'; 
+import { getDashboardStats } from '../utils/api';
+
+const FALLBACK_STATS = {
+  users: 1420,
+  revenue: 84000,
+  hotels: 45,
+  rides: 18,
+  chartData: [
+    { name: 'Mon', bookings: 400 },
+    { name: 'Tue', bookings: 300 },
+    { name: 'Wed', bookings: 600 },
+    { name: 'Thu', bookings: 800 },
+    { name: 'Fri', bookings: 500 },
+    { name: 'Sat', bookings: 900 },
+    { name: 'Sun', bookings: 1100 },
+  ]
+};
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -18,51 +33,44 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await getDashboardStats(); 
+        const res = await getDashboardStats();
         if (res.data) {
           setStats(res.data);
+          return;
         }
       } catch (err) {
-        console.error("🚨 API Error:", err);
-        // Fallback data
-        setStats({
-          users: 1420,
-          revenue: 84000,
-          hotels: 45,
-          rides: 18,
-          chartData: [
-            { name: 'Mon', bookings: 400 }, { name: 'Tue', bookings: 300 },
-            { name: 'Wed', bookings: 600 }, { name: 'Thu', bookings: 800 },
-            { name: 'Fri', bookings: 500 }, { name: 'Sat', bookings: 900 },
-            { name: 'Sun', bookings: 1100 },
-          ]
-        });
-      } finally {
-        setLoading(false);
+        console.error("API Error:", err);
       }
+
+      setStats(FALLBACK_STATS);
+      setLoading(false);
     };
-    fetchStats();
+
+    fetchStats().finally(() => setLoading(false));
   }, []);
 
-  if (loading) return (
-    <div className="h-screen bg-[#040404] flex flex-col items-center justify-center gap-4">
-      <Loader2 className="animate-spin text-orange-500" size={40} />
-      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20 italic animate-pulse">Establishing Link...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="h-screen bg-[#040404] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-orange-500" size={40} />
+        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20 italic animate-pulse">Establishing Link...</p>
+      </div>
+    );
+  }
 
   const statConfig = [
-    { icon: <Users size={20}/>, label: "Total Explorers", val: stats.users, tone: "from-sky-400/30 to-sky-500/5", color: "text-sky-300" },
-    { icon: <TrendingUp size={20}/>, label: "Total Revenue", val: stats.revenue ? `₹${stats.revenue.toLocaleString()}` : "0", tone: "from-emerald-400/30 to-emerald-500/5", color: "text-emerald-300" },
-    { icon: <Hotel size={20}/>, label: "Active Stays", val: stats.hotels, tone: "from-orange-400/30 to-orange-500/5", color: "text-orange-300" },
-    { icon: <Car size={20}/>, label: "Fleet Deployments", val: stats.rides, tone: "from-amber-300/30 to-amber-500/5", color: "text-amber-200" },
+    { icon: <Users size={20} />, label: "Total Explorers", val: stats.users, tone: "from-sky-400/30 to-sky-500/5", color: "text-sky-300" },
+    { icon: <TrendingUp size={20} />, label: "Total Revenue", val: stats.revenue ? `Rs ${stats.revenue.toLocaleString()}` : "0", tone: "from-emerald-400/30 to-emerald-500/5", color: "text-emerald-300" },
+    { icon: <Hotel size={20} />, label: "Active Stays", val: stats.hotels, tone: "from-orange-400/30 to-orange-500/5", color: "text-orange-300" },
+    { icon: <Car size={20} />, label: "Fleet Deployments", val: stats.rides, tone: "from-amber-300/30 to-amber-500/5", color: "text-amber-200" },
   ];
+
+  const chartData = Array.isArray(stats.chartData) ? stats.chartData : [];
+  const maxBookings = Math.max(...chartData.map((item) => item.bookings || 0), 1);
 
   return (
     <div className="min-h-screen bg-[#040404] text-white">
       <Container className="relative z-10 space-y-10 px-6 pb-20 pt-32 sm:px-8 lg:px-12">
-        
-        {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
@@ -74,7 +82,6 @@ const Dashboard = () => {
           </h1>
         </motion.div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {statConfig.map((stat, i) => (
             <motion.div
@@ -96,29 +103,33 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Graph Section */}
         <motion.div className="bg-white/[0.03] border border-white/10 p-8 rounded-[40px] backdrop-blur-3xl relative overflow-hidden">
-            <div className="flex justify-between items-center mb-10">
-                <h3 className="text-2xl font-black italic uppercase text-white flex items-center gap-3">
-                    <Activity className="text-orange-500" /> Booking Pulse
-                </h3>
+          <div className="flex justify-between items-center mb-10">
+            <h3 className="text-2xl font-black italic uppercase text-white flex items-center gap-3">
+              <Activity className="text-orange-500" /> Booking Pulse
+            </h3>
+          </div>
+          <div className="h-[350px] w-full rounded-[32px] border border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent p-6">
+            <div className="flex h-full items-end gap-3">
+              {chartData.map((item) => {
+                const height = `${Math.max(((item.bookings || 0) / maxBookings) * 100, 8)}%`;
+                return (
+                  <div key={item.name} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-3">
+                    <div className="relative flex-1">
+                      <div
+                        className="absolute inset-x-0 bottom-0 rounded-[24px] bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 shadow-[0_20px_45px_rgba(249,115,22,0.35)]"
+                        style={{ height }}
+                      />
+                    </div>
+                    <div className="space-y-1 text-center">
+                      <p className="text-[10px] font-black text-white/25">{item.name}</p>
+                      <p className="text-[10px] font-black text-orange-300">{item.bookings || 0}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="h-[350px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={stats.chartData}>
-                        <defs>
-                            <linearGradient id="colorPulse" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#F97316" stopOpacity={0.4}/>
-                                <stop offset="95%" stopColor="#F97316" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'rgba(255,255,255,0.2)', fontSize: 10}} />
-                        <Tooltip contentStyle={{backgroundColor: '#0a0a0a', border: 'none', borderRadius: '15px'}} />
-                        <Area type="monotone" dataKey="bookings" stroke="#F97316" strokeWidth={4} fill="url(#colorPulse)" />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
+          </div>
         </motion.div>
       </Container>
     </div>
