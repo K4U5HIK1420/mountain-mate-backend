@@ -27,8 +27,8 @@ async function main() {
     process.exit(1);
   }
 
-  // Updated user role
-  // User email logged
+  console.log(`Updated user ${userId} app_metadata.role -> ${role}`);
+  console.log("User email:", data?.user?.email || "N/A");
 }
 
 main().catch((err) => {

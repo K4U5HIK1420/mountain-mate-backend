@@ -22,6 +22,12 @@ import AIAdvisor from "./components/Features/AIAdvisor";
 
 import "leaflet/dist/leaflet.css";
 
+const navMotion = {
+  type: "spring",
+  stiffness: 220,
+  damping: 22,
+};
+
 // --- LAZY PAGES ---
 const Home = React.lazy(() => import("./pages/Home"));
 const ExploreStays = React.lazy(() => import("./pages/ExploreStays"));
@@ -95,26 +101,40 @@ const Navbar = () => {
 
   return (
     <nav className="fixed top-0 w-full z-50 px-4 py-3 sm:px-8 lg:px-12">
-      <div className={`flex justify-between items-center backdrop-blur-3xl border rounded-[30px] px-6 py-4 transition-all duration-500 shadow-2xl ${isDark ? 'border-white/10 bg-black/40 shadow-orange-900/5' : 'border-black/10 bg-white/60'}`}>
+      <motion.div
+        initial={{ opacity: 0, y: -28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className={`cinematic-surface spotlight-border flex justify-between items-center rounded-[30px] px-6 py-4 transition-all duration-500 shadow-2xl ${isDark ? 'border-white/10 bg-black/55 shadow-orange-900/10' : 'border-black/10 bg-white/70'}`}
+      >
         
         <Link to="/" className="flex items-center gap-3">
-          <div className="bg-orange-600 p-2 rounded-xl text-white shadow-lg rotate-3"><Mountain size={20}/></div>
+          <div className="animate-pulse-glow rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 p-2.5 text-white shadow-[0_18px_44px_rgba(249,115,22,0.32)] rotate-3"><Mountain size={20}/></div>
           <h1 className="font-black tracking-tighter text-xl uppercase italic text-white hidden sm:block">M-Mate</h1>
         </Link>
         
         <div className="hidden lg:flex gap-6 absolute left-1/2 -translate-x-1/2">
           {navLinks.map((item) => (
-            <Link key={item.to} to={item.to} onClick={(e) => item.isProtected && handleProtectedClick(e, item.to)} className={`text-[9px] font-black tracking-[0.15em] transition-all hover:text-orange-500 flex items-center gap-1 ${location.pathname === item.to ? 'text-orange-500' : 'text-white/50'}`}>
-              {item.icon}{item.label}
-            </Link>
+            <motion.div key={item.to} whileHover={{ y: -2 }} transition={navMotion}>
+              <Link to={item.to} onClick={(e) => item.isProtected && handleProtectedClick(e, item.to)} className={`relative flex items-center gap-1 text-[9px] font-black tracking-[0.15em] transition-all hover:text-orange-500 ${location.pathname === item.to ? 'text-orange-400' : 'text-white/55'}`}>
+                {item.icon}{item.label}
+                {location.pathname === item.to && (
+                  <motion.span
+                    layoutId="nav-active-pill"
+                    className="absolute -bottom-2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-500 to-transparent"
+                    transition={navMotion}
+                  />
+                )}
+              </Link>
+            </motion.div>
           ))}
         </div>
 
         <div className="hidden xl:flex items-center gap-2 ml-auto mr-6 border-l border-white/10 pl-6">
-            <Link to="/add-hotel" onClick={(e) => handleProtectedClick(e, "/add-hotel")} className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-xl font-black text-[8px] tracking-widest transition-all italic flex items-center gap-2">
+            <Link to="/add-hotel" onClick={(e) => handleProtectedClick(e, "/add-hotel")} className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-xl font-black text-[8px] tracking-widest transition-all italic flex items-center gap-2 hover:-translate-y-0.5">
               <PlusCircle size={12} className="text-orange-500"/> LIST STAY
             </Link>
-            <Link to="/add-transport" onClick={(e) => handleProtectedClick(e, "/add-transport")} className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl font-black text-[8px] tracking-widest transition-all italic shadow-lg flex items-center gap-2">
+            <Link to="/add-transport" onClick={(e) => handleProtectedClick(e, "/add-transport")} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 text-white px-4 py-2 rounded-xl font-black text-[8px] tracking-widest transition-all italic shadow-lg flex items-center gap-2 hover:-translate-y-0.5">
               <Car size={12}/> OFFER RIDE
             </Link>
         </div>
@@ -126,27 +146,27 @@ const Navbar = () => {
           
           {token ? (
             <div className="flex items-center gap-4">
-              <Link to="/profile" className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-orange-500 to-purple-500 overflow-hidden shadow-xl">
+              <Link to="/profile" className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-orange-500 via-amber-400 to-white overflow-hidden shadow-xl">
                 <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-black text-orange-500 uppercase">{user.email?.charAt(0)}</div>
               </Link>
               <button onClick={() => { signOut(); navigate("/login"); }} className="text-white/20 hover:text-red-500 active:scale-90 transition-all"><LogOut size={18}/></button>
             </div>
           ) : (
-            <Link to="/login" className="bg-orange-600 hover:bg-white hover:text-black text-white px-5 py-2.5 rounded-full font-black text-[9px] tracking-widest italic shadow-lg transition-all">LOGIN</Link>
+            <Link to="/login" className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 hover:brightness-110 text-white px-5 py-2.5 rounded-full font-black text-[9px] tracking-widest italic shadow-lg transition-all hover:-translate-y-0.5">LOGIN</Link>
           )}
 
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white/50 bg-white/5 p-2 rounded-xl border border-white/10">
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white/50 bg-white/5 p-2 rounded-xl border border-white/10 hover:bg-white/10">
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
-      </div>
+      </motion.div>
 
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`lg:hidden fixed top-24 right-4 left-4 border rounded-[40px] p-8 shadow-3xl z-[99] ${isDark ? "bg-black/98 border-white/10" : "bg-white/95 border-black/10"}`}>
+          <motion.div initial={{ opacity: 0, y: -20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.98 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} className={`cinematic-surface lg:hidden fixed top-24 right-4 left-4 border rounded-[40px] p-8 shadow-3xl z-[99] ${isDark ? "bg-black/98 border-white/10" : "bg-white/95 border-black/10"}`}>
             <div className="grid gap-3">
               {navLinks.map((item) => (
-                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)} className="px-6 py-4 rounded-[20px] bg-white/5 border border-white/5 text-white/50 font-black uppercase text-[9px]">{item.label}</Link>
+                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)} className="px-6 py-4 rounded-[20px] bg-white/5 border border-white/5 text-white/70 font-black uppercase text-[9px] hover:bg-white/10 hover:text-white">{item.label}</Link>
               ))}
               <Link to="/referral" onClick={() => setMobileOpen(false)} className="px-6 py-4 rounded-[20px] bg-orange-600/10 text-orange-500 font-black text-[9px] flex items-center gap-2 italic"><Gift size={12}/> REFER & EARN</Link>
               <div className="grid grid-cols-2 gap-2 mt-4">
@@ -162,7 +182,7 @@ const Navbar = () => {
 };
 
 const PageShell = ({ children }) => (
-  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="min-h-screen">
+  <motion.div initial={{ opacity: 0, y: 18, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -18, scale: 0.995 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-screen">
     {children}
   </motion.div>
 );
@@ -226,7 +246,7 @@ function App() {
           <Footer />
           <LiveChatSupport />
           <Notification notification={notification} />
-          <div className="fixed bottom-0 w-full h-32 bg-gradient-to-t from-black to-transparent pointer-events-none z-0 opacity-50"></div>
+          <div className="fixed bottom-0 w-full h-32 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none z-0 opacity-60"></div>
         </div>
       </ErrorBoundary>
     </Router>

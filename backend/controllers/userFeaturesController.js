@@ -3,15 +3,50 @@ const Booking = require("../models/Booking");
 const Hotel = require("../models/Hotel");
 const Transport = require("../models/Transport");
 
-// --- 🏔️ REFERRAL SYSTEM ---
+// --- 🏔️ PROFILE SETUP (Dost ka feature) ---
+exports.setupProfile = async (req, res) => {
+  try {
+    const { fullName, phone, avatarUrl } = req.body;
+    // Supabase se user data aa raha hai middleware ke through
+    const supabaseUser = req.user; 
 
+    let user = await User.findOne({ email: supabaseUser.email });
+
+    if (user) {
+      // Update existing user
+      user.fullName = fullName || user.fullName;
+      user.phone = phone || user.phone;
+      user.avatarUrl = avatarUrl || user.avatarUrl;
+      await user.save();
+    } else {
+      // Create new user if not exists
+      user = await User.create({
+        email: supabaseUser.email,
+        fullName,
+        phone,
+        avatarUrl,
+        // Default referral code generation
+        referrals: {
+          code: `MM-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+          invitedUsers: [],
+          credits: 0
+        }
+      });
+    }
+
+    res.json({ success: true, message: "Profile Synchronized!", user });
+  } catch (err) {
+    console.error("Setup Profile Error:", err);
+    res.status(500).json({ success: false, message: "Profile sync failed" });
+  }
+};
+
+// --- 🏔️ REFERRAL SYSTEM (Tera logic) ---
 exports.getReferralStats = async (req, res) => {
   try {
-    // req.user._id middleware se aa raha hai
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "Explorer not found" });
 
-    // ✅ Default values ensure kar rahe hain taaki frontend "REF-ERROR" na dikhaye
     res.json({
       success: true,
       data: {
@@ -34,7 +69,6 @@ exports.redeemCode = async (req, res) => {
     const currentUser = await User.findById(req.user._id);
     const inputCode = code.trim().toUpperCase();
 
-    // 🛡️ Safety Check: Object initialization
     if (!currentUser.referrals) {
       currentUser.referrals = { invitedUsers: [], credits: 0, hasRedeemed: false };
     }
@@ -47,15 +81,12 @@ exports.redeemCode = async (req, res) => {
       return res.status(400).json({ success: false, message: "Cannot bootstrap your own code!" });
     }
 
-    // Referrer ko search karo nested field mein
     const referrer = await User.findOne({ "referrals.code": inputCode });
     if (!referrer) return res.status(404).json({ success: false, message: "Invalid extraction code" });
 
-    // 💰 Credits Logic
     currentUser.referrals.credits = (currentUser.referrals.credits || 0) + 100;
     currentUser.referrals.hasRedeemed = true;
     
-    // Referrer update
     if (!referrer.referrals) referrer.referrals = { invitedUsers: [], credits: 0 };
     referrer.referrals.credits = (referrer.referrals.credits || 0) + 50;
     referrer.referrals.invitedUsers.push(currentUser._id);
@@ -69,8 +100,7 @@ exports.redeemCode = async (req, res) => {
   }
 };
 
-// --- 🏔️ WISHLIST LOGIC ---
-
+// --- 🏔️ WISHLIST LOGIC (Tera logic) ---
 exports.getWishlist = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -121,15 +151,13 @@ exports.toggleWishlist = async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: "Toggle failed" }); }
 };
 
-// --- 🏔️ BOOKINGS ---
-
+// --- 🏔️ BOOKINGS (Tera logic) ---
 exports.getMyBookings = async (req, res) => {
   try {
     const data = await Booking.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .populate("hotelId transportId");
     
-    // Dashboard compatibility fix: Agar data empty hai toh empty array bhej rahe hain
     res.json({ success: true, data: data || [] });
   } catch (err) { 
     console.error("Booking Fetch Error:", err);
