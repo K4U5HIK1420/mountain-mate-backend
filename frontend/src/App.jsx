@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mountain, LogOut, Settings2, ShieldCheck, Menu, X, Sparkles, User, PlusCircle, Car, Heart, Gift, LayoutDashboard, Bot } from 'lucide-react';
+import { Mountain, LogOut, Settings2, ShieldCheck, Menu, X, Sparkles, User, PlusCircle, Car, Heart, Gift, Bot } from 'lucide-react';
 
 // --- CORE UTILS & CONTEXT ---
 import API from './utils/api';
@@ -31,7 +31,6 @@ const AddTransport = React.lazy(() => import("./pages/AddTransport"));
 const Bookings = React.lazy(() => import("./pages/Bookings"));
 const ManageStays = React.lazy(() => import("./pages/ManageStays"));
 const ManageRides = React.lazy(() => import("./pages/ManageRides"));
-const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const AdminBookings = React.lazy(() => import("./pages/AdminBookings"));
 const Login = React.lazy(() => import("./pages/Login"));
@@ -40,7 +39,7 @@ const RegisterPartner = React.lazy(() => import("./pages/RegisterPartner"));
 const Recommendations = React.lazy(() => import("./pages/Recommendations"));
 const Planner = React.lazy(() => import("./pages/Planner"));
 const Profile = React.lazy(() => import("./pages/Profile"));
-const Referral = React.lazy(() => import("./pages/Referral"));
+const Referral = React.lazy(() => import("./pages/Referral")); 
 const Wishlist = React.lazy(() => import("./pages/Wishlist"));
 const SupportChat = React.lazy(() => import("./pages/SupportChat"));
 const BookingConfirm = React.lazy(() => import("./pages/BookingConfirm"));
@@ -56,7 +55,6 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasListedItems, setHasListedItems] = useState(false);
 
-  // ✅ Fix 403 Forbidden: Only check for content if token exists
   useEffect(() => {
     const checkUserContent = async () => {
       if (!token) {
@@ -78,13 +76,14 @@ const Navbar = () => {
     checkUserContent();
   }, [token]);
 
+  // ✅ Dashboard removed from NavLinks
   const navLinks = useMemo(() => [
     { to: "/explore-stays", label: "STAYS" },
     { to: "/explore-rides", label: "RIDES" },
     { to: "/ai-advisor", label: "AI ADVISOR", icon: <Bot size={12}/> },
     { to: "/planner", label: "PLANNER" },
     { to: "/wishlist", label: "WISHLIST", isProtected: true, icon: <Heart size={12}/> },
-    { to: "/dashboard", label: "DASHBOARD", isProtected: true, icon: <LayoutDashboard size={12}/> },
+    { to: "/referral", label: "REFERRAL", isProtected: true, icon: <Gift size={12}/> },
   ], []);
 
   const handleProtectedClick = (e, targetPath) => {
@@ -183,7 +182,6 @@ const AnimatedRoutes = () => {
           <Route path="/bookings" element={<PageShell><Bookings /></PageShell>} />
           <Route path="/manage-stays" element={<PageShell><ManageStays /></PageShell>} />
           <Route path="/manage-rides" element={<PageShell><ManageRides /></PageShell>} />
-          <Route path="/dashboard" element={<PageShell><Dashboard /></PageShell>} />
           <Route path="/admin-mate" element={<PageShell><AdminDashboard /></PageShell>} />
           <Route path="/admin-bookings" element={<PageShell><AdminBookings /></PageShell>} />
           <Route path="/login" element={<PageShell><Login /></PageShell>} />
@@ -218,17 +216,13 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
-        {/* ✅ Flex Layout Fix: Footer stays at bottom */}
         <div className="min-h-screen flex flex-col bg-[#050505] text-white overflow-x-hidden relative font-sans">
           <AnimatedBackground />
           <ParticlesCanvas />
           <Navbar />
-          
-          {/* ✅ main area expands to push footer down */}
           <main className="relative z-10 pt-28 flex-1">
             <AnimatedRoutes />
           </main>
-          
           <Footer />
           <LiveChatSupport />
           <Notification notification={notification} />
