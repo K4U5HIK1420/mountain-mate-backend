@@ -8,64 +8,75 @@ const API = axios.create({
   baseURL,
 });
 
-// Interceptor for Authentication (Supabase + Legacy)
+// ✅ REQUEST INTERCEPTOR: Har request ke sath token attach karega
 API.interceptors.request.use(async (config) => {
-  const supabaseToken = await getSupabaseAccessToken();
-  const legacyToken = localStorage.getItem("token");
+  try {
+    const supabaseToken = await getSupabaseAccessToken();
+    const legacyToken = localStorage.getItem("token");
 
-  const token = supabaseToken || legacyToken;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-
+    const token = supabaseToken || legacyToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (err) {
+    console.error("🛰️ Uplink Injection Failed:", err);
+  }
   return config;
-});
+}, (error) => Promise.reject(error));
 
-// --- YAHAN SE NAYE FUNCTIONS (Fixed & Optimized) ---
+// ✅ RESPONSE INTERCEPTOR: Global Error Handling (Optional par recommended)
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn("🚨 Session Expired. Redirecting to login...");
+      // localStorage.removeItem("token"); // Optional: Clear stale token
+    }
+    return Promise.reject(error);
+  }
+);
+
+// --- 🏔️ DYNAMIC FUNCTIONS (TACTICAL EXPORTS) ---
 
 /**
- * 1. Weather Data Function (OpenWeatherMap)
- * Fetching real-time telemetry for Uttarakhand regions.
+ * 1. Admin Dashboard Stats
+ */
+export const getDashboardStats = () => API.get('/admin/stats');
+
+/**
+ * 2. Referral System Functions (NEW)
+ */
+// GET: User ka code, credits aur invite count lane ke liye
+export const getReferralStats = () => API.get('/user/referral');
+
+// POST: Kisi aur ka code redeem karne ke liye
+export const redeemReferralCode = (code) => API.post('/user/referral/redeem', { code });
+
+/**
+ * 3. Weather Intelligence
  */
 export const getWeatherData = async (city) => {
-  // Logic Fix: Matching the key name with your .env file
   const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY; 
-
-  if (!API_KEY || API_KEY === "undefined") {
-    console.error("🚨 Weather API Key is missing in .env file!");
-    return null;
-  }
+  if (!API_KEY || API_KEY === "undefined") return null;
 
   try {
     const response = await axios.get(
       `https://api.openweathermap.org/data/2.5/weather`, {
-        params: {
-          q: city,
-          units: 'metric',
-          appid: API_KEY
-        }
+        params: { q: city, units: 'metric', appid: API_KEY }
       }
     );
     return response.data;
   } catch (error) {
-    if (error.response?.status === 401) {
-      console.warn("⚠️ API Key is valid but might take 2 hours to activate on OpenWeather servers.");
-    } else {
-      console.error("❌ Weather API Error:", error.response?.data?.message || error.message);
-    }
+    console.error("❌ Weather Sync Error:", error.message);
     return null;
   }
 };
 
 /**
- * 2. Planner/Trip Functions
- * Saving and retrieving tactical itineraries.
+ * 4. Planner & AI Expedition Functions
  */
 export const saveTrip = (tripData) => API.post('/trips', tripData);
 export const getUserTrips = () => API.get('/trips/my-trips');
-
-/**
- * 3. AI Recommendation Engine
- * Fetches smart stays/rides based on user DNA.
- */
 export const getAIRecommendations = (preferences) => API.post('/ai/recommend', preferences);
 
 export default API;

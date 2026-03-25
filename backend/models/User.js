@@ -1,15 +1,18 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: [true, "Name is required for the expedition"],
+    trim: true
   },
 
   email: {
     type: String,
-    required: true,
-    unique: true
+    required: [true, "Email uplink is mandatory"],
+    unique: true,
+    lowercase: true
   },
 
   password: {
@@ -35,10 +38,30 @@ const userSchema = new mongoose.Schema({
     }
   ],
 
+  // --- UPGRADED REFERRAL SYSTEM ---
   referrals: {
-    code: { type: String, default: "" },
-    invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-    invitedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+    code: { 
+      type: String, 
+      unique: true, // Code unique hona chahiye
+      uppercase: true 
+    },
+    credits: { 
+      type: Number, 
+      default: 0 // Real money/points system
+    },
+    hasRedeemed: { 
+      type: Boolean, 
+      default: false // Taki ek user baar-baar redeem na kare
+    },
+    invitedBy: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "User", 
+      default: null 
+    },
+    invitedUsers: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "User" 
+    }]
   },
 
   passwordResetTokenHash: {
@@ -51,5 +74,15 @@ const userSchema = new mongoose.Schema({
   }
 
 }, { timestamps: true });
+
+// ✅ AUTO-GENERATE REFERRAL CODE BEFORE SAVING
+userSchema.pre("save", function(next) {
+  if (!this.referrals.code) {
+    // Generates a random 6-character code like MM-A1B2
+    const random = crypto.randomBytes(3).toString("hex").toUpperCase();
+    this.referrals.code = `MM-${random}`;
+  }
+  next();
+});
 
 module.exports = mongoose.model("User", userSchema);

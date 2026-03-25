@@ -53,11 +53,14 @@ io.on("connection", (socket) => {
 app.use(cors());
 app.use(express.json());
 
-// 3. Rate Limiter
+// 3. Rate Limiter (Tactical Security)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: "Too many requests from this telemetry node, try again in 15 mins",
+  max: 300, // Thoda increase kiya taaki development mein bar-bar block na ho
+  message: {
+    message: "Too many requests from this telemetry node, try again in 15 mins",
+    status: 429
+  }
 });
 app.use("/api/", limiter);
 
@@ -67,13 +70,13 @@ const hotelRoutes = require("./routes/hotelRoutes");
 const transportRoutes = require("./routes/transportRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
-const recommendationRoutes = require("./routes/recommendationRoutes"); // ✅ Fixed Path (added /routes/)
+const recommendationRoutes = require("./routes/recommendationRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const userAuthRoutes = require("./routes/userAuthRoutes");
-const userFeaturesRoutes = require("./routes/userFeaturesRoutes");
+const userFeaturesRoutes = require("./routes/userFeaturesRoutes"); // Referral & Wishlist yahan hai
 const tripRoutes = require("./routes/tripRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const aiRoutes = require("./routes/aiRoutes"); // ✅ AI Route Import
+const adminRoutes = require("./routes/adminRoutes"); // Dashboard Stats yahan hai
+const aiRoutes = require("./routes/aiRoutes");
 
 // 5. Route Definitions
 app.use("/api/auth", authRoutes);
@@ -83,11 +86,14 @@ app.use("/api/booking", bookingRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/payment", paymentRoutes);
+
+// ✅ Feature Routes (Unified)
 app.use("/api/user", userAuthRoutes);
-app.use("/api/user", userFeaturesRoutes);
+app.use("/api/user", userFeaturesRoutes); // Frontend calls like /api/user/referral will work!
+
 app.use("/api/trips", tripRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/ai", aiRoutes); // ✅ AI Route Register
+app.use("/api/admin", adminRoutes); // Admin Dashboard: /api/admin/stats
+app.use("/api/ai", aiRoutes);
 
 // 6. Base Routes
 app.get("/", (req, res) => {
@@ -100,6 +106,7 @@ app.get("/api/health", (req, res) => {
     status: "UP",
     message: "Mountain-Mate API is online 🚀",
     timestamp: new Date().toISOString(),
+    node_version: process.version
   });
 });
 
@@ -113,5 +120,6 @@ server.listen(PORT, () => {
   console.log(`--------------------------------------------------`);
   console.log(`🚀 STRATEGIC UPLINK ESTABLISHED ON PORT: ${PORT}`);
   console.log(`🛰️  HEALTH CHECK: http://localhost:${PORT}/api/health`);
+  console.log(`📊 ADMIN DASHBOARD: http://localhost:${PORT}/api/admin/stats`);
   console.log(`--------------------------------------------------`);
 });
