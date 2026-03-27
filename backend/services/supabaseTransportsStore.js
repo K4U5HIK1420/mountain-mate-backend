@@ -12,8 +12,10 @@ function mapTransportRow(row) {
     contactNumber: row.contact_number,
     routeFrom: row.route_from,
     routeTo: row.route_to,
+    availableDate: row.available_date,
     fromCoords: row.from_coords,
     toCoords: row.to_coords,
+    driverOnline: row.driver_online ?? true,
     pricePerSeat: row.price_per_seat,
     seatsAvailable: row.seats_available,
     images: row.images || [],
@@ -35,8 +37,10 @@ async function addTransport({ ownerId, payload }) {
     contact_number: payload.contactNumber,
     route_from: payload.routeFrom,
     route_to: payload.routeTo,
+    available_date: payload.availableDate || null,
     from_coords: payload.fromCoords ? JSON.parse(payload.fromCoords) : null,
     to_coords: payload.toCoords ? JSON.parse(payload.toCoords) : null,
+    driver_online: true,
     price_per_seat: Number(payload.pricePerSeat),
     seats_available: Number(payload.seatsAvailable),
     images: payload.images || [],
@@ -81,6 +85,10 @@ async function updateTransport({ ownerId, id, updateFields }) {
   if (safe.contactNumber !== undefined) patch.contact_number = safe.contactNumber;
   if (safe.routeFrom !== undefined) patch.route_from = safe.routeFrom;
   if (safe.routeTo !== undefined) patch.route_to = safe.routeTo;
+  if (safe.fromCoords !== undefined) patch.from_coords = safe.fromCoords;
+  if (safe.toCoords !== undefined) patch.to_coords = safe.toCoords;
+  if (safe.driverOnline !== undefined) patch.driver_online = Boolean(safe.driverOnline);
+  if (safe.availableDate !== undefined) patch.available_date = safe.availableDate || null;
   if (safe.pricePerSeat !== undefined) patch.price_per_seat = Number(safe.pricePerSeat);
   if (safe.seatsAvailable !== undefined) patch.seats_available = Number(safe.seatsAvailable);
 
@@ -96,5 +104,54 @@ async function updateTransport({ ownerId, id, updateFields }) {
   return mapTransportRow(data);
 }
 
-module.exports = { addTransport, getMyRides, updateTransport, mapTransportRow };
+async function listApprovedRides({ date }) {
+  const supabase = getSupabaseClient();
+  let query = supabase
+    .from("transports")
+    .select("*")
+    .eq("status", "approved")
+    .eq("is_verified", true)
+    .gt("seats_available", 0)
+    .order("available_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (date) {
+    query = query.gte("available_date", `${date}T00:00:00.000Z`).lt("available_date", `${date}T23:59:59.999Z`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapTransportRow);
+}
+
+async function searchApprovedRides({ from, to, date }) {
+  const supabase = getSupabaseClient();
+  let query = supabase
+    .from("transports")
+    .select("*")
+    .eq("status", "approved")
+    .eq("is_verified", true)
+    .gt("seats_available", 0)
+    .ilike("route_from", `%${from || ""}%`)
+    .ilike("route_to", `%${to || ""}%`)
+    .order("available_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (date) {
+    query = query.gte("available_date", `${date}T00:00:00.000Z`).lt("available_date", `${date}T23:59:59.999Z`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapTransportRow);
+}
+
+module.exports = {
+  addTransport,
+  getMyRides,
+  updateTransport,
+  mapTransportRow,
+  listApprovedRides,
+  searchApprovedRides,
+};
 

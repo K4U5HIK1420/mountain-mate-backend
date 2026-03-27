@@ -28,6 +28,10 @@ const transportSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    availableDate: {
+        type: Date,
+        default: null
+    },
     fromCoords: {
         lat: Number,
         lng: Number
@@ -35,6 +39,10 @@ const transportSchema = new mongoose.Schema({
     toCoords: {
         lat: Number,
         lng: Number
+    },
+    driverOnline: {
+        type: Boolean,
+        default: true
     },
     pricePerSeat: {
         type: Number,

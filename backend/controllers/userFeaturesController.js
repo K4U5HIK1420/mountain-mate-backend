@@ -2,6 +2,8 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Hotel = require("../models/Hotel");
 const Transport = require("../models/Transport");
+const { restoreBookingInventory } = require("../utils/bookingInventory");
+const { createNotification } = require("../services/notificationService");
 
 // --- 🏔️ PROFILE SETUP ---
 exports.setupProfile = async (req, res) => {
@@ -40,9 +42,10 @@ exports.setupProfile = async (req, res) => {
 // 1. User View: Mene kahan booking ki hai?
 exports.getMyBookings = async (req, res) => {
   try {
-    const data = await Booking.find({ user: req.user._id })
+    const ownerId = String(req.user?.id || req.user?._id || "");
+    const data = await Booking.find({ userId: ownerId })
       .sort({ createdAt: -1 })
-      .populate("hotelId transportId");
+      .populate("listingId");
     
     res.json({ success: true, data: data || [] });
   } catch (err) { 
@@ -53,25 +56,11 @@ exports.getMyBookings = async (req, res) => {
 // 2. Partner View: Mere hotel/ride pe kisne booking ki hai?
 exports.getPartnerIncomingBookings = async (req, res) => {
   try {
-    // Partner ke apne listed items dhundo
-    const [myHotels, myRides] = await Promise.all([
-      Hotel.find({ owner: req.user._id }).select("_id"),
-      Transport.find({ owner: req.user._id }).select("_id")
-    ]);
-
-    const hotelIds = myHotels.map(h => h._id);
-    const rideIds = myRides.map(r => r._id);
-
-    // Un items pe aayi hui saari bookings nikal lo
-    const incoming = await Booking.find({
-      $or: [
-        { hotelId: { $in: hotelIds } },
-        { transportId: { $in: rideIds } }
-      ]
-    })
-    .populate("user", "fullName email phone") // Kisne book kiya uski detail
-    .populate("hotelId transportId")
-    .sort({ createdAt: -1 });
+    const ownerId = String(req.user?.id || req.user?._id || "");
+    const incoming = await Booking.find({ ownerId })
+      .populate("listingId")
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: incoming || [] });
   } catch (err) {
@@ -83,20 +72,73 @@ exports.getPartnerIncomingBookings = async (req, res) => {
 // 3. Action: Partner booking confirm/cancel karega
 exports.updateBookingStatus = async (req, res) => {
   try {
-    const { bookingId, status } = req.body; // status: 'Confirmed' or 'Cancelled'
+    const { bookingId, status } = req.body;
+    const normalizedStatus = String(status || "").toLowerCase();
+    if (!["confirmed", "declined"].includes(normalizedStatus)) {
+      return res.status(400).json({ success: false, message: "Invalid booking action" });
+    }
     
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
-    // Security check: Kya ye booking isi partner ke item ki hai?
-    // (Optional but good for security)
+    const actorId = String(req.user?.id || req.user?._id || "");
+    let resolvedOwnerId = String(booking.ownerId || "");
 
-    booking.status = status;
+    if (!resolvedOwnerId || resolvedOwnerId !== actorId) {
+      try {
+        const ListingModel = booking.bookingType === "Hotel" ? Hotel : Transport;
+        const listing = await ListingModel.findById(booking.listingId).select("owner").lean();
+        resolvedOwnerId = String(listing?.owner || resolvedOwnerId || "");
+        if (resolvedOwnerId && String(booking.ownerId || "") !== resolvedOwnerId) {
+          booking.ownerId = resolvedOwnerId;
+        }
+      } catch (_ownerSyncErr) {
+        // Keep using the booking's stored ownerId if the legacy listing lookup fails.
+      }
+    }
+
+    if (!resolvedOwnerId || resolvedOwnerId !== actorId) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    if (booking.status === normalizedStatus) {
+      return res.json({ success: true, message: `Booking already ${normalizedStatus}`, data: booking });
+    }
+
+    if (normalizedStatus === "declined" && booking.paymentStatus === "paid") {
+      await restoreBookingInventory(booking);
+    }
+
+    booking.status = normalizedStatus;
+    if (booking.bookingType === "Transport") {
+      booking.liveTracking = {
+        ...(booking.liveTracking || {}),
+        status: normalizedStatus === "confirmed" ? "accepted" : "searching",
+      };
+    }
     await booking.save();
 
-    res.json({ success: true, message: `Booking status updated to ${status}` });
+    try {
+      await createNotification(
+        {
+          userId: booking.userId,
+          title: normalizedStatus === "confirmed" ? "Booking confirmed" : "Booking declined",
+          message:
+            normalizedStatus === "confirmed"
+              ? `Your booking for ${booking.listingLabel || "the selected listing"} has been confirmed.`
+              : `Your booking for ${booking.listingLabel || "the selected listing"} was declined by the owner or driver.`,
+          type: normalizedStatus === "confirmed" ? "booking_confirmed" : "booking_declined",
+          data: { bookingId: String(booking._id), bookingType: booking.bookingType },
+        },
+        req.app.get("io")
+      );
+    } catch (_notificationErr) {
+      // Don't fail the booking update if notification delivery has an issue.
+    }
+
+    res.json({ success: true, message: `Booking status updated to ${normalizedStatus}`, data: booking });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Status update failed" });
+    res.status(500).json({ success: false, message: err.message || "Status update failed" });
   }
 };
 

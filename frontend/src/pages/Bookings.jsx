@@ -1,210 +1,301 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, MapPin, User, Clock, CheckCircle, XCircle, Briefcase, PlaneTakeoff, Loader2, Phone, Mail, Car, IndianRupee, Users } from 'lucide-react';
-import API from '../utils/api';
+import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Bell, Calendar, Car, CheckCircle2, Clock3, IndianRupee, Loader2, MapPin, Navigation, Phone, ShieldCheck, XCircle } from "lucide-react";
+import API from "../utils/api";
+import socket from "../utils/socket";
+import { useAuth } from "../context/AuthContext";
 import { useNotify } from "../context/NotificationContext";
+import { Button } from "../components/ui/Button";
+import { Container } from "../components/ui/Container";
+import LiveRideTracker from "../components/LiveRideTracker";
 
-const Bookings = () => {
-  const [activeTab, setActiveTab] = useState('user'); 
+const ease = [0.22, 1, 0.36, 1];
+
+export default function Bookings() {
+  const { user } = useAuth();
+  const { notify } = useNotify();
+  const [activeTab, setActiveTab] = useState("user");
   const [userBookings, setUserBookings] = useState([]);
   const [partnerBookings, setPartnerBookings] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { notify } = useNotify();
+  const [updatingId, setUpdatingId] = useState("");
+  const [trackingSelection, setTrackingSelection] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const loadAll = async () => {
     setLoading(true);
     try {
-      const [userRes, partnerRes] = await Promise.all([
+      const [userRes, partnerRes, notificationRes] = await Promise.all([
         API.get("/user/bookings"),
-        API.get("/user/partner/incoming").catch(() => ({ data: { data: [] } }))
+        API.get("/user/partner/incoming").catch(() => ({ data: { data: [] } })),
+        API.get("/notifications").catch(() => ({ data: { data: [] } })),
       ]);
       setUserBookings(userRes.data?.data || []);
       setPartnerBookings(partnerRes.data?.data || []);
-    } catch (err) {
-      console.error("Fetch Error:", err);
+      setNotifications(notificationRes.data?.data || []);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusUpdate = async (bookingId, newStatus) => {
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    socket.emit("join:user", user.id || user._id);
+    const refresh = () => loadAll();
+    socket.on("notification:new", refresh);
+    return () => socket.off("notification:new", refresh);
+  }, [user]);
+
+  const stats = useMemo(() => {
+    const pendingMine = userBookings.filter((item) => item.status === "pending").length;
+    const incoming = partnerBookings.filter((item) => item.status === "pending").length;
+    return {
+      myTotal: userBookings.length,
+      myPending: pendingMine,
+      incoming,
+      alerts: notifications.filter((item) => !item.read).length,
+    };
+  }, [userBookings, partnerBookings, notifications]);
+
+  const handleStatusUpdate = async (bookingId, status) => {
+    setUpdatingId(bookingId);
     try {
-      const res = await API.post("/user/bookings/update-status", { bookingId, status: newStatus });
-      if (res.data.success) {
-        notify({ type: 'success', message: `Expedition ${newStatus} Successfully!` });
-        fetchData(); 
+      const res = await API.post("/user/bookings/update-status", { bookingId, status });
+      if (res.data?.success) {
+        notify(status === "confirmed" ? "Booking confirmed." : "Booking declined.", status === "confirmed" ? "success" : "error");
+        await loadAll();
       }
     } catch (err) {
-      notify({ type: 'error', message: 'Uplink Failed' });
+      notify(err?.response?.data?.message || "Unable to update booking right now.", "error");
+    } finally {
+      setUpdatingId("");
     }
   };
 
-  if (loading) return (
-    <div className="h-[70vh] flex flex-col items-center justify-center gap-6">
-      <div className="relative">
-        <Loader2 className="animate-spin text-orange-500" size={54} />
-        <div className="absolute inset-0 bg-orange-500 blur-3xl opacity-20 animate-pulse" />
-      </div>
-      <p className="text-[10px] font-black uppercase tracking-[0.8em] text-white/30 italic">Synchronizing Logs...</p>
+  return (
+    <div className="min-h-screen bg-[#040404] text-white">
+      <Container className="px-6 pb-20 pt-10 sm:px-8 lg:px-12">
+        <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }} className="rounded-[40px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),radial-gradient(circle_at_top,rgba(249,115,22,0.15),transparent_38%),rgba(8,8,8,0.94)] p-6 shadow-[0_38px_100px_rgba(0,0,0,0.42)] md:p-10">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.42em] text-orange-300">Booking Command</p>
+              <h1 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-7xl">Approvals with clear signal.</h1>
+              <p className="mt-6 max-w-2xl text-base leading-8 text-white/62">
+                Users can track every stay and ride request, while owners and drivers can confirm or decline them from one cleaner control surface.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <StatCard label="My Bookings" value={stats.myTotal} />
+              <StatCard label="Pending Mine" value={stats.myPending} />
+              <StatCard label="Incoming Requests" value={stats.incoming} />
+              <StatCard label="Unread Alerts" value={stats.alerts} />
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <TabButton active={activeTab === "user"} onClick={() => setActiveTab("user")}>My Bookings</TabButton>
+            <TabButton active={activeTab === "partner"} onClick={() => setActiveTab("partner")}>Owner / Driver Inbox</TabButton>
+            <TabButton active={activeTab === "alerts"} onClick={() => setActiveTab("alerts")}>Notifications</TabButton>
+          </div>
+        </motion.section>
+
+        {loading ? (
+          <div className="flex h-[50vh] items-center justify-center">
+            <Loader2 className="animate-spin text-orange-400" size={40} />
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.section key={activeTab} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 18 }} transition={{ duration: 0.35, ease }} className="mt-10 space-y-6">
+              {activeTab === "user" && (
+                <BookingList
+                  items={userBookings}
+                  onTrack={(booking, viewerRole) => setTrackingSelection({ booking, viewerRole })}
+                  emptyTitle="No bookings yet"
+                  emptyText="Once you request a stay or ride, it will appear here with payment and approval status."
+                />
+              )}
+              {activeTab === "partner" && (
+                <BookingList
+                  items={partnerBookings}
+                  mode="partner"
+                  updatingId={updatingId}
+                  onTrack={(booking, viewerRole) => setTrackingSelection({ booking, viewerRole })}
+                  onApprove={(id) => handleStatusUpdate(id, "confirmed")}
+                  onDecline={(id) => handleStatusUpdate(id, "declined")}
+                  emptyTitle="No incoming requests"
+                  emptyText="When a traveler books one of your stays or rides, it will land here for approval."
+                />
+              )}
+              {activeTab === "alerts" && <NotificationsPanel items={notifications} />}
+            </motion.section>
+          </AnimatePresence>
+        )}
+      </Container>
+
+      <LiveRideTracker
+        bookingId={trackingSelection?.booking?._id || ""}
+        initialBooking={trackingSelection?.booking || null}
+        initialViewerRole={trackingSelection?.viewerRole || "rider"}
+        open={Boolean(trackingSelection?.booking?._id)}
+        onClose={() => setTrackingSelection(null)}
+      />
     </div>
   );
+}
+
+function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, onTrack, emptyTitle, emptyText }) {
+  if (!items.length) {
+    return (
+      <div className="rounded-[34px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center text-white/35">
+        <Bell className="mx-auto mb-4 text-orange-400/70" size={28} />
+        <p className="text-2xl font-black uppercase italic tracking-tight text-white">{emptyTitle}</p>
+        <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/50">{emptyText}</p>
+      </div>
+    );
+  }
+
+  return items.map((booking, index) => (
+    <motion.article
+      key={booking._id}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }}
+      className="rounded-[34px] border border-white/10 bg-[#090909] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.32)] md:p-8"
+    >
+      <div className="flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex gap-5">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/10 bg-white/5 text-orange-300">
+            {isStayBooking(booking) ? <MapPin size={24} /> : <Car size={24} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.32em] text-orange-300">{isStayBooking(booking) ? "Stay Request" : "Ride Request"}</p>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-white/45">Ref {booking._id.slice(-6).toUpperCase()}</span>
+            </div>
+            <h3 className="mt-3 text-2xl font-black uppercase italic tracking-tight text-white md:text-4xl">
+              {booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"}
+            </h3>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm text-white/58">
+              <MetaChip icon={<Calendar size={14} />} text={new Date(booking.date || booking.createdAt).toLocaleDateString()} />
+              {booking.bookingType === "Transport" && (
+                <MetaChip
+                  icon={<Calendar size={14} />}
+                  text={`Ride ${booking.listingId?.availableDate ? new Date(booking.listingId.availableDate).toLocaleDateString() : "Flexible"}`}
+                />
+              )}
+              <MetaChip icon={<IndianRupee size={14} />} text={`${booking.amount || 0}`} />
+              <MetaChip icon={<Clock3 size={14} />} text={`Payment ${booking.paymentStatus || "pending"}`} />
+              {mode === "partner" && <MetaChip icon={<Phone size={14} />} text={`${booking.customerName} · ${booking.phoneNumber}`} />}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 md:min-w-[260px]">
+          <StatusPill status={booking.status} />
+          {booking.bookingType === "Transport" && booking.status !== "declined" && booking.status !== "cancelled" && (
+              <Button
+                variant="ghost"
+                onClick={() => onTrack?.(booking, mode === "partner" ? "driver" : "rider")}
+                className="rounded-[20px] text-[10px] tracking-[0.26em]"
+              >
+              <Navigation size={15} /> Live Track
+            </Button>
+          )}
+          {mode === "partner" && booking.status === "pending" && (
+            <div className="grid grid-cols-2 gap-3">
+              <Button onClick={() => onApprove(booking._id)} disabled={updatingId === booking._id} className="rounded-[20px] text-[10px] tracking-[0.26em]">
+                {updatingId === booking._id ? <Loader2 size={15} className="animate-spin" /> : <><CheckCircle2 size={15} /> Confirm</>}
+              </Button>
+              <Button variant="ghost" onClick={() => onDecline(booking._id)} disabled={updatingId === booking._id} className="rounded-[20px] border-red-500/20 text-[10px] tracking-[0.26em] text-red-300 hover:bg-red-500/10">
+                <XCircle size={15} /> Decline
+              </Button>
+            </div>
+          )}
+          {mode === "user" && (
+            <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
+              {booking.status === "pending" && "Your request is paid and waiting for owner or driver approval."}
+              {booking.status === "confirmed" && "Your booking has been approved. You are ready to proceed."}
+              {booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
+              {booking.status === "cancelled" && "This booking was cancelled."}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.article>
+  ));
+}
+
+function NotificationsPanel({ items }) {
+  if (!items.length) {
+    return (
+      <div className="rounded-[34px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center text-white/35">
+        <ShieldCheck className="mx-auto mb-4 text-orange-400/70" size={28} />
+        <p className="text-2xl font-black uppercase italic tracking-tight text-white">No notifications yet</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-20 gap-10">
-        <div className="relative">
-          <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} className="h-px bg-gradient-to-r from-orange-500 to-transparent mb-4 w-32" />
-          <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter text-white leading-[0.8]">
-            Reservations<span className="text-orange-500">.</span>
-          </h1>
-          <p className="text-[9px] font-black uppercase tracking-[0.5em] text-white/20 mt-4 ml-2">Logistics & Expedition Control</p>
+    <div className="grid gap-4">
+      {items.map((item) => (
+        <div key={item._id} className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-300">{item.title}</p>
+            <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">{new Date(item.createdAt).toLocaleString()}</span>
+          </div>
+          <p className="mt-3 text-sm leading-7 text-white/62">{item.message}</p>
         </div>
-
-        {/* TOGGLE TABS */}
-        <div className="flex bg-white/5 p-2 rounded-[30px] border border-white/10 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-          <button 
-            onClick={() => setActiveTab('user')}
-            className={`px-10 py-4 rounded-[24px] flex items-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all duration-500 ${activeTab === 'user' ? 'bg-orange-600 text-white shadow-xl shadow-orange-600/20' : 'text-white/30 hover:text-white hover:bg-white/5'}`}
-          >
-            <PlaneTakeoff size={14}/> My Trips
-          </button>
-          <button 
-            onClick={() => setActiveTab('partner')}
-            className={`relative px-10 py-4 rounded-[24px] flex items-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all duration-500 ${activeTab === 'partner' ? 'bg-orange-600 text-white shadow-xl shadow-orange-600/20' : 'text-white/30 hover:text-white hover:bg-white/5'}`}
-          >
-            <Briefcase size={14}/> Partner Requests
-            {partnerBookings.filter(b => b.status === 'Pending').length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 rounded-full text-[9px] flex items-center justify-center font-black animate-bounce border-2 border-[#050505]">
-                {partnerBookings.filter(b => b.status === 'Pending').length}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.02 }}
-          className="grid gap-8"
-        >
-          {activeTab === 'user' ? (
-            <BookingGrid data={userBookings} mode="user" />
-          ) : (
-            <BookingGrid data={partnerBookings} mode="partner" onUpdate={handleStatusUpdate} />
-          )}
-        </motion.div>
-      </AnimatePresence>
+      ))}
     </div>
   );
-};
+}
 
-const BookingGrid = ({ data, mode, onUpdate }) => {
-  if (data.length === 0) return (
-    <div className="py-44 text-center border border-dashed border-white/10 rounded-[60px] bg-white/[0.01] backdrop-blur-md relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-orange-500/[0.02] to-transparent pointer-events-none" />
-      <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 3, repeat: Infinity }}>
-        <Briefcase size={54} className="mx-auto mb-6 text-white/10" />
-      </motion.div>
-      <p className="text-[11px] font-black uppercase tracking-[0.8em] text-white/20 italic">No Data Found In Archives</p>
+function StatCard({ label, value }) {
+  return (
+    <div className="rounded-[26px] border border-white/10 bg-white/5 px-5 py-5">
+      <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">{label}</p>
+      <p className="mt-3 text-3xl font-black uppercase italic tracking-tight text-white">{value}</p>
     </div>
   );
+}
 
-  return data.map((b, i) => (
-    <motion.div 
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.1 }}
-      key={b._id} 
-      className={`group relative bg-[#090909] border border-white/5 p-8 md:p-12 rounded-[50px] transition-all duration-500 hover:bg-[#0c0c0c] ${mode === 'partner' && b.status === 'Pending' ? 'hover:border-orange-500/50 shadow-[0_0_40px_rgba(249,115,22,0.05)]' : 'hover:border-white/20'}`}
-    >
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-12 relative z-10">
-        
-        {/* INFO BLOCK */}
-        <div className="flex flex-col md:flex-row gap-10 items-start md:items-center w-full">
-          <div className="relative shrink-0">
-            <div className="w-28 h-28 rounded-[40px] bg-gradient-to-br from-white/[0.08] to-transparent border border-white/10 flex items-center justify-center text-orange-500 shadow-3xl group-hover:rotate-6 transition-all duration-700">
-              {b.hotelId ? <MapPin size={36}/> : <Car size={36}/>}
-            </div>
-            {b.status === 'Pending' && (
-              <div className="absolute -top-3 -right-3 w-7 h-7 bg-orange-600 rounded-full flex items-center justify-center border-4 border-[#090909] shadow-lg">
-                <Clock size={12} className="text-white animate-spin-slow" />
-              </div>
-            )}
-          </div>
+function TabButton({ active, onClick, children }) {
+  return (
+    <button onClick={onClick} className={`rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[0.28em] transition-all ${active ? "bg-orange-500 text-white" : "border border-white/10 bg-white/5 text-white/55 hover:text-white"}`}>
+      {children}
+    </button>
+  );
+}
 
-          <div className="flex flex-col flex-1">
-            <div className="flex items-center gap-3 mb-3">
-               <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.4em] italic">
-                 {b.hotelId ? 'Stay Expedition' : 'Fleet Deployment'}
-               </span>
-               <div className="h-px w-8 bg-white/10" />
-               <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">REF: {b._id.slice(-6).toUpperCase()}</span>
-            </div>
+function MetaChip({ icon, text }) {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/58">
+      <span className="text-orange-300">{icon}</span>
+      <span>{text}</span>
+    </div>
+  );
+}
 
-            <h3 className="text-3xl md:text-5xl font-black italic uppercase text-white tracking-tighter mb-6 leading-tight">
-              {b.hotelId?.name || b.transportId?.vehicleModel || "Archived Record"}
-            </h3>
-            
-            <div className="flex flex-wrap gap-8 text-[11px] font-black text-white/40 uppercase italic tracking-[0.15em]">
-              <div className="flex items-center gap-2.5 bg-white/5 px-4 py-2 rounded-xl border border-white/5"><Calendar size={14} className="text-orange-500/50"/> {new Date(b.createdAt).toLocaleDateString()}</div>
-              
-              {/* PRICE & CAPACITY */}
-              <div className="flex items-center gap-2.5 bg-orange-500/5 px-4 py-2 rounded-xl border border-orange-500/10 text-orange-500/80">
-                <IndianRupee size={14}/> {b.totalPrice || '---'}
-              </div>
+function StatusPill({ status }) {
+  const normalized = String(status || "pending").toLowerCase();
+  const color =
+    normalized === "confirmed"
+      ? "border-green-500/25 bg-green-500/10 text-green-300"
+      : normalized === "declined" || normalized === "cancelled"
+        ? "border-red-500/25 bg-red-500/10 text-red-300"
+        : "border-orange-500/25 bg-orange-500/10 text-orange-300";
 
-              {mode === 'partner' && (
-                <div className="flex items-center gap-6 border-l border-white/10 pl-8 ml-2">
-                  <span className="flex items-center gap-2.5 text-blue-400"><User size={14}/> {b.user?.fullName}</span>
-                  <a href={`tel:${b.user?.phone}`} className="flex items-center gap-2.5 hover:text-white transition-all"><Phone size={14} className="text-green-500"/> {b.user?.phone}</a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+  return (
+    <div className={`rounded-full border px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.3em] ${color}`}>
+      {normalized}
+    </div>
+  );
+}
 
-        {/* ACTIONS & STATUS */}
-        <div className="flex flex-col sm:flex-row items-center gap-6 w-full xl:w-auto">
-          <div className={`w-full sm:w-auto px-10 py-5 rounded-[25px] text-[10px] font-black uppercase tracking-[0.4em] border text-center transition-all duration-700 ${
-            b.status === 'Confirmed' ? 'bg-green-500/10 border-green-500/20 text-green-400 shadow-[0_10px_40px_rgba(34,197,94,0.1)]' : 
-            b.status === 'Cancelled' ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-[0_10px_40px_rgba(239,68,68,0.1)]' : 
-            'bg-orange-500/10 border-orange-500/30 text-orange-500 shadow-[0_10px_40px_rgba(249,115,22,0.1)]'
-          }`}>
-            {b.status || 'Verifying...'}
-          </div>
-
-          {mode === 'partner' && b.status === 'Pending' && (
-            <div className="flex gap-4 w-full sm:w-auto">
-              <button 
-                onClick={() => onUpdate(b._id, 'Confirmed')} 
-                className="flex-1 sm:flex-none p-5 bg-green-600 rounded-[22px] hover:bg-green-500 hover:scale-110 active:scale-95 transition-all shadow-2xl shadow-green-600/30 group/btn"
-              >
-                <CheckCircle size={26} className="text-white"/>
-              </button>
-              <button 
-                onClick={() => onUpdate(b._id, 'Cancelled')} 
-                className="flex-1 sm:flex-none p-5 bg-red-600/10 border border-red-600/30 text-red-500 rounded-[22px] hover:bg-red-600 hover:text-white hover:scale-110 active:scale-95 transition-all"
-              >
-                <XCircle size={26}/>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Cinematic Overlays */}
-      <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-orange-500/[0.01] to-transparent pointer-events-none" />
-      <div className="absolute -left-10 bottom-0 w-40 h-1 bg-gradient-to-r from-orange-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-    </motion.div>
-  ));
-};
-
-export default Bookings;
+function isStayBooking(booking) {
+  return booking.bookingType === "Hotel" || !!booking.listingId?.hotelName;
+}

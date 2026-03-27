@@ -1,188 +1,371 @@
-import React, { useEffect, useState } from 'react';
-import API from '../utils/api';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Car, MapPin, RefreshCw, Loader2, Navigation, Users, Plus, Minus, CheckCircle2, Clock, ShieldCheck, Activity, Zap } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import API from "../utils/api";
+import { motion } from "framer-motion";
+import { Calendar, Car, Crosshair, IndianRupee, Loader2, MapPin, Navigation, Save, Users } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
 
-const ManageRides = () => {
+const hubs = ["Guptakashi", "Sonprayag", "Phata", "Rudraprayag", "Rishikesh", "Dehradun", "Haridwar", "Joshimath"];
+
+export default function ManageRides() {
   const { notify } = useNotify();
   const [myRides, setMyRides] = useState([]);
+  const [drafts, setDrafts] = useState({});
   const [loading, setLoading] = useState(true);
-
-  const hubs = ["Guptakashi", "Sonprayag", "Phata", "Rudraprayag", "Rishikesh", "Dehradun"];
+  const [savingId, setSavingId] = useState("");
+  const [locatingId, setLocatingId] = useState("");
+  const [togglingId, setTogglingId] = useState("");
 
   useEffect(() => {
     const fetchMyFleet = async () => {
       try {
         const res = await API.get("/transport/my-rides");
-        setMyRides(res.data.data || res.data);
-      } catch (err) {
+        const rides = res.data?.data || res.data || [];
+        setMyRides(rides);
+        setDrafts(
+          Object.fromEntries(
+            rides.map((ride) => [
+              ride._id,
+              {
+                routeFrom: ride.routeFrom || "",
+                routeTo: ride.routeTo || "",
+                availableDate: ride.availableDate ? String(ride.availableDate).split("T")[0] : "",
+                seatsAvailable: ride.seatsAvailable || 1,
+                pricePerSeat: ride.pricePerSeat || 0,
+                fromCoords: ride.fromCoords || null,
+                toCoords: ride.toCoords || null,
+                driverOnline: ride.driverOnline ?? true,
+              },
+            ])
+          )
+        );
+      } catch (_err) {
         notify("Fleet link failed", "error");
       } finally {
         setLoading(false);
       }
     };
     fetchMyFleet();
-  }, []);
+  }, [notify]);
 
-  const updateRideData = async (id, updatedFields) => {
+  const setDraft = (rideId, patch) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [rideId]: { ...(prev[rideId] || {}), ...patch },
+    }));
+  };
+
+  const getCoords = async (place) => {
     try {
-      await API.patch(`/transport/update/${id}`, updatedFields);
-      setMyRides(myRides.map(ride => ride._id === id ? { ...ride, ...updatedFields } : ride));
-      notify("Cloud Synced Successfully", "success");
-    } catch (err) {
-      notify("Transmission Error", "error");
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`);
+      const data = await res.json();
+      return data?.[0]
+        ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+        : { lat: 30.3165, lng: 78.0322 };
+    } catch {
+      return { lat: 30.3165, lng: 78.0322 };
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505]">
-      <div className="relative">
-        <Loader2 className="animate-spin text-orange-600" size={60}/>
-        <div className="absolute inset-0 blur-2xl bg-orange-600/20 animate-pulse"></div>
+  const getLocationLabel = async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`
+      );
+      const data = await res.json();
+      return (
+        data?.address?.suburb ||
+        data?.address?.road ||
+        data?.address?.town ||
+        data?.address?.city ||
+        data?.display_name?.split(",")?.slice(0, 2)?.join(", ") ||
+        `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+      );
+    } catch {
+      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+  };
+
+  const captureLiveLocation = (rideId) => {
+    if (!navigator.geolocation) {
+      notify("This browser does not support live location.", "error");
+      return;
+    }
+
+    setLocatingId(rideId);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        const label = await getLocationLabel(coords.lat, coords.lng);
+        setDraft(rideId, { routeFrom: label, fromCoords: coords });
+        setLocatingId("");
+        notify("Driver live location captured.", "success");
+      },
+      () => {
+        setLocatingId("");
+        notify("Allow location access to use your exact pickup point.", "error");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  const republishRide = async (ride) => {
+    const draft = drafts[ride._id];
+    if (!draft?.routeFrom?.trim() || !draft?.routeTo?.trim()) {
+      notify("Add both source and destination.", "error");
+      return;
+    }
+    if (!Number(draft.pricePerSeat || ride.pricePerSeat || 0)) {
+      notify("Add a fare for this ride.", "error");
+      return;
+    }
+
+    setSavingId(ride._id);
+    try {
+      const [fromCoords, toCoords] = await Promise.all([
+        draft.fromCoords || getCoords(draft.routeFrom),
+        draft.toCoords || getCoords(draft.routeTo),
+      ]);
+      const payload = {
+        routeFrom: draft.routeFrom.trim(),
+        routeTo: draft.routeTo.trim(),
+        availableDate: draft.availableDate || null,
+        fromCoords,
+        toCoords,
+        seatsAvailable: Number(draft.seatsAvailable || ride.seatsAvailable || 1),
+        pricePerSeat: Number(draft.pricePerSeat || ride.pricePerSeat || 0),
+        driverOnline: draft.driverOnline ?? ride.driverOnline ?? true,
+      };
+
+      const res = await API.patch(`/transport/update/${ride._id}`, payload);
+      const updated = res.data?.data || { ...ride, ...payload };
+      setMyRides((prev) => prev.map((item) => (item._id === ride._id ? { ...item, ...updated } : item)));
+      notify("Ride updated live for riders.", "success");
+    } catch (_err) {
+      notify("Unable to update route right now.", "error");
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const toggleDriverOnline = async (ride) => {
+    const nextOnline = !(drafts[ride._id]?.driverOnline ?? ride.driverOnline ?? true);
+    setDraft(ride._id, { driverOnline: nextOnline });
+    setTogglingId(ride._id);
+    try {
+      const res = await API.patch(`/transport/update/${ride._id}`, { driverOnline: nextOnline });
+      const updated = res.data?.data || { ...ride, driverOnline: nextOnline };
+      setMyRides((prev) => prev.map((item) => (item._id === ride._id ? { ...item, ...updated } : item)));
+      notify(nextOnline ? "Driver is now online." : "Driver is now offline.", nextOnline ? "success" : "error");
+    } catch {
+      setDraft(ride._id, { driverOnline: ride.driverOnline ?? true });
+      notify("Unable to update online status right now.", "error");
+    } finally {
+      setTogglingId("");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505]">
+        <Loader2 className="animate-spin text-orange-500" size={46} />
+        <p className="mt-6 text-[10px] font-black uppercase tracking-[0.5em] text-white/30 italic">Syncing fleet...</p>
       </div>
-      <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.6em] mt-8 italic">Establishing Secure Fleet Link...</p>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="relative min-h-screen bg-[#050505] pt-40 pb-32 px-6">
-      {/* Background Visuals */}
+    <div className="min-h-screen bg-[#050505] px-6 pb-24 pt-40 text-white">
       <div className="fixed inset-0 z-0">
-        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="w-full h-full object-cover opacity-10 grayscale" alt="BG" />
-        <div className="absolute inset-0 bg-gradient-to-tr from-black via-[#050505] to-orange-900/10"></div>
+        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="h-full w-full object-cover opacity-10 grayscale" alt="Fleet background" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-black via-[#050505] to-orange-950/10" />
       </div>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 max-w-6xl mx-auto">
-        
-        {/* DASHBOARD HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-24 gap-8">
-            <div className="relative">
-                <div className="absolute -left-6 top-0 bottom-0 w-1 bg-orange-600 rounded-full shadow-[0_0_15px_rgba(234,88,12,0.5)]"></div>
-                <h1 className="text-7xl md:text-8xl font-black text-white uppercase italic tracking-tighter leading-[0.8]">
-                    FLEET <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-800">OPS.</span>
-                </h1>
-                <p className="text-white/40 font-bold text-[10px] tracking-[0.4em] uppercase mt-6 flex items-center gap-2">
-                   <Zap size={14} className="text-orange-500 fill-orange-500 animate-bounce"/> Real-time Command Center
-                </p>
-            </div>
-            <div className="bg-white/5 backdrop-blur-2xl border border-white/10 px-8 py-5 rounded-[30px] shadow-2xl">
-                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 text-center md:text-left">Operational Units</p>
-                <p className="text-3xl font-black italic text-white leading-none text-center md:text-left">{myRides.length < 10 ? `0${myRides.length}` : myRides.length}</p>
-            </div>
+      <div className="relative z-10 mx-auto max-w-6xl">
+        <div className="mb-20 flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Route Control</p>
+            <h1 className="mt-4 text-6xl font-black uppercase italic tracking-[-0.05em] text-white md:text-8xl">
+              Fleet <span className="bg-gradient-to-r from-orange-400 to-orange-700 bg-clip-text text-transparent">republish.</span>
+            </h1>
+            <p className="mt-5 max-w-2xl text-sm leading-8 text-white/58 md:text-base">
+              When the driver reaches a new town, update the route here and publish the next day’s journey from the new location to wherever the vehicle is going next.
+            </p>
+          </div>
+          <div className="rounded-[30px] border border-white/10 bg-white/[0.03] px-8 py-6 backdrop-blur-2xl">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Operational Units</p>
+            <p className="mt-2 text-4xl font-black italic text-white">{String(myRides.length).padStart(2, "0")}</p>
+          </div>
         </div>
 
-        {/* FLEET CARDS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {myRides.length > 0 ? myRides.map((ride) => (
-            <motion.div 
-              key={ride._id} 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ y: -8 }}
-              className="bg-white/[0.02] border border-white/5 p-10 rounded-[55px] backdrop-blur-3xl shadow-3xl relative overflow-hidden group transition-all duration-500 hover:border-orange-500/30"
-            >
-              {/* Animated Corner Accent */}
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-orange-600/5 blur-[80px] group-hover:bg-orange-600/20 transition-all duration-700"></div>
+        <div className="grid gap-8">
+          {myRides.length === 0 ? (
+            <div className="rounded-[40px] border border-dashed border-white/10 bg-white/[0.02] p-12 text-center text-white/35">
+              <Car size={28} className="mx-auto mb-4 text-orange-400/70" />
+              <p className="text-2xl font-black uppercase italic tracking-tight text-white">No rides listed</p>
+            </div>
+          ) : (
+            myRides.map((ride, index) => {
+              const draft = drafts[ride._id] || {};
+              return (
+                <motion.div
+                  key={ride._id}
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.05 }}
+                  className="rounded-[42px] border border-white/10 bg-white/[0.03] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-3xl"
+                >
+                  <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
+                    <div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-white/10 bg-white/5 text-orange-400">
+                          <Car size={28} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.32em] text-white/28">{ride.plateNumber}</p>
+                          <h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-white">{ride.vehicleModel}</h2>
+                        </div>
+                      </div>
 
-              <div className="flex justify-between items-start mb-12">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-white/10 to-transparent rounded-[24px] flex items-center justify-center text-orange-500 border border-white/10 group-hover:bg-orange-600 group-hover:text-white transition-all shadow-2xl">
-                    <Car size={30} />
-                  </div>
-                  <div>
-                    <h3 className="text-3xl font-black text-white uppercase italic leading-none tracking-tight">{ride.vehicleModel || "Expedition"}</h3>
-                    <p className="text-white/20 text-[9px] font-black tracking-[0.3em] uppercase mt-2 italic">{ride.plateNumber}</p>
-                  </div>
-                </div>
-                
-                <div className={`px-5 py-2.5 rounded-2xl text-[8px] font-black uppercase tracking-widest border flex items-center gap-3 shadow-xl ${
-                    ride.status === 'approved' 
-                    ? 'bg-green-500/10 text-green-500 border-green-500/20 shadow-green-500/5' 
-                    : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${ride.status === 'approved' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
-                  {ride.status}
-                </div>
-              </div>
-
-              {/* SEAT CONTROLLER: Visual Touchup */}
-              <div className="bg-gradient-to-r from-black/60 to-black/40 border border-white/5 p-8 rounded-[40px] mb-8 flex items-center justify-between shadow-inner">
-                <div className="space-y-1">
-                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] italic leading-none">Live Capacity</p>
-                    <p className="text-white/30 font-bold text-[9px] uppercase tracking-widest leading-none">Passenger Inventory</p>
-                </div>
-                <div className="flex items-center gap-8">
-                    <button 
-                        onClick={() => updateRideData(ride._id, { seatsAvailable: Math.max(0, ride.seatsAvailable - 1) })}
-                        className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-red-600/20 hover:text-red-500 hover:border-red-500/40 transition-all active:scale-90"
-                    >
-                        <Minus size={22}/>
-                    </button>
-                    <div className="relative px-4">
-                        <span className="text-6xl font-black text-white italic tracking-tighter drop-shadow-2xl">{ride.seatsAvailable}</span>
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-orange-600 rounded-full shadow-[0_0_10px_orange]"></div>
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">
+                          Current: {ride.routeFrom} to {ride.routeTo}
+                        </div>
+                        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+                          Seats: {ride.seatsAvailable}
+                        </div>
+                        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+                          Date: {draft.availableDate || (ride.availableDate ? new Date(ride.availableDate).toLocaleDateString() : "Not set")}
+                        </div>
+                        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+                          Fare: Rs {draft.pricePerSeat ?? ride.pricePerSeat}
+                        </div>
+                        <div className={`rounded-full border px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] ${(draft.driverOnline ?? ride.driverOnline ?? true) ? "border-green-500/20 bg-green-500/10 text-green-300" : "border-white/10 bg-white/5 text-white/55"}`}>
+                          {(draft.driverOnline ?? ride.driverOnline ?? true) ? "Driver online" : "Driver offline"}
+                        </div>
+                      </div>
                     </div>
-                    <button 
-                        onClick={() => updateRideData(ride._id, { seatsAvailable: ride.seatsAvailable + 1 })}
-                        className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-green-600/20 hover:text-green-500 hover:border-green-500/40 transition-all active:scale-90"
-                    >
-                        <Plus size={22}/>
-                    </button>
-                </div>
-              </div>
 
-              {/* HUB SWITCHER: Premium Chips */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between px-2">
-                    <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.5em] flex items-center gap-3 italic">
-                        <Navigation size={14} className="text-orange-500"/> Station Link
-                    </label>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {hubs.map((loc) => (
-                    <button 
-                      key={loc}
-                      onClick={() => updateRideData(ride._id, { routeFrom: loc })}
-                      className={`py-4 rounded-[22px] text-[10px] font-black uppercase transition-all border relative overflow-hidden ${
-                        ride.routeFrom === loc 
-                        ? 'bg-white text-black border-white shadow-[0_0_30px_rgba(255,255,255,0.15)] scale-105' 
-                        : 'bg-white/5 text-white/30 border-white/5 hover:border-white/20 hover:text-white'
-                      }`}
-                    >
-                      {ride.routeFrom === loc && <motion.div layoutId="activeHub" className="absolute inset-0 bg-white" />}
-                      <span className="relative z-10">{loc}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* FOOTER: Live Telemetry Feel */}
-              <div className="mt-10 pt-8 border-t border-white/5 flex justify-between items-center px-2">
-                <div className="flex gap-4">
-                    <div className="flex items-center gap-2 text-[9px] font-black text-white/40 uppercase bg-white/5 px-4 py-2 rounded-xl">
-                        Rate: <span className="text-orange-500 italic">₹{ride.pricePerSeat}</span>
+                    <div className={`rounded-full border px-4 py-3 text-[10px] font-black uppercase tracking-[0.28em] ${ride.status === "approved" ? "border-green-500/25 bg-green-500/10 text-green-300" : "border-yellow-500/25 bg-yellow-500/10 text-yellow-300"}`}>
+                      {ride.status}
                     </div>
-                </div>
-                <div className="text-[9px] font-black text-orange-600 uppercase tracking-widest italic flex items-center gap-2">
-                    <RefreshCw size={12} className="animate-spin-slow"/> 
-                    <span className="animate-pulse">Live Link Active</span>
-                </div>
-              </div>
+                  </div>
 
-            </motion.div>
-          )) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-full py-40 text-center border-2 border-dashed border-white/10 rounded-[80px]">
-              <p className="text-white/10 font-black tracking-[1em] uppercase italic text-2xl">Waiting for Fleet Connection...</p>
-            </motion.div>
+                  <div className="mt-8 grid gap-4 xl:grid-cols-[1fr_1fr_170px_170px_220px]">
+                    <Field icon={<MapPin size={16} />} label="Current Driver Location">
+                      <input
+                        value={draft.routeFrom || ""}
+                        onChange={(e) => setDraft(ride._id, { routeFrom: e.target.value, fromCoords: null })}
+                        placeholder="Guptakashi"
+                        className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none placeholder:text-white/24"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => captureLiveLocation(ride._id)}
+                        disabled={locatingId === ride._id}
+                        className="mt-4 inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-orange-200 transition-all hover:bg-orange-500/20 disabled:opacity-60"
+                      >
+                        {locatingId === ride._id ? <Loader2 size={12} className="animate-spin" /> : <Crosshair size={12} />}
+                        Use My Live Location
+                      </button>
+                    </Field>
+                    <Field icon={<Navigation size={16} />} label="Next Destination">
+                      <input
+                        value={draft.routeTo || ""}
+                        onChange={(e) => setDraft(ride._id, { routeTo: e.target.value, toCoords: null })}
+                        placeholder="Dehradun"
+                        className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none placeholder:text-white/24"
+                      />
+                    </Field>
+                    <Field icon={<Users size={16} />} label="Seats To Publish">
+                      <input
+                        type="number"
+                        min="1"
+                        value={draft.seatsAvailable ?? ride.seatsAvailable}
+                        onChange={(e) => setDraft(ride._id, { seatsAvailable: Math.max(1, Number(e.target.value) || 1) })}
+                        className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none"
+                      />
+                    </Field>
+                    <Field icon={<IndianRupee size={16} />} label="Fare Per Seat">
+                      <input
+                        type="number"
+                        min="1"
+                        value={draft.pricePerSeat ?? ride.pricePerSeat}
+                        onChange={(e) => setDraft(ride._id, { pricePerSeat: Math.max(1, Number(e.target.value) || 1) })}
+                        className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none"
+                      />
+                    </Field>
+                    <Field icon={<Calendar size={16} />} label="Ride Date">
+                      <input
+                        type="date"
+                        min={new Date().toISOString().split("T")[0]}
+                        value={draft.availableDate || ""}
+                        onChange={(e) => setDraft(ride._id, { availableDate: e.target.value })}
+                        className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none [color-scheme:dark]"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    {hubs.map((hub) => (
+                      <button
+                        key={`${ride._id}-${hub}`}
+                        type="button"
+                        onClick={() => setDraft(ride._id, { routeFrom: hub })}
+                        className={`rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] transition-all ${draft.routeFrom === hub ? "border-orange-500/30 bg-orange-500/15 text-orange-200" : "border-white/10 bg-white/5 text-white/50 hover:text-white"}`}
+                      >
+                        {hub}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-8 flex flex-col gap-4 border-t border-white/8 pt-6 md:flex-row md:items-center md:justify-between">
+                    <div className="rounded-[24px] border border-orange-500/15 bg-orange-500/[0.05] px-5 py-4 text-sm leading-7 text-white/58">
+                      Use this to relaunch the same car from today’s arrival point tomorrow morning. The map route will update with the new source and destination.
+                    </div>
+                    <div className="flex flex-col gap-3 md:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => toggleDriverOnline(ride)}
+                        disabled={togglingId === ride._id}
+                        className={`inline-flex items-center justify-center gap-3 rounded-[24px] border px-6 py-5 text-[11px] font-black uppercase tracking-[0.28em] transition-all disabled:opacity-60 ${(draft.driverOnline ?? ride.driverOnline ?? true) ? "border-green-500/25 bg-green-500/10 text-green-300 hover:bg-green-500/20" : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"}`}
+                      >
+                        {togglingId === ride._id ? <Loader2 size={16} className="animate-spin" /> : (draft.driverOnline ?? ride.driverOnline ?? true) ? "Go Offline" : "Go Online"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => republishRide(ride)}
+                        disabled={savingId === ride._id}
+                        className="inline-flex items-center justify-center gap-3 rounded-[24px] bg-gradient-to-r from-orange-600 to-amber-500 px-8 py-5 text-[11px] font-black uppercase tracking-[0.28em] text-white shadow-[0_20px_60px_rgba(249,115,22,0.25)] transition-all hover:brightness-110 disabled:opacity-60"
+                      >
+                        {savingId === ride._id ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Update Live Ride</>}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
           )}
         </div>
-      </motion.div>
-      
-      {/* Decorative Bottom Glow */}
-      <div className="fixed bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-orange-600/20 to-transparent"></div>
+      </div>
     </div>
   );
-};
+}
 
-export default ManageRides;
+function Field({ icon, label, children }) {
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-white/5 px-5 py-4">
+      <div className="mb-3 flex items-center gap-3 text-orange-300">
+        {icon}
+        <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/38">{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}

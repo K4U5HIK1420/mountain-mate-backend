@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, CreditCard, Loader2, ArrowRight, XCircle } from "lucide-react";
 import API from "../utils/api";
@@ -8,13 +8,18 @@ import { Button } from "../components/ui/Button";
 export default function BookingConfirm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [booking, setBooking] = useState(null);
+  const [booking, setBooking] = useState(location.state?.booking || null);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     async function load() {
+      if (location.state?.booking && String(location.state.booking._id) === String(id)) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         // Prefer direct endpoint (faster + reliable)
@@ -39,7 +44,7 @@ export default function BookingConfirm() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [id, location.state]);
 
   const payNow = async () => {
     if (!booking) return;
@@ -79,7 +84,7 @@ export default function BookingConfirm() {
           ) : !booking ? (
             <div className="mt-10 space-y-5">
               <div className="flex items-center gap-3 text-red-300 font-black uppercase tracking-widest text-[10px]">
-                <XCircle size={18} /> Booking not found (login as Customer JWT)
+                <XCircle size={18} /> Booking not found for this account
               </div>
               <Button as={Link} to="/login" variant="ghost" size="lg" className="w-full">
                 Go to Login <ArrowRight size={16} />
@@ -123,4 +128,3 @@ export default function BookingConfirm() {
     </div>
   );
 }
-

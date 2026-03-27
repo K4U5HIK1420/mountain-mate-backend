@@ -1,12 +1,13 @@
 import API from "../utils/api";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Car, MapPin, IndianRupee, Users, ShieldCheck, 
   Navigation, Loader2, Image as ImageIcon, X, 
-  Phone, User as UserIcon, UploadCloud, Info, CheckCircle2, Zap, ArrowRight, Activity, Globe, Cpu
+  Phone, User as UserIcon, UploadCloud, Info, CheckCircle2, Zap, ArrowRight, Activity, Globe, Cpu, Crosshair
 } from 'lucide-react';
 import { useNotify } from "../context/NotificationContext";
+import RoutePreview from "../components/RoutePreview";
 
 const AddTransport = () => {
   const { notify } = useNotify();
@@ -17,6 +18,7 @@ const AddTransport = () => {
     driverName: '', 
     routeFrom: '', 
     routeTo: '', 
+    availableDate: '',
     pricePerSeat: '', 
     seatsAvailable: '1', 
     contactNumber: ''
@@ -25,6 +27,10 @@ const AddTransport = () => {
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [liveFromCoords, setLiveFromCoords] = useState(null);
+  const [liveToCoords, setLiveToCoords] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [usingLivePickup, setUsingLivePickup] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,6 +59,105 @@ const AddTransport = () => {
     } catch (err) { return { lat: 30.7333, lng: 79.0667 }; }
   };
 
+  const getLocationLabel = async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`
+      );
+      const data = await res.json();
+      return (
+        data?.address?.suburb ||
+        data?.address?.road ||
+        data?.address?.town ||
+        data?.address?.city ||
+        data?.display_name?.split(",")?.slice(0, 2)?.join(", ") ||
+        `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+      );
+    } catch {
+      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+  };
+
+  const captureLivePickup = () => {
+    if (!navigator.geolocation) {
+      notify("This browser does not support live location.", "error");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        const label = await getLocationLabel(coords.lat, coords.lng);
+        setFormData((prev) => ({ ...prev, routeFrom: label }));
+        setLiveFromCoords(coords);
+        setUsingLivePickup(true);
+        setLocating(false);
+        notify("Exact pickup location captured.", "success");
+      },
+      () => {
+        setLocating(false);
+        notify("Allow location access to use your exact live pickup point.", "error");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const syncPreviewCoords = async () => {
+      if (!formData.routeFrom.trim()) {
+        if (active) setLiveFromCoords(null);
+        return;
+      }
+
+       if (usingLivePickup) {
+        return;
+      }
+
+      const coords = await getCoords(formData.routeFrom);
+      if (active) {
+        setLiveFromCoords(coords);
+      }
+    };
+
+    syncPreviewCoords();
+
+    return () => {
+      active = false;
+    };
+  }, [formData.routeFrom, usingLivePickup]);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncPreviewCoords = async () => {
+      if (!formData.routeTo.trim()) {
+        if (active) setLiveToCoords(null);
+        return;
+      }
+
+      const coords = await getCoords(formData.routeTo);
+      if (active) {
+        setLiveToCoords(coords);
+      }
+    };
+
+    syncPreviewCoords();
+
+    return () => {
+      active = false;
+    };
+  }, [formData.routeTo]);
+
   const handleSubmit = async (e) => { 
     e.preventDefault();
     if (images.length === 0) return notify("Protocol Error: Vehicle media required", "error");
@@ -60,8 +165,8 @@ const AddTransport = () => {
     setLoading(true);
 
     try {
-      const fromCoords = await getCoords(formData.routeFrom);
-      const toCoords = await getCoords(formData.routeTo);
+      const fromCoords = liveFromCoords || await getCoords(formData.routeFrom);
+      const toCoords = liveToCoords || await getCoords(formData.routeTo);
 
       const data = new FormData();
       Object.keys(formData).forEach(key => data.append(key, formData[key]));
@@ -75,9 +180,12 @@ const AddTransport = () => {
 
       if (response.data.success) {
         notify("Transmission Successful: Fleet Online", "success");        
-        setFormData({ vehicleModel: '', plateNumber: '', vehicleType: '', driverName: '', routeFrom: '', routeTo: '', pricePerSeat: '', seatsAvailable: '1', contactNumber: '' });
+        setFormData({ vehicleModel: '', plateNumber: '', vehicleType: '', driverName: '', routeFrom: '', routeTo: '', availableDate: '', pricePerSeat: '', seatsAvailable: '1', contactNumber: '' });
         setImages([]);
         setPreviews([]);
+        setLiveFromCoords(null);
+        setLiveToCoords(null);
+        setUsingLivePickup(false);
       }
     } catch (error) {
       const msg =
@@ -186,16 +294,46 @@ const AddTransport = () => {
                     <div className="group bg-black/40 border border-white/5 rounded-[30px] p-2 focus-within:border-orange-600/30 transition-all">
                       <div className="flex items-center gap-4 px-6 py-4">
                         <MapPin className="text-orange-500" size={18}/>
-                        <input name="routeFrom" value={formData.routeFrom} onChange={handleChange} required placeholder="ORIGIN TERMINAL" className="bg-transparent w-full outline-none font-black uppercase tracking-widest text-xs text-white" />
+                        <input name="routeFrom" value={formData.routeFrom} onChange={(e) => { handleChange(e); setUsingLivePickup(false); setLiveFromCoords(null); }} required placeholder="ORIGIN TERMINAL" className="bg-transparent w-full outline-none font-black uppercase tracking-widest text-xs text-white" />
+                      </div>
+                      <div className="px-6 pb-4">
+                        <button
+                          type="button"
+                          onClick={captureLivePickup}
+                          disabled={locating}
+                          className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.24em] text-orange-200 transition-all hover:bg-orange-500/20 disabled:opacity-60"
+                        >
+                          {locating ? <Loader2 size={12} className="animate-spin" /> : <Crosshair size={12} />}
+                          Use My Live Pickup
+                        </button>
                       </div>
                     </div>
                     <div className="group bg-black/40 border border-white/5 rounded-[30px] p-2 focus-within:border-orange-600/30 transition-all">
                       <div className="flex items-center gap-4 px-6 py-4">
                         <Navigation className="text-orange-500" size={18}/>
-                        <input name="routeTo" value={formData.routeTo} onChange={handleChange} required placeholder="DESTINATION HUB" className="bg-transparent w-full outline-none font-black uppercase tracking-widest text-xs text-white" />
+                        <input name="routeTo" value={formData.routeTo} onChange={(e) => { handleChange(e); setLiveToCoords(null); }} required placeholder="DESTINATION HUB" className="bg-transparent w-full outline-none font-black uppercase tracking-widest text-xs text-white" />
+                      </div>
+                    </div>
+                    <div className="group bg-black/40 border border-white/5 rounded-[30px] p-2 focus-within:border-orange-600/30 transition-all md:col-span-2">
+                      <div className="flex items-center gap-4 px-6 py-4">
+                        <Navigation className="text-orange-500" size={18}/>
+                        <input name="availableDate" type="date" value={formData.availableDate} onChange={handleChange} required className="bg-transparent w-full outline-none font-black uppercase tracking-widest text-xs text-white [color-scheme:dark]" />
                       </div>
                     </div>
                   </div>
+
+                  {(formData.routeFrom || formData.routeTo) && (
+                    <div className="overflow-hidden rounded-[32px] border border-white/10 bg-black/30 p-4">
+                      <div className="mb-4 flex items-center gap-3">
+                        <Activity size={16} className="text-orange-500" />
+                        <p className="text-[9px] font-black uppercase tracking-[0.35em] text-white/35">Live Route Preview</p>
+                      </div>
+                      <RoutePreview
+                        pickupCoords={liveFromCoords}
+                        destinationCoords={liveToCoords}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* 03. VALUATION */}

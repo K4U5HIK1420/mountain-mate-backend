@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import socket from "../utils/socket";
 import API from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Car,
+  Calendar,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
+import { useAuth } from "../context/AuthContext";
 import RoutePreview from "../components/RoutePreview";
 import { RidesGridSkeleton } from "../components/Skeletons";
 import { Button } from "../components/ui/Button";
@@ -33,6 +36,8 @@ const ease = [0.22, 1, 0.36, 1];
 
 const ExploreRides = () => {
   const { notify } = useNotify();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState(null);
@@ -41,7 +46,24 @@ const ExploreRides = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [pickupFilter, setPickupFilter] = useState("");
   const [dropFilter, setDropFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
   const [expandedRideId, setExpandedRideId] = useState(null);
+  const [bookingContact, setBookingContact] = useState({ name: "", phone: "", travelDate: "" });
+
+  const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    setBookingContact((prev) => ({
+      ...prev,
+      name:
+        user?.fullName ||
+        user?.user_metadata?.full_name ||
+        user?.displayName ||
+        user?.email?.split("@")[0] ||
+        "",
+      phone: user?.phone || user?.user_metadata?.phone || prev.phone || "",
+    }));
+  }, [user]);
 
   useEffect(() => {
     document.body.style.overflow = selectedRide ? "hidden" : "";
@@ -49,6 +71,16 @@ const ExploreRides = () => {
       document.body.style.overflow = "";
     };
   }, [selectedRide]);
+
+  useEffect(() => {
+    if (!selectedRide) return;
+    setBookingContact((prev) => ({
+      ...prev,
+      travelDate:
+        prev.travelDate ||
+        (selectedRide.availableDate ? String(selectedRide.availableDate).split("T")[0] : today),
+    }));
+  }, [selectedRide, today]);
 
   useEffect(() => {
     socket.on("seatsUpdated", (data) => {
@@ -63,28 +95,39 @@ const ExploreRides = () => {
     return () => socket.off("seatsUpdated");
   }, []);
 
-  const loadApprovedRides = async () => {
+  const loadApprovedRides = useCallback(async () => {
+    if (!dateFilter) {
+      setRides([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await API.get("/transport/all");
+      const res = await API.get("/transport/all", {
+        params: { date: dateFilter || undefined },
+      });
       setRides(res.data.data || res.data || []);
     } catch {
       setRides([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFilter]);
 
   useEffect(() => {
     loadApprovedRides();
-  }, []);
+  }, [loadApprovedRides]);
 
   const fetchListings = async () => {
+    if (!dateFilter) {
+      notify("Select a ride date to search fleets.", "error");
+      return;
+    }
     if (!pickupFilter && !dropFilter) return loadApprovedRides();
     setLoading(true);
     try {
       const response = await API.get("/transport/search", {
-        params: { from: pickupFilter, to: dropFilter },
+        params: { from: pickupFilter, to: dropFilter, date: dateFilter || undefined },
       });
       setRides(response.data.data || response.data || []);
     } catch {
@@ -96,28 +139,33 @@ const ExploreRides = () => {
 
   const bookRide = async () => {
     try {
-      setIsProcessing(true);
-      const token = localStorage.getItem("token");
-      if (!token) {
+      if (!selectedRide) return;
+      if (!user) {
         notify("Please log in before booking a ride.", "error");
+        navigate("/login", { state: { from: { pathname: "/explore-rides" } } });
+        return;
+      }
+      if (!bookingContact.name.trim() || bookingContact.phone.trim().length < 10 || !bookingContact.travelDate) {
+        notify("Add your name, phone, and travel date.", "error");
         return;
       }
 
-      const res = await API.post("/transport/book", {
-        rideId: selectedRide._id,
-        seats: bookingSeats,
+      setIsProcessing(true);
+      const res = await API.post("/booking/create", {
+        customerName: bookingContact.name.trim(),
+        phoneNumber: bookingContact.phone.trim(),
+        bookingType: "Transport",
+        listingId: selectedRide._id,
+        date: bookingContact.travelDate,
+        guests: bookingSeats,
+        amount: Number(selectedRide.pricePerSeat || 0) * Number(bookingSeats || 1),
       });
 
-      if (res.data.success) {
-        notify("Expedition secured.", "success");
-        const message = `Namaste! I just booked ${bookingSeats} seat(s) in your ${selectedRide.vehicleType} via Mountain Mate.`;
-        window.open(
-          `https://wa.me/${selectedRide.contactNumber}?text=${encodeURIComponent(message)}`,
-          "_blank"
-        );
-        setSelectedRide(null);
-        loadApprovedRides();
-      }
+      const createdBooking = res.data?.data || res.data;
+      const bookingId = createdBooking?._id;
+      if (!bookingId) throw new Error("Missing booking id");
+      setSelectedRide(null);
+      navigate(`/booking/${bookingId}/confirm`, { state: { booking: createdBooking } });
     } catch {
       notify("Logistics error.", "error");
     } finally {
@@ -182,9 +230,10 @@ const ExploreRides = () => {
               </div>
             </div>
 
-            <div className="mt-10 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="mt-10 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.82fr)_auto]">
               <FilterField icon={<MapPin size={16} />} label="Pickup">
                 <input
+                  value={pickupFilter}
                   onChange={(e) => setPickupFilter(e.target.value)}
                   placeholder="SOURCE"
                   className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none placeholder:text-white/24"
@@ -192,9 +241,19 @@ const ExploreRides = () => {
               </FilterField>
               <FilterField icon={<Navigation size={16} />} label="Destination">
                 <input
+                  value={dropFilter}
                   onChange={(e) => setDropFilter(e.target.value)}
                   placeholder="DESTINATION"
                   className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none placeholder:text-white/24"
+                />
+              </FilterField>
+              <FilterField icon={<Calendar size={16} />} label="Ride date">
+                <input
+                  type="date"
+                  min={today}
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none [color-scheme:dark]"
                 />
               </FilterField>
               <Button size="lg" onClick={fetchListings} className="rounded-[26px] text-[11px] tracking-[0.28em]">
@@ -220,22 +279,30 @@ const ExploreRides = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
-              {rides.map((ride) => (
-                <RideCard
-                  key={ride._id}
-                  ride={ride}
-                  onSelect={() => {
-                    setSelectedRide(ride);
-                    setCurrentModalImgIndex(0);
-                  }}
-                  isExpanded={expandedRideId === ride._id}
-                  onToggleExpand={() =>
-                    setExpandedRideId(expandedRideId === ride._id ? null : ride._id)
-                  }
-                />
-              ))}
-            </div>
+            {rides.length ? (
+              <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+                {rides.map((ride) => (
+                  <RideCard
+                    key={ride._id}
+                    ride={ride}
+                    onSelect={() => {
+                      if (ride.driverOnline === false) {
+                        notify("This driver is offline right now.", "error");
+                        return;
+                      }
+                      setSelectedRide(ride);
+                      setCurrentModalImgIndex(0);
+                    }}
+                    isExpanded={expandedRideId === ride._id}
+                    onToggleExpand={() =>
+                      setExpandedRideId(expandedRideId === ride._id ? null : ride._id)
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyRideState hasDate={Boolean(dateFilter)} />
+            )}
           </section>
         )}
       </Container>
@@ -249,6 +316,9 @@ const ExploreRides = () => {
             setBookingSeats={setBookingSeats}
             isProcessing={isProcessing}
             onConfirm={bookRide}
+            bookingContact={bookingContact}
+            setBookingContact={setBookingContact}
+            today={today}
             currentImgIndex={currentModalImgIndex}
             setCurrentImgIndex={setCurrentModalImgIndex}
             onNextImage={nextImage}
@@ -291,6 +361,9 @@ const RideCard = ({ ride, onSelect, isExpanded, onToggleExpand }) => (
             <span className="h-px w-4 bg-orange-500/50" />
             {ride.routeTo}
           </p>
+          <div className={`mt-3 inline-flex rounded-full border px-3 py-2 text-[9px] font-black uppercase tracking-[0.24em] ${ride.driverOnline === false ? "border-white/10 bg-white/5 text-white/45" : "border-green-500/20 bg-green-500/10 text-green-300"}`}>
+            {ride.driverOnline === false ? "Driver offline" : "Driver online"}
+          </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-center">
           <p className="text-lg font-black italic text-orange-300">{ride.seatsAvailable}</p>
@@ -305,9 +378,21 @@ const RideCard = ({ ride, onSelect, isExpanded, onToggleExpand }) => (
         </p>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+          Live pickup: {ride.routeFrom}
+        </div>
+        <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+          Fare: Rs {ride.pricePerSeat}
+        </div>
+        <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+          Ride date: {ride.availableDate ? new Date(ride.availableDate).toLocaleDateString() : "Flexible"}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <Button onClick={onSelect} className="rounded-[20px] text-[10px] tracking-[0.22em]">
-          Book <ArrowRight size={14} />
+          {ride.driverOnline === false ? "Offline" : "Book"} <ArrowRight size={14} />
         </Button>
         <Button variant="ghost" onClick={onToggleExpand} className="rounded-[20px] text-[10px] tracking-[0.22em]">
           {isExpanded ? "Hide Map" : "Open Map"}
@@ -333,6 +418,23 @@ const RideCard = ({ ride, onSelect, isExpanded, onToggleExpand }) => (
   </motion.article>
 );
 
+const EmptyRideState = ({ hasDate }) => (
+  <div className="overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),rgba(7,7,7,0.96)] p-8 text-center shadow-[0_28px_80px_rgba(0,0,0,0.28)] md:p-12">
+    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-orange-400/30 bg-orange-500/10">
+      <Calendar size={24} className="text-orange-300" />
+    </div>
+    <p className="mt-6 text-[10px] font-black uppercase tracking-[0.42em] text-orange-300">Ride Search</p>
+    <h3 className="mt-4 text-3xl font-black uppercase italic tracking-[-0.04em] text-white">
+      {hasDate ? "No rides on this date." : "Pick a ride date first."}
+    </h3>
+    <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/55 md:text-base">
+      {hasDate
+        ? "Try another day or widen the route search to explore more approved fleets."
+        : "Choose your travel date to unlock matching rides and keep the results focused on the exact day you want to travel."}
+    </p>
+  </div>
+);
+
 const RideModal = ({
   ride,
   onClose,
@@ -340,6 +442,9 @@ const RideModal = ({
   setBookingSeats,
   isProcessing,
   onConfirm,
+  bookingContact,
+  setBookingContact,
+  today,
   currentImgIndex,
   setCurrentImgIndex,
   onNextImage,
@@ -349,7 +454,7 @@ const RideModal = ({
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[5000] p-4 md:p-8"
+    className="fixed inset-0 z-[10050] p-4 md:p-8"
   >
     <button onClick={onClose} className="absolute inset-0 h-full w-full bg-black/88 backdrop-blur-2xl" aria-label="Close ride modal" />
 
@@ -434,6 +539,7 @@ const RideModal = ({
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <SpecBox icon={<Gauge size={16} />} label="Category" val={ride.carType || "SUV"} />
           <SpecBox icon={<Fuel size={16} />} label="Open Seats" val={`${ride.seatsAvailable} free`} />
+          <SpecBox icon={<Navigation size={16} />} label="Ride Date" val={ride.availableDate ? new Date(ride.availableDate).toLocaleDateString() : "Flexible"} />
         </div>
 
         <div className="mt-8 rounded-[28px] border border-white/8 bg-white/5 p-6">
@@ -462,13 +568,57 @@ const RideModal = ({
         <div className="mt-8 rounded-[28px] border border-white/8 bg-white/5 p-6">
           <p className="flex items-start gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/56">
             <CheckCircle2 size={14} className="mt-0.5 text-orange-300" />
-            Direct contact handoff is triggered after booking so you can coordinate with the driver immediately.
+            Lock your seats, continue to payment, and keep the ride request structured before driver coordination.
           </p>
+        </div>
+
+        <div className="mt-8 rounded-[28px] border border-orange-500/15 bg-orange-500/[0.05] p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.32em] text-orange-300">Payment Launch</p>
+              <p className="mt-3 text-sm leading-7 text-white/58">Add traveler details, then move into the payment page for this ride.</p>
+            </div>
+            <div className="rounded-[22px] border border-white/10 bg-black/25 px-4 py-3 text-right">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">Estimated Total</p>
+              <p className="mt-2 text-2xl font-black italic text-white">Rs {Number(ride.pricePerSeat || 0) * Number(bookingSeats || 1)}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <FormField label="Traveler Name">
+              <input
+                value={bookingContact.name}
+                onChange={(e) => setBookingContact((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Lead traveler"
+                className="w-full bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/24"
+              />
+            </FormField>
+            <FormField label="Phone Number">
+              <input
+                value={bookingContact.phone}
+                onChange={(e) => setBookingContact((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="10-digit contact"
+                className="w-full bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/24"
+              />
+            </FormField>
+            <FormField label="Travel Date">
+              <input
+                type="date"
+                min={today}
+                value={bookingContact.travelDate}
+                onChange={(e) => setBookingContact((prev) => ({ ...prev, travelDate: e.target.value }))}
+                className="w-full bg-transparent text-sm font-bold text-white outline-none [color-scheme:dark]"
+              />
+            </FormField>
+            <FormField label="Seat Count">
+              <p className="text-sm font-bold text-white">{bookingSeats} seat(s) selected</p>
+            </FormField>
+          </div>
         </div>
 
         <div className="mt-10 grid gap-4 md:grid-cols-2">
           <Button size="lg" onClick={onConfirm} disabled={isProcessing} className="rounded-[24px] text-[11px] tracking-[0.28em]">
-            {isProcessing ? "Processing..." : <><Phone size={16} /> Confirm Ride</>}
+            {isProcessing ? "Processing..." : <><Phone size={16} /> Continue To Payment</>}
           </Button>
           <Button size="lg" variant="ghost" onClick={onClose} className="rounded-[24px] text-[11px] tracking-[0.28em]">
             Close Panel
@@ -508,6 +658,15 @@ function SpecBox({ icon, label, val }) {
         <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/36">{label}</p>
       </div>
       <p className="mt-4 text-xl font-black uppercase italic tracking-tight text-white">{val}</p>
+    </div>
+  );
+}
+
+function FormField({ label, children }) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-black/20 px-5 py-4">
+      <p className="mb-3 text-[9px] font-black uppercase tracking-[0.3em] text-white/36">{label}</p>
+      {children}
     </div>
   );
 }

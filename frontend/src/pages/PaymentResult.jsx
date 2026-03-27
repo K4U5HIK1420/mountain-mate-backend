@@ -22,7 +22,7 @@ export default function PaymentResult({ ok }) {
             </span>
           </h1>
           <p className="text-white/45 mt-4 text-sm">
-            {isOk ? "Your booking is confirmed. You can view it anytime in Bookings." : "Payment didn’t go through. Please try again."}
+            {isOk ? "Payment is complete. Your request is now waiting for owner or driver approval." : "Payment didn’t go through. Please try again."}
           </p>
 
           <div className="mt-10 grid gap-3">
@@ -38,4 +38,3 @@ export default function PaymentResult({ ok }) {
     </div>
   );
 }
-

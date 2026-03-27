@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
+const anyAuth = require("../middleware/anyAuth");
 // Dost ka naya middleware
 const { supabaseAuth } = require("../middleware/supabaseAuthMiddleware");
 
@@ -26,11 +27,11 @@ router.post("/wishlist/toggle", auth, toggleWishlist);
 
 // --- Booking Routes (Role Based) ---
 // 1. User apni bookings dekhega
-router.get("/bookings", auth, getMyBookings);
+router.get("/bookings", anyAuth, getMyBookings);
 // 2. Partner apne listed items ki bookings dekhega
-router.get("/partner/incoming", auth, getPartnerIncomingBookings);
+router.get("/partner/incoming", anyAuth, getPartnerIncomingBookings);
 // 3. Partner booking status update karega
-router.post("/bookings/update-status", auth, updateBookingStatus);
+router.post("/bookings/update-status", anyAuth, updateBookingStatus);
 
 // --- Dost ka Profile Setup ---
 router.post("/setup-profile", supabaseAuth, setupProfile);

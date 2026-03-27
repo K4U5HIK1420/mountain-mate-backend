@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mountain, LogOut, Settings2, Menu, X, Sparkles, User, PlusCircle, Car, Heart, Gift, Bot, Briefcase, LayoutGrid, ChevronDown, Shield } from 'lucide-react';
+import { Mountain, LogOut, Menu, X, Sparkles, PlusCircle, Car, LayoutGrid, ChevronDown, Shield, Bell } from 'lucide-react';
 
 // --- CORE UTILS & CONTEXT ---
 import API from './utils/api';
@@ -9,6 +9,7 @@ import { useNotify } from "./context/NotificationContext";
 import { useAuth } from "./context/AuthContext";
 import { useTheme } from "./context/ThemeContext";
 import { hasSupabaseEnv } from "./utils/supabase";
+import socket from "./utils/socket";
 
 // --- COMPONENTS ---
 import Notification from "./components/Notification";
@@ -27,6 +28,23 @@ const ProtectedRoute = ({ children }) => {
   const location = useLocation();
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   return children;
+};
+
+const RefreshRedirect = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const navEntries = window.performance?.getEntriesByType?.("navigation") || [];
+    const navType = navEntries[0]?.type;
+    const legacyNavType = window.performance?.navigation?.type;
+    const isReload = navType === "reload" || legacyNavType === 1;
+
+    if (isReload && location.pathname !== "/") {
+      window.location.replace("/");
+    }
+  }, [location.pathname]);
+
+  return null;
 };
 
 // --- LAZY IMPORTS ---
@@ -57,13 +75,17 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { notify } = useNotify();
   const { isDark, toggle: toggleTheme } = useTheme();
   const token = !!user;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isBusinessOpen, setIsBusinessOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   
   const [hasHotels, setHasHotels] = useState(false);
   const [hasRides, setHasRides] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const checkPartnerRoles = async () => {
@@ -85,6 +107,60 @@ const Navbar = () => {
     checkPartnerRoles();
   }, [token]);
 
+  useEffect(() => {
+    if (!token || !user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    let active = true;
+
+    const loadNotifications = async () => {
+      try {
+        const res = await API.get("/notifications");
+        if (!active) return;
+        setNotifications(res.data?.data || []);
+        setUnreadCount(res.data?.unreadCount || 0);
+      } catch (_err) {
+        if (!active) return;
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    };
+
+    socket.emit("join:user", user.id || user._id);
+
+    const handleNewNotification = (item) => {
+      if (!active) return;
+      setNotifications((prev) => [item, ...prev].slice(0, 20));
+      setUnreadCount((prev) => prev + 1);
+      notify(item.title || item.message, item.type?.includes("declined") ? "error" : "success");
+    };
+
+    loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 15000);
+    socket.on("notification:new", handleNewNotification);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      socket.off("notification:new", handleNewNotification);
+    };
+  }, [token, user, notify]);
+
+  const openNotifications = async () => {
+    setNotificationOpen((prev) => !prev);
+    if (unreadCount > 0) {
+      setUnreadCount(0);
+      try {
+        await API.patch("/notifications/read");
+      } catch (_err) {
+        // Keep UI responsive even if read sync fails.
+      }
+    }
+  };
+
   // ✅ ONLY CORE SERVICES IN NAVBAR
   const navLinks = useMemo(() => [
     { to: "/explore-stays", label: "STAYS" },
@@ -92,81 +168,111 @@ const Navbar = () => {
   ], []);
 
   return (
-    <nav className="fixed top-0 w-full z-[9999] px-4 py-5 sm:px-8 lg:px-16 pointer-events-none">
+    <nav className="fixed top-0 w-full z-[9999] px-3 py-3 sm:px-6 lg:px-10 pointer-events-none">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`pointer-events-auto mx-auto max-w-7xl flex justify-between items-center rounded-[40px] px-8 py-4 transition-all duration-700 shadow-2xl relative border border-white/10 ${isDark ? 'bg-black/40 backdrop-blur-[40px]' : 'bg-white/60 backdrop-blur-md'}`}
+        className={`pointer-events-auto mx-auto max-w-7xl rounded-[32px] border border-white/10 px-4 py-3 shadow-2xl transition-all duration-700 sm:px-6 ${isDark ? 'bg-black/45 backdrop-blur-[40px]' : 'bg-white/60 backdrop-blur-md'}`}
       >
-        {/* LOGO */}
-        <Link to="/" className="flex items-center gap-4 group">
-          <div className="relative rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 p-2.5 text-white shadow-xl group-hover:rotate-6 transition-transform">
-            <Mountain size={22}/>
-          </div>
-          <div className="flex flex-col text-left">
-            <h1 className="font-black tracking-tighter text-xl uppercase italic leading-none text-white">M-Mate</h1>
-            <span className="text-[7px] font-bold tracking-[0.3em] text-orange-500 mt-1 uppercase">Uttarakhand</span>
-          </div>
-        </Link>
-        
-        {/* CENTER LINKS (CLEAN) */}
-        <div className="hidden lg:flex gap-12 absolute left-1/2 -translate-x-1/2 items-center">
-          {navLinks.map((item) => (
-            <Link 
-              key={item.to} 
-              to={item.to}
-              className={`relative flex items-center gap-1.5 text-[10px] font-black tracking-[0.25em] transition-all hover:text-orange-500 uppercase italic ${location.pathname === item.to ? 'text-orange-400' : 'text-white/30'}`}
-            >
-              {item.label}
-              {location.pathname === item.to && (
-                <motion.span layoutId="nav-pill" className="absolute -bottom-2 left-0 right-0 h-[2px] bg-orange-500 shadow-[0_0_15px_#f97316]" />
-              )}
-            </Link>
-          ))}
+        <div className="flex items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="relative rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 p-2.5 text-white shadow-xl transition-transform group-hover:rotate-6">
+              <Mountain size={20}/>
+            </div>
+            <div className="flex flex-col text-left">
+              <h1 className="font-black tracking-tighter text-lg uppercase italic leading-none text-white sm:text-xl">M-Mate</h1>
+              <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.3em] text-orange-500">Uttarakhand</span>
+            </div>
+          </Link>
 
-          {/* SMART BUSINESS GATEWAY */}
-          <div 
-            className="relative ml-4 border-l border-white/10 pl-10 flex items-center h-full"
-            onMouseEnter={() => token && setIsBusinessOpen(true)}
-            onMouseLeave={() => token && setIsBusinessOpen(false)}
-          >
-            <button 
-              onClick={() => !token && navigate('/login')}
-              className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] italic transition-all outline-none ${isBusinessOpen ? 'text-white' : 'text-orange-500 hover:text-white'}`}
+          <div className="hidden xl:flex flex-1 items-center justify-center gap-10">
+            {navLinks.map((item) => (
+              <Link 
+                key={item.to} 
+                to={item.to}
+                className={`relative flex items-center gap-1.5 text-[10px] font-black tracking-[0.25em] uppercase italic transition-all hover:text-orange-500 ${location.pathname === item.to ? 'text-orange-400' : 'text-white/30'}`}
+              >
+                {item.label}
+                {location.pathname === item.to && (
+                  <motion.span layoutId="nav-pill" className="absolute -bottom-2 left-0 right-0 h-[2px] bg-orange-500 shadow-[0_0_15px_#f97316]" />
+                )}
+              </Link>
+            ))}
+
+            <div 
+              className="relative ml-2 flex items-center border-l border-white/10 pl-8"
+              onMouseEnter={() => token && setIsBusinessOpen(true)}
+              onMouseLeave={() => token && setIsBusinessOpen(false)}
             >
-              <LayoutGrid size={12}/> MY BUSINESS <ChevronDown size={10} className={`transition-transform duration-500 ${isBusinessOpen ? 'rotate-180' : ''}`}/>
-            </button>
-            
-            <AnimatePresence>
-              {token && isBusinessOpen && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 15, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 15, scale: 0.95 }}
-                  className="absolute top-[120%] -left-10 w-64 bg-[#0a0a0a]/95 border border-white/10 rounded-[32px] p-5 shadow-[0_40px_100px_rgba(0,0,0,1)] backdrop-blur-[80px] z-[99999]"
-                >
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <div className="px-3 mb-4 flex items-center justify-between">
-                      <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.4em] italic">Command Vault</span>
-                      <Shield size={10} className="text-orange-500/50" />
+              <button 
+                onClick={() => !token && navigate('/login')}
+                className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] italic transition-all outline-none ${isBusinessOpen ? 'text-white' : 'text-orange-500 hover:text-white'}`}
+              >
+                <LayoutGrid size={12}/> MY BUSINESS <ChevronDown size={10} className={`transition-transform duration-500 ${isBusinessOpen ? 'rotate-180' : ''}`}/>
+              </button>
+              
+              <AnimatePresence>
+                {token && isBusinessOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                    className="absolute top-[120%] -left-10 z-[99999] w-64 rounded-[32px] border border-white/10 bg-[#0a0a0a]/95 p-5 shadow-[0_40px_100px_rgba(0,0,0,1)] backdrop-blur-[80px]"
+                  >
+                    <div className="flex flex-col gap-1.5 text-left">
+                      <div className="mb-4 flex items-center justify-between px-3">
+                        <span className="text-[7px] font-black uppercase tracking-[0.4em] text-white/20 italic">Command Vault</span>
+                        <Shield size={10} className="text-orange-500/50" />
+                      </div>
+                      {hasHotels && <Link to="/manage-stays" onClick={() => setIsBusinessOpen(false)} className="group flex justify-between rounded-2xl p-3 transition-all hover:bg-white/5"><span className="text-[9px] font-black uppercase tracking-widest text-white/50 italic group-hover:text-orange-500">Manage Stays</span><div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_#f97316]" /></Link>}
+                      {hasRides && <Link to="/manage-rides" onClick={() => setIsBusinessOpen(false)} className="group flex justify-between rounded-2xl p-3 transition-all hover:bg-white/5"><span className="text-[9px] font-black uppercase tracking-widest text-white/50 italic group-hover:text-orange-500">Manage Rides</span><div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_#f97316]" /></Link>}
+                      <div className="mx-2 my-3 h-px bg-white/5" />
+                      <Link to="/add-hotel" className="flex items-center gap-3 rounded-2xl border border-orange-500/10 bg-orange-500/5 p-3 text-[9px] font-black uppercase tracking-widest text-orange-500 italic hover:bg-orange-500/10"><PlusCircle size={14}/> List New Stay</Link>
+                      <Link to="/add-transport" className="mt-1 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 p-3 text-[9px] font-black uppercase tracking-widest text-white italic shadow-lg hover:brightness-110"><Car size={14}/> Offer New Ride</Link>
                     </div>
-                    {hasHotels && <Link to="/manage-stays" onClick={() => setIsBusinessOpen(false)} className="group flex justify-between p-3 rounded-2xl hover:bg-white/5 transition-all"><span className="text-[9px] font-black text-white/50 group-hover:text-orange-500 uppercase tracking-widest italic">Manage Stays</span><div className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_#f97316]" /></Link>}
-                    {hasRides && <Link to="/manage-rides" onClick={() => setIsBusinessOpen(false)} className="group flex justify-between p-3 rounded-2xl hover:bg-white/5 transition-all"><span className="text-[9px] font-black text-white/50 group-hover:text-orange-500 uppercase tracking-widest italic">Manage Rides</span><div className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_#f97316]" /></Link>}
-                    <div className="h-px bg-white/5 my-3 mx-2" />
-                    <Link to="/add-hotel" className="flex items-center gap-3 p-3 text-orange-500 bg-orange-500/5 hover:bg-orange-500/10 rounded-2xl text-[9px] font-black uppercase tracking-widest italic border border-orange-500/10"><PlusCircle size={14}/> List New Stay</Link>
-                    <Link to="/add-transport" className="flex items-center gap-3 p-3 text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:brightness-110 rounded-2xl text-[9px] font-black uppercase tracking-widest italic shadow-lg mt-1"><Car size={14}/> Offer New Ride</Link>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
 
-        {/* RIGHT ACTION BAR */}
-        <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className="hidden sm:flex w-10 h-10 rounded-full border border-white/10 items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-all"><Sparkles size={16}/></button>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button onClick={toggleTheme} className="hidden h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/40 transition-all hover:bg-white/5 hover:text-white sm:flex"><Sparkles size={16}/></button>
           {token ? (
             <div className="flex items-center gap-5">
+              <div className="relative">
+                <button onClick={openNotifications} className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/55 transition-all hover:bg-white/5 hover:text-white">
+                  <Bell size={16} />
+                  {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-orange-500 px-1.5 py-0.5 text-center text-[9px] font-black text-white">{Math.min(unreadCount, 9)}+</span>}
+                </button>
+                <AnimatePresence>
+                  {notificationOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                      className="absolute right-0 top-[120%] z-[99999] w-[340px] rounded-[28px] border border-white/10 bg-[#0a0a0a]/95 p-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-[60px]"
+                    >
+                      <div className="mb-3 flex items-center justify-between px-2">
+                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-orange-300">Booking Alerts</p>
+                        <Link to="/bookings" onClick={() => setNotificationOpen(false)} className="text-[9px] font-black uppercase tracking-[0.24em] text-white/45 hover:text-white">Open</Link>
+                      </div>
+                      <div className="space-y-3">
+                        {notifications.length === 0 ? (
+                          <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-5 text-[11px] text-white/45">No alerts yet.</div>
+                        ) : (
+                          notifications.slice(0, 5).map((item) => (
+                            <div key={item._id} className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4">
+                              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white">{item.title}</p>
+                              <p className="mt-2 text-xs leading-6 text-white/60">{item.message}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               <Link to="/profile" className="w-10 h-10 rounded-full p-[2.5px] bg-gradient-to-tr from-orange-500 via-amber-400 to-white shadow-2xl hover:scale-110 transition-transform">
                 <div className="w-full h-full rounded-full bg-[#0a0a0a] flex items-center justify-center font-black text-orange-500 uppercase text-[12px] italic">{user.email?.charAt(0)}</div>
               </Link>
@@ -176,8 +282,41 @@ const Navbar = () => {
             <Link to="/login" className="bg-orange-600 hover:bg-orange-500 text-white px-7 py-3 rounded-full font-black text-[10px] tracking-widest italic shadow-lg transition-all active:scale-95">LOGIN</Link>
           )}
           <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white/50 bg-white/5 p-3 rounded-2xl border border-white/10">{mobileOpen ? <X size={20} /> : <Menu size={20} />}</button>
+          </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className={`pointer-events-auto mx-auto mt-3 max-w-7xl rounded-[28px] border border-white/10 p-4 shadow-2xl ${isDark ? 'bg-black/85 backdrop-blur-[40px]' : 'bg-white/85 backdrop-blur-md'}`}
+          >
+            <div className="grid gap-3">
+              {navLinks.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-[20px] border px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] italic transition-all ${location.pathname === item.to ? 'border-orange-500/30 bg-orange-500/10 text-orange-300' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'}`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              {token && (
+                <>
+                  {hasHotels && <Link to="/manage-stays" onClick={() => setMobileOpen(false)} className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-white/70 italic">Manage Stays</Link>}
+                  {hasRides && <Link to="/manage-rides" onClick={() => setMobileOpen(false)} className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-white/70 italic">Manage Rides</Link>}
+                  <Link to="/add-hotel" onClick={() => setMobileOpen(false)} className="rounded-[20px] border border-orange-500/20 bg-orange-500/10 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-orange-300 italic">List New Stay</Link>
+                  <Link to="/add-transport" onClick={() => setMobileOpen(false)} className="rounded-[20px] bg-gradient-to-r from-orange-600 to-amber-600 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-white italic">Offer New Ride</Link>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };
@@ -192,6 +331,7 @@ function App() {
         <div className="min-h-screen flex flex-col bg-[#050505] text-white overflow-x-hidden relative font-sans">
           <AnimatedBackground />
           <ParticlesCanvas />
+          <RefreshRedirect />
           <Navbar />
           <main className="relative z-10 pt-32 flex-1">
             <Suspense fallback={<div className="h-screen flex items-center justify-center bg-black"><p className="text-orange-500 font-black animate-pulse tracking-widest uppercase italic text-[10px]">Syncing Command...</p></div>}>

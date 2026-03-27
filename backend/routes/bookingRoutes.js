@@ -1,6 +1,7 @@
 const { body } = require("express-validator");
 const validate = require("../middleware/validate");
 const auth = require("../middleware/authMiddleware");
+const anyAuth = require("../middleware/anyAuth");
 const optionalAuth = require("../middleware/optionalAuth");
 const express = require("express");
 const router = express.Router();
@@ -8,7 +9,9 @@ const {
   createBooking,
   getBookings,
   getMyBookingById,
+  getTrackingBooking,
   updateBookingStatus,
+  updateTrackingStatus,
   getBookingsByStatus,
   getBookingStats,
   getRevenueStats,
@@ -30,13 +33,15 @@ router.post(
   createBooking
 );
 router.get("/all", getBookings);
-router.get("/me/:id", auth, getMyBookingById);
+router.get("/me/:id", anyAuth, getMyBookingById);
+router.get("/tracking/:id", anyAuth, getTrackingBooking);
+router.patch("/tracking/:id/status", anyAuth, updateTrackingStatus);
 router.put("/update/:id", auth, updateBookingStatus);
 router.put("/status/:id", updateBookingStatus);
 router.get("/status/:status", getBookingsByStatus);
 router.get("/stats", getBookingStats);
 router.get("/revenue", getRevenueStats);
 router.get("/stats/status", getStatusStats);
-router.patch("/cancel/:id", auth, cancelMyBooking);
+router.patch("/cancel/:id", anyAuth, cancelMyBooking);
 
 module.exports = router;

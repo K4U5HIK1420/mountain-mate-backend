@@ -1,6 +1,7 @@
 import API from "../utils/api";
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Calendar,
@@ -45,6 +46,7 @@ const quickFilters = ["Temple Access", "Mountain View", "Family Stay", "High Rat
 const ExploreStays = () => {
   const { notify } = useNotify();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [ratingMap, setRatingMap] = useState({});
@@ -55,8 +57,29 @@ const ExploreStays = () => {
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState("newest");
   const [checkInDate, setCheckInDate] = useState("");
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    name: "",
+    phone: "",
+    checkIn: "",
+    guests: 1,
+    rooms: 1,
+  });
 
   const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    setBookingForm((prev) => ({
+      ...prev,
+      name:
+        user?.fullName ||
+        user?.user_metadata?.full_name ||
+        user?.displayName ||
+        user?.email?.split("@")[0] ||
+        "",
+      phone: user?.phone || user?.user_metadata?.phone || prev.phone || "",
+    }));
+  }, [user]);
 
   useEffect(() => {
     document.body.style.overflow = selectedHotel ? "hidden" : "";
@@ -68,8 +91,14 @@ const ExploreStays = () => {
   useEffect(() => {
     if (selectedHotel) {
       setCurrentImgIndex(0);
+      setBookingForm((prev) => ({
+        ...prev,
+        checkIn: checkInDate || today,
+        guests: 1,
+        rooms: 1,
+      }));
     }
-  }, [selectedHotel]);
+  }, [selectedHotel, checkInDate, today]);
 
   const fetchHotels = async () => {
     setLoading(true);
@@ -124,6 +153,46 @@ const ExploreStays = () => {
   };
 
   const hotelAmenities = selectedHotel ? safeParseAmenities(selectedHotel.amenities) : [];
+
+  const handleStayBooking = async () => {
+    if (!selectedHotel) return;
+    if (!user) {
+      notify("Log in to continue to payment.", "error");
+      navigate("/login", { state: { from: { pathname: "/explore-stays" } } });
+      return;
+    }
+    if (!bookingForm.name.trim() || bookingForm.phone.trim().length < 10 || !bookingForm.checkIn) {
+      notify("Add your name, phone, and check-in date.", "error");
+      return;
+    }
+
+    setIsBooking(true);
+    try {
+      const amount = Number(selectedHotel.pricePerNight || 0) * Number(bookingForm.rooms || 1);
+      const res = await API.post("/booking/create", {
+        customerName: bookingForm.name.trim(),
+        phoneNumber: bookingForm.phone.trim(),
+        bookingType: "Hotel",
+        listingId: selectedHotel._id,
+        date: bookingForm.checkIn,
+        startDate: bookingForm.checkIn,
+        endDate: bookingForm.checkIn,
+        guests: Number(bookingForm.guests || 1),
+        rooms: Number(bookingForm.rooms || 1),
+        amount,
+      });
+
+      const createdBooking = res.data?.data || res.data;
+      const bookingId = createdBooking?._id;
+      if (!bookingId) throw new Error("Missing booking id");
+      setSelectedHotel(null);
+      navigate(`/booking/${bookingId}/confirm`, { state: { booking: createdBooking } });
+    } catch (_error) {
+      notify("Unable to create stay booking right now.", "error");
+    } finally {
+      setIsBooking(false);
+    }
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#030303] text-white">
@@ -340,7 +409,7 @@ const ExploreStays = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] p-4 md:p-8"
+            className="fixed inset-0 z-[10050] p-4 md:p-8"
           >
             <motion.button
               initial={{ opacity: 0 }}
@@ -450,6 +519,71 @@ const ExploreStays = () => {
                   </p>
                 </div>
 
+                <div className="mt-8 rounded-[28px] border border-orange-500/15 bg-orange-500/[0.05] p-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-300">Payment Launch</p>
+                      <p className="mt-3 text-sm leading-7 text-white/58">
+                        Add trip details, then continue to the payment page for this stay.
+                      </p>
+                    </div>
+                    <div className="rounded-[22px] border border-white/10 bg-black/25 px-4 py-3 text-right">
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">Estimated Total</p>
+                      <p className="mt-2 text-2xl font-black italic text-white">
+                        Rs {Number(selectedHotel.pricePerNight || 0) * Number(bookingForm.rooms || 1)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <FormField label="Traveler Name">
+                      <input
+                        value={bookingForm.name}
+                        onChange={(e) => setBookingForm((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="Primary traveler"
+                        className="w-full bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/24"
+                      />
+                    </FormField>
+                    <FormField label="Phone Number">
+                      <input
+                        value={bookingForm.phone}
+                        onChange={(e) => setBookingForm((prev) => ({ ...prev, phone: e.target.value }))}
+                        placeholder="10-digit contact"
+                        className="w-full bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/24"
+                      />
+                    </FormField>
+                    <FormField label="Check In">
+                      <input
+                        type="date"
+                        min={today}
+                        value={bookingForm.checkIn}
+                        onChange={(e) => setBookingForm((prev) => ({ ...prev, checkIn: e.target.value }))}
+                        className="w-full bg-transparent text-sm font-bold text-white outline-none [color-scheme:dark]"
+                      />
+                    </FormField>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField label="Guests">
+                        <input
+                          type="number"
+                          min="1"
+                          value={bookingForm.guests}
+                          onChange={(e) => setBookingForm((prev) => ({ ...prev, guests: Math.max(1, Number(e.target.value) || 1) }))}
+                          className="w-full bg-transparent text-sm font-bold text-white outline-none"
+                        />
+                      </FormField>
+                      <FormField label="Rooms">
+                        <input
+                          type="number"
+                          min="1"
+                          value={bookingForm.rooms}
+                          onChange={(e) => setBookingForm((prev) => ({ ...prev, rooms: Math.max(1, Number(e.target.value) || 1) }))}
+                          className="w-full bg-transparent text-sm font-bold text-white outline-none"
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-8">
                   <p className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-300">Inclusions</p>
                   <div className="mt-4 flex flex-wrap gap-3">
@@ -463,8 +597,8 @@ const ExploreStays = () => {
                 </div>
 
                 <div className="mt-10 grid gap-4 md:grid-cols-2">
-                  <Button size="lg" className="rounded-[24px] text-[11px] tracking-[0.28em]">
-                    Book Now <ArrowRight size={16} />
+                  <Button size="lg" onClick={handleStayBooking} disabled={isBooking} className="rounded-[24px] text-[11px] tracking-[0.28em]">
+                    {isBooking ? "Starting Payment..." : <>Book Now <ArrowRight size={16} /></>}
                   </Button>
                   <Button
                     size="lg"
@@ -510,6 +644,15 @@ function SummaryCard({ label, value }) {
     <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/34">{label}</p>
       <p className="mt-3 text-xl font-black uppercase italic tracking-tight text-white">{value}</p>
+    </div>
+  );
+}
+
+function FormField({ label, children }) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-black/20 px-5 py-4">
+      <p className="mb-3 text-[9px] font-black uppercase tracking-[0.3em] text-white/36">{label}</p>
+      {children}
     </div>
   );
 }
