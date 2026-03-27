@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ShieldCheck, Loader2, Save } from "lucide-react";
@@ -156,3 +157,11 @@ function AdminRow({ b, savingId, setSavingId, notify, setRows }) {
   );
 }
 
+=======
+import React from "react";
+import { Navigate } from "react-router-dom";
+
+export default function AdminBookings() {
+  return <Navigate to="/admin-mate" replace />;
+}
+>>>>>>> 340ae896844c3324af5d17ca2aa02f2c08e6427d

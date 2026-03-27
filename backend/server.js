@@ -76,6 +76,10 @@ const userAuthRoutes = require("./routes/userAuthRoutes");
 const userFeaturesRoutes = require("./routes/userFeaturesRoutes"); // Referral & Wishlist yahan hai
 const tripRoutes = require("./routes/tripRoutes");
 const adminRoutes = require("./routes/adminRoutes"); // Dashboard Stats yahan hai
+<<<<<<< HEAD
+=======
+const adminConsoleRoutes = require("./routes/adminConsoleRoutes");
+>>>>>>> 340ae896844c3324af5d17ca2aa02f2c08e6427d
 const aiRoutes = require("./routes/aiRoutes");
 
 // 5. Route Definitions
@@ -93,6 +97,10 @@ app.use("/api/user", userFeaturesRoutes); // Frontend calls like /api/user/refer
 
 app.use("/api/trips", tripRoutes);
 app.use("/api/admin", adminRoutes); // Admin Dashboard: /api/admin/stats
+<<<<<<< HEAD
+=======
+app.use("/api/admin-console", adminConsoleRoutes);
+>>>>>>> 340ae896844c3324af5d17ca2aa02f2c08e6427d
 app.use("/api/ai", aiRoutes);
 
 // 6. Base Routes
@@ -122,4 +130,8 @@ server.listen(PORT, () => {
   console.log(`🛰️  HEALTH CHECK: http://localhost:${PORT}/api/health`);
   console.log(`📊 ADMIN DASHBOARD: http://localhost:${PORT}/api/admin/stats`);
   console.log(`--------------------------------------------------`);
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> 340ae896844c3324af5d17ca2aa02f2c08e6427d
