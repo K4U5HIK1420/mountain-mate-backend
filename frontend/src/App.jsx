@@ -61,8 +61,9 @@ const AddTransport = React.lazy(() => import("./pages/AddTransport"));
 const Bookings = React.lazy(() => import("./pages/Bookings"));
 const ManageStays = React.lazy(() => import("./pages/ManageStays"));
 const ManageRides = React.lazy(() => import("./pages/ManageRides"));
-const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
-const AdminBookings = React.lazy(() => import("./pages/AdminBookings"));
+const AdminDashboard = React.lazy(() => import("./pages/AdminCommandCenter"));
+const AdminBookings = React.lazy(() => import("./pages/AdminBookingsPanel"));
+const AdminSupport = React.lazy(() => import("./pages/AdminSupport"));
 const Login = React.lazy(() => import("./pages/Login"));
 const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 const Register = React.lazy(() => import("./pages/Register"));
@@ -256,6 +257,23 @@ const Navbar = () => {
               </Link>
             )}
 
+            {isAdmin && (
+              <Link
+                to="/admin-support"
+                className={`relative flex items-center gap-2 text-[10px] font-black tracking-[0.25em] uppercase italic transition-all hover:text-orange-500 ${
+                  location.pathname === "/admin-support"
+                    ? "text-orange-400"
+                    : "text-white/30"
+                }`}
+              >
+                <Shield size={12} />
+                Support Queue
+                {location.pathname === "/admin-support" && (
+                  <motion.span layoutId="nav-pill" className="absolute -bottom-2 left-0 right-0 h-[2px] bg-orange-500 shadow-[0_0_15px_#f97316]" />
+                )}
+              </Link>
+            )}
+
             <div
               className="relative ml-2 flex items-center border-l border-white/10 pl-8"
               onMouseEnter={() => token && setIsBusinessOpen(true)}
@@ -373,6 +391,7 @@ const Navbar = () => {
                 </Link>
               ))}
               {isAdmin && <Link to="/admin-mate" onClick={() => setMobileOpen(false)} className="rounded-[20px] border border-orange-500/20 bg-orange-500/10 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-orange-300 italic">Admin Console</Link>}
+              {isAdmin && <Link to="/admin-support" onClick={() => setMobileOpen(false)} className="rounded-[20px] border border-orange-500/20 bg-orange-500/10 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-orange-300 italic">Support Queue</Link>}
               {token && (
                 <>
                   {hasHotels && <Link to="/manage-stays" onClick={() => setMobileOpen(false)} className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.28em] text-white/70 italic">Manage Stays</Link>}
@@ -416,6 +435,7 @@ function App() {
                 <Route path="/manage-rides" element={<ProtectedRoute><ManageRides /></ProtectedRoute>} />
                 <Route path="/admin-mate" element={<AdminDashboard />} />
                 <Route path="/admin-bookings" element={<AdminBookings />} />
+                <Route path="/admin-support" element={<AdminSupport />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/register" element={<Register />} />

@@ -7,37 +7,34 @@ const http = require("http");
 const { Server } = require("socket.io");
 const Booking = require("./models/Booking");
 
-// Custom Modules
 const connectDB = require("./config/db");
 const errorHandler = require("./middleware/errorHandler");
 
-// Load Environment Variables
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
-// 1. Initialize DB Connection
-connectDB().then(() => {
-  console.log("📂 DATABASE: Himalayan Database Connected.");
-}).catch((err) => {
-  console.error("❌ FATAL ERROR: Database connection failed!", err.message);
-  process.exit(1);
-});
+connectDB()
+  .then(() => {
+    console.log("Database: Himalayan Database Connected.");
+  })
+  .catch((err) => {
+    console.error("Fatal Error: Database connection failed!", err.message);
+    process.exit(1);
+  });
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io Setup
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+  },
 });
 
 app.set("io", io);
@@ -61,7 +58,17 @@ const mapLocationPayload = (payload = {}) => {
 };
 
 io.on("connection", (socket) => {
-  console.log(`🔌 SIGNAL: Explorer connected (${socket.id})`);
+  console.log(`Signal: Explorer connected (${socket.id})`);
+
+  socket.on("support:join", (conversationId) => {
+    if (conversationId) {
+      socket.join(`support:${conversationId}`);
+    }
+  });
+
+  socket.on("support:join-admin", () => {
+    socket.join("support-admin");
+  });
 
   socket.on("join:user", (userId) => {
     if (!userId) return;
@@ -144,26 +151,23 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log(`🔌 SIGNAL: Explorer lost connection.`);
+    console.log("Signal: Explorer lost connection.");
   });
 });
 
-// 2. Global Middlewares
 app.use(cors());
 app.use(express.json());
 
-// 3. Rate Limiter (Tactical Security)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300, // Thoda increase kiya taaki development mein bar-bar block na ho
+  max: 300,
   message: {
     message: "Too many requests from this telemetry node, try again in 15 mins",
-    status: 429
-  }
+    status: 429,
+  },
 });
 app.use("/api/", limiter);
 
-// 4. Route Imports
 const authRoutes = require("./routes/authRoutes");
 const hotelRoutes = require("./routes/hotelRoutes");
 const transportRoutes = require("./routes/transportRoutes");
@@ -172,14 +176,14 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const recommendationRoutes = require("./routes/recommendationRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const userAuthRoutes = require("./routes/userAuthRoutes");
-const userFeaturesRoutes = require("./routes/userFeaturesRoutes"); // Referral & Wishlist yahan hai
+const userFeaturesRoutes = require("./routes/userFeaturesRoutes");
 const tripRoutes = require("./routes/tripRoutes");
-const adminRoutes = require("./routes/adminRoutes"); // Dashboard Stats yahan hai
+const adminRoutes = require("./routes/adminRoutes");
 const adminConsoleRoutes = require("./routes/adminConsoleRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const supportRoutes = require("./routes/supportRoutes");
 
-// 5. Route Definitions
 app.use("/api/auth", authRoutes);
 app.use("/api/hotel", hotelRoutes);
 app.use("/api/transport", transportRoutes);
@@ -187,42 +191,37 @@ app.use("/api/booking", bookingRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/payment", paymentRoutes);
-
-// ✅ Feature Routes (Unified)
 app.use("/api/user", userAuthRoutes);
-app.use("/api/user", userFeaturesRoutes); // Frontend calls like /api/user/referral will work!
-
+app.use("/api/user", userFeaturesRoutes);
 app.use("/api/trips", tripRoutes);
-app.use("/api/admin", adminRoutes); // Admin Dashboard: /api/admin/stats
+app.use("/api/admin", adminRoutes);
 app.use("/api/admin-console", adminConsoleRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/support", supportRoutes);
 
-// 6. Base Routes
-app.get("/", (req, res) => {
-  res.send("🏔️ Mountain-Mate Strategic Backend Running...");
+app.get("/", (_req, res) => {
+  res.send("Mountain-Mate Strategic Backend Running...");
 });
 
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (_req, res) => {
   res.status(200).json({
     success: true,
     status: "UP",
-    message: "Mountain-Mate API is online 🚀",
+    message: "Mountain-Mate API is online",
     timestamp: new Date().toISOString(),
-    node_version: process.version
+    node_version: process.version,
   });
 });
 
-// 7. Global Error Handler
 app.use(errorHandler);
 
-// --- START SERVER ---
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`--------------------------------------------------`);
-  console.log(`🚀 STRATEGIC UPLINK ESTABLISHED ON PORT: ${PORT}`);
-  console.log(`🛰️  HEALTH CHECK: http://localhost:${PORT}/api/health`);
-  console.log(`📊 ADMIN DASHBOARD: http://localhost:${PORT}/api/admin/stats`);
-  console.log(`--------------------------------------------------`);
+  console.log("--------------------------------------------------");
+  console.log(`Strategic Uplink established on port: ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`Admin dashboard: http://localhost:${PORT}/api/admin/stats`);
+  console.log("--------------------------------------------------");
 });
