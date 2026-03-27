@@ -8,8 +8,8 @@ const Review = require("../models/Review");
 const AdminAuditLog = require("../models/AdminAuditLog");
 const { getSupabaseClient } = require("../utils/supabaseClient");
 
-const HOTEL_FIELDS = ["hotelName", "location", "pricePerNight", "roomsAvailable", "contactNumber", "description", "images", "owner", "status", "isVerified"];
-const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", "routeTo", "fromCoords", "toCoords", "pricePerSeat", "seatsAvailable", "driverName", "contactNumber", "images", "owner", "status", "isVerified"];
+const HOTEL_FIELDS = ["hotelName", "location", "pricePerNight", "roomsAvailable", "contactNumber", "description", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
+const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", "routeTo", "fromCoords", "toCoords", "pricePerSeat", "seatsAvailable", "driverName", "contactNumber", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
 const BOOKING_FIELDS = ["customerName", "phoneNumber", "status", "paymentStatus", "date", "startDate", "endDate", "guests", "rooms", "amount", "currency"];
 const TRIP_FIELDS = ["title", "status", "itinerary"];
 const USER_META_FIELDS = ["email", "displayName", "avatarUrl", "wishlist", "referral"];

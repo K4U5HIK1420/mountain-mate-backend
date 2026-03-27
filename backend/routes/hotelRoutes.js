@@ -23,7 +23,21 @@ router.get("/search", searchHotels);
 // --- 2. PARTNER/OWNER ROUTES (Property Management) ---
 
 // Naya property add karne ke liye
-router.post("/add", supabaseAuth, upload.array("images", 5), addHotel);
+router.post(
+  "/add",
+  supabaseAuth,
+  upload.fields([
+    { name: "images", maxCount: 5 },
+    { name: "ownerPhoto", maxCount: 1 },
+    { name: "ownerAadhaarDoc", maxCount: 1 },
+    { name: "ownerPanDoc", maxCount: 1 },
+    { name: "propertyRegistrationDoc", maxCount: 1 },
+    { name: "tradeLicenseDoc", maxCount: 1 },
+    { name: "gstCertificateDoc", maxCount: 1 },
+    { name: "fireSafetyDoc", maxCount: 1 },
+  ]),
+  addHotel
+);
 
 // Sirf login user ke apne hotels fetch karne ke liye (Manage Stays Page)
 router.get("/my-hotels", supabaseAuth, getMyHotels);

@@ -1,221 +1,359 @@
 import API from "../utils/api";
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNotify } from "../context/NotificationContext";
-import { 
-  Hotel, MapPin, IndianRupee, ShieldCheck, Loader2, ImagePlus, 
-  X, Info, Users, Phone, User, BookOpen, CheckCircle2, Navigation
-} from 'lucide-react';
+import {
+  Hotel,
+  MapPin,
+  IndianRupee,
+  ShieldCheck,
+  Loader2,
+  ImagePlus,
+  X,
+  Info,
+  Users,
+  Phone,
+  User,
+  BookOpen,
+  CheckCircle2,
+  Navigation,
+  Landmark,
+  FileBadge2,
+  CreditCard,
+  Building2,
+} from "lucide-react";
+
+const hotelDocumentFields = [
+  { key: "ownerPhoto", label: "Hotel Owner Photo" },
+  { key: "ownerAadhaarDoc", label: "Owner Aadhaar Scan" },
+  { key: "ownerPanDoc", label: "Owner PAN Scan" },
+  { key: "propertyRegistrationDoc", label: "Property Registration / Lease" },
+  { key: "tradeLicenseDoc", label: "Trade License" },
+  { key: "gstCertificateDoc", label: "GST Certificate" },
+  { key: "fireSafetyDoc", label: "Fire Safety Certificate" },
+];
+
+const amenityKeys = [
+  "wifi",
+  "parking",
+  "breakfast",
+  "hotWater",
+  "roomService",
+  "mountainView",
+  "restaurant",
+  "powerBackup",
+];
+
+const createEmptyForm = () => ({
+  hotelName: "",
+  propertyType: "Hotel",
+  location: "Guptakashi",
+  landmark: "",
+  pricePerNight: "",
+  roomsAvailable: "",
+  guestsPerRoom: "2",
+  distance: "0",
+  description: "",
+  ownerName: "",
+  contactNumber: "",
+  mapsLink: "",
+  cancellationPolicy: "",
+  petPolicy: "Not Allowed",
+  smokingPolicy: "Prohibited",
+  ownerAadhaarNumber: "",
+  ownerPanNumber: "",
+  gstNumber: "",
+  registrationNumber: "",
+  tradeLicenseNumber: "",
+  fireSafetyCertificateNumber: "",
+  bankAccountHolder: "",
+  bankAccountNumber: "",
+  ifscCode: "",
+});
+
+const createEmptyDocs = () =>
+  hotelDocumentFields.reduce((acc, item) => {
+    acc[item.key] = null;
+    return acc;
+  }, {});
 
 const AddHotel = () => {
   const { notify } = useNotify();
-  const [formData, setFormData] = useState({
-    hotelName: '', // Fixed: name -> hotelName
-    propertyType: 'Hotel',
-    location: 'Guptakashi',
-    landmark: '',
-    pricePerNight: '', // Fixed: price -> pricePerNight
-    roomType: 'Standard',
-    totalRooms: '',
-    guestsPerRoom: '2',
-    distance: '0',
-    description: '',
-    ownerName: '',
-    contactNumber: '',
-    mapsLink: '',
-    cancellationPolicy: '',
-    petPolicy: 'Not Allowed',
-    smokingPolicy: 'Prohibited',
-  });
-
-  const [amenities, setAmenities] = useState({
-    wifi: false, parking: false, breakfast: false, hotWater: false,
-    roomService: false, mountainView: false, restaurant: false, powerBackup: false
-  });
-
-  const [images, setImages] = useState([]); 
-  const [previews, setPreviews] = useState([]); 
+  const [formData, setFormData] = useState(createEmptyForm);
+  const [amenities, setAmenities] = useState(
+    amenityKeys.reduce((acc, key) => {
+      acc[key] = false;
+      return acc;
+    }, {})
+  );
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [documents, setDocuments] = useState(createEmptyDocs);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleAmenityChange = (amenity) => {
-    setAmenities(prev => ({ ...prev, [amenity]: !prev[amenity] }));
+    setAmenities((prev) => ({ ...prev, [amenity]: !prev[amenity] }));
   };
 
   const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
     setImages((prev) => [...prev, ...files]);
-    const newPreviews = files.map(file => URL.createObjectURL(file));
-    setPreviews((prev) => [...prev, ...newPreviews]);
+    setPreviews((prev) => [...prev, ...files.map((file) => URL.createObjectURL(file))]);
+  };
+
+  const handleDocumentChange = (key, file) => {
+    setDocuments((prev) => ({ ...prev, [key]: file || null }));
   };
 
   const removeImage = (index) => {
-    setImages(images.filter((_, i) => i !== index));
-    setPreviews(previews.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const resetForm = () => {
+    setFormData(createEmptyForm());
+    setImages([]);
+    setPreviews([]);
+    setDocuments(createEmptyDocs());
+    setAmenities(
+      amenityKeys.reduce((acc, key) => {
+        acc[key] = false;
+        return acc;
+      }, {})
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 🚨 Critical Validation
     if (!formData.hotelName || !formData.pricePerNight) {
-        return notify("Bhai, Hotel ka naam aur rate zaruri hai!", "error");
+      return notify("Hotel name and nightly rate are required.", "error");
     }
-    if (images.length === 0) return notify("Bhai, kam se kam ek photo toh dalo!", "error");
-    
+
+    if (!images.length) {
+      return notify("Add at least one property image.", "error");
+    }
+
+    if (!documents.ownerPhoto || !documents.ownerAadhaarDoc || !documents.propertyRegistrationDoc) {
+      return notify("Owner photo, owner Aadhaar, and property registration proof are required.", "error");
+    }
+
     setLoading(true);
     const data = new FormData();
-    
-    // 🛠️ Proper Data Preparation
-    Object.keys(formData).forEach(key => {
-      // Cast numeric strings to actual numbers for backend
-      if (['pricePerNight', 'totalRooms', 'guestsPerRoom', 'distance'].includes(key)) {
-        data.append(key, Number(formData[key]) || 0);
-      } else {
-        data.append(key, formData[key]);
-      }
-    });
-    
-    const selectedAmenities = Object.keys(amenities).filter(key => amenities[key]);
-    data.append("amenities", JSON.stringify(selectedAmenities));
 
+    Object.entries(formData).forEach(([key, value]) => {
+      data.append(key, value);
+    });
+
+    data.append("amenities", JSON.stringify(Object.keys(amenities).filter((key) => amenities[key])));
     images.forEach((file) => data.append("images", file));
+    Object.entries(documents).forEach(([key, file]) => {
+      if (file) data.append(key, file);
+    });
 
     try {
-      const response = await API.post("/hotel/add", data);      
-      
+      const response = await API.post("/hotel/add", data);
       if (response.data) {
-        notify("Property Synced to Vault! Admin approval pending. 🏔️", "success");
-        setFormData({ 
-          hotelName: '', location: 'Guptakashi', pricePerNight: '', totalRooms: '', 
-          propertyType: 'Hotel', landmark: '', contactNumber: '', description: '',
-          ownerName: '', mapsLink: '', cancellationPolicy: '', 
-          petPolicy: 'Not Allowed', smokingPolicy: 'Prohibited',
-          guestsPerRoom: '2', distance: '0', roomType: 'Standard'
-        });
-        setImages([]);
-        setPreviews([]);
-        setAmenities({
-            wifi: false, parking: false, breakfast: false, hotWater: false,
-            roomService: false, mountainView: false, restaurant: false, powerBackup: false
-        });
+        notify("Property synced with compliance documents. Admin review pending.", "success");
+        resetForm();
       }
     } catch (error) {
-      const errorMsg = error.response?.data?.message || "Check fields and try again.";
-      notify(`Status: ${errorMsg}`, "error");
+      notify(error.response?.data?.message || "Check the new compliance fields and try again.", "error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen pt-32 pb-20 px-4 md:px-8 overflow-x-hidden font-sans">
-      <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="fixed inset-0 w-full h-full object-cover z-[-1]" alt="BG" />
-      <div className="fixed inset-0 bg-black/85 backdrop-blur-[8px] z-[-1]"></div>
+    <div className="relative min-h-screen overflow-x-hidden px-4 pb-20 pt-32 font-sans md:px-8">
+      <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="fixed inset-0 z-[-1] h-full w-full object-cover" alt="BG" />
+      <div className="fixed inset-0 z-[-1] bg-black/85 backdrop-blur-[8px]" />
 
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl mx-auto bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-[40px] md:rounded-[60px] p-6 md:p-16 shadow-3xl">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto max-w-6xl rounded-[40px] border border-white/10 bg-white/[0.02] p-6 shadow-3xl backdrop-blur-3xl md:rounded-[60px] md:p-16"
+      >
         <div className="mb-12 border-b border-white/10 pb-8">
-          <h2 className="text-4xl md:text-7xl font-black text-white tracking-tighter uppercase italic leading-none">
-            REGISTER <span className="text-orange-600">PROPERTY.</span>
+          <h2 className="text-4xl font-black uppercase leading-none tracking-tighter text-white md:text-7xl">
+            Register <span className="text-orange-600">Property.</span>
           </h2>
-          <p className="text-white/20 font-black text-[9px] tracking-[0.5em] uppercase mt-5 italic">Transmission ID: MM-{Math.floor(Math.random()*9000)}</p>
+          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.5em] text-white/20 italic">Transmission ID: MM-{Math.floor(Math.random() * 9000)}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-12 md:space-y-16">
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><Hotel size={14} className="text-orange-500"/> Property Identity</label>
-              <input name="hotelName" value={formData.hotelName} onChange={handleChange} required placeholder="Kedar Valley Resort" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none focus:border-orange-600 transition-all" />
+          <FormSection title="Property Identity" icon={<Hotel size={16} className="text-orange-500" />}>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-10">
+              <Field label="Property Identity" icon={<Hotel size={14} className="text-orange-500" />}>
+                <input name="hotelName" value={formData.hotelName} onChange={handleChange} required placeholder="Kedar Valley Resort" className={inputClass} />
+              </Field>
+              <Field label="Classification" icon={<Info size={14} className="text-orange-500" />}>
+                <select name="propertyType" value={formData.propertyType} onChange={handleChange} className={inputClass}>
+                  {["Hotel", "Homestay", "Resort", "Guest House", "Camp"].map((type) => (
+                    <option key={type} value={type} className="bg-[#111]">
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Tactical Zone" icon={<MapPin size={14} className="text-orange-500" />}>
+                <select name="location" value={formData.location} onChange={handleChange} className={inputClass}>
+                  {["Guptakashi", "Sonprayag", "Phata", "Rudraprayag", "Ukhimath"].map((loc) => (
+                    <option key={loc} value={loc} className="bg-[#111]">
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             </div>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><Info size={14} className="text-orange-500"/> Classification</label>
-              <select name="propertyType" value={formData.propertyType} onChange={handleChange} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none cursor-pointer">
-                {['Hotel', 'Homestay', 'Resort', 'Guest House', 'Camp'].map(t => <option key={t} value={t} className="bg-[#111]">{t}</option>)}
-              </select>
-            </div>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><MapPin size={14} className="text-orange-500"/> Tactical Zone</label>
-              <select name="location" value={formData.location} onChange={handleChange} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none cursor-pointer">
-                {['Guptakashi', 'Sonprayag', 'Phata', 'Rudraprayag', 'Ukhimath'].map(l => <option key={l} value={l} className="bg-[#111]">{l}</option>)}
-              </select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><IndianRupee size={12}/> Rate/Night</label>
-              <input name="pricePerNight" type="number" value={formData.pricePerNight} onChange={handleChange} required placeholder="3500" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none focus:border-orange-600" />
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
+              <Field label="Rate/Night" icon={<IndianRupee size={12} />}>
+                <input name="pricePerNight" type="number" value={formData.pricePerNight} onChange={handleChange} required placeholder="3500" className={inputClass} />
+              </Field>
+              <Field label="Units" icon={<BookOpen size={12} />}>
+                <input name="roomsAvailable" type="number" value={formData.roomsAvailable} onChange={handleChange} required placeholder="10" className={inputClass} />
+              </Field>
+              <Field label="Max Guests" icon={<Users size={12} />}>
+                <input name="guestsPerRoom" type="number" value={formData.guestsPerRoom} onChange={handleChange} className={inputClass} />
+              </Field>
+              <Field label="Landmark" icon={<Navigation size={12} />}>
+                <input name="landmark" value={formData.landmark} onChange={handleChange} placeholder="Near Helipad" className={inputClass} />
+              </Field>
             </div>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><BookOpen size={12}/> Units</label>
-              <input name="totalRooms" type="number" value={formData.totalRooms} onChange={handleChange} required placeholder="10" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none focus:border-orange-600" />
-            </div>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><Users size={12}/> Max Guests</label>
-              <input name="guestsPerRoom" type="number" value={formData.guestsPerRoom} onChange={handleChange} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none" />
-            </div>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><Navigation size={12}/> Landmark</label>
-              <input name="landmark" value={formData.landmark} onChange={handleChange} placeholder="Near Helipad" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none" />
-            </div>
-          </div>
 
-          <div className="space-y-8">
-            <label className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] italic underline underline-offset-8 decoration-orange-500/20">Facility Infrastructure</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.keys(amenities).map((key) => (
-                <button 
-                  key={key} type="button" onClick={() => handleAmenityChange(key)}
-                  className={`flex items-center gap-4 p-5 rounded-2xl transition-all border-2 ${amenities[key] ? 'bg-orange-600 border-orange-400 text-white' : 'bg-white/5 border-white/5 text-white/20 hover:border-white/20'}`}
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+              <Field label="Manager Name" icon={<User size={14} />}>
+                <input name="ownerName" value={formData.ownerName} onChange={handleChange} required placeholder="Shardul Aswal" className={inputClass} />
+              </Field>
+              <Field label="Contact Line" icon={<Phone size={14} />}>
+                <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} required placeholder="+91 XXXXX XXXXX" className={inputClass} />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Facility Infrastructure" icon={<Building2 size={16} className="text-orange-500" />}>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {amenityKeys.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleAmenityChange(key)}
+                  className={`flex items-center gap-4 rounded-2xl border-2 p-5 transition-all ${
+                    amenities[key] ? "border-orange-400 bg-orange-600 text-white" : "border-white/5 bg-white/5 text-white/20 hover:border-white/20"
+                  }`}
                 >
-                  <CheckCircle2 size={16} className={amenities[key] ? 'opacity-100' : 'opacity-20'} />
-                  <span className="text-[9px] font-black uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</span>
+                  <CheckCircle2 size={16} className={amenities[key] ? "opacity-100" : "opacity-20"} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">{key.replace(/([A-Z])/g, " $1")}</span>
                 </button>
               ))}
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
             <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><User size={14}/> Manager Name</label>
-              <input name="ownerName" value={formData.ownerName} onChange={handleChange} required placeholder="Shardul Aswal" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none focus:border-orange-600" />
+              <label className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-white/40">
+                <Landmark size={14} className="text-orange-500" />
+                System Narrative
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Brief about hospitality, route relevance, family suitability, parking situation, and onsite support..."
+                className="h-40 w-full resize-none rounded-3xl border border-white/10 bg-white/5 p-8 font-bold text-white outline-none focus:border-orange-600"
+              />
             </div>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><Phone size={14}/> Contact Line</label>
-              <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} required placeholder="+91 XXXX" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-white outline-none focus:border-orange-600" />
+          </FormSection>
+
+          <FormSection title="Owner & Legal Compliance" icon={<FileBadge2 size={16} className="text-orange-500" />}>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+              <Field label="Owner Aadhaar Number">
+                <input name="ownerAadhaarNumber" value={formData.ownerAadhaarNumber} onChange={handleChange} required placeholder="XXXX XXXX XXXX" className={inputClass} />
+              </Field>
+              <Field label="Owner PAN Number">
+                <input name="ownerPanNumber" value={formData.ownerPanNumber} onChange={handleChange} required placeholder="ABCDE1234F" className={inputClass} />
+              </Field>
+              <Field label="GST Number">
+                <input name="gstNumber" value={formData.gstNumber} onChange={handleChange} placeholder="Optional but recommended" className={inputClass} />
+              </Field>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest">System Narrative</label>
-            <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Brief about hospitality..." className="w-full h-40 bg-white/5 border border-white/10 p-8 rounded-3xl font-bold text-white outline-none resize-none focus:border-orange-600" />
-          </div>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+              <Field label="Registration Number">
+                <input name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} required placeholder="Property / lease registration" className={inputClass} />
+              </Field>
+              <Field label="Trade License Number">
+                <input name="tradeLicenseNumber" value={formData.tradeLicenseNumber} onChange={handleChange} placeholder="Municipal / tourism license" className={inputClass} />
+              </Field>
+              <Field label="Fire Safety Certificate No.">
+                <input name="fireSafetyCertificateNumber" value={formData.fireSafetyCertificateNumber} onChange={handleChange} placeholder="If applicable" className={inputClass} />
+              </Field>
+            </div>
 
-          <div className="space-y-8 bg-white/[0.02] p-6 md:p-10 rounded-[30px] border border-white/5">
-            <label className="flex items-center gap-3 text-[9px] font-black text-white/40 uppercase tracking-widest"><ImagePlus size={14}/> Visual Assets (Gallery)</label>
-            <div className="flex gap-5 flex-wrap">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+              <Field label="Account Holder">
+                <input name="bankAccountHolder" value={formData.bankAccountHolder} onChange={handleChange} placeholder="Payout account name" className={inputClass} />
+              </Field>
+              <Field label="Account Number">
+                <input name="bankAccountNumber" value={formData.bankAccountNumber} onChange={handleChange} placeholder="For settlements" className={inputClass} />
+              </Field>
+              <Field label="IFSC Code" icon={<CreditCard size={14} className="text-orange-500" />}>
+                <input name="ifscCode" value={formData.ifscCode} onChange={handleChange} placeholder="SBIN0000001" className={inputClass} />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Verification Documents" icon={<ShieldCheck size={16} className="text-orange-500" />}>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {hotelDocumentFields.map((item) => (
+                <DocumentField
+                  key={item.key}
+                  label={item.label}
+                  file={documents[item.key]}
+                  onChange={(file) => handleDocumentChange(item.key, file)}
+                />
+              ))}
+            </div>
+          </FormSection>
+
+          <FormSection title="Visual Assets" icon={<ImagePlus size={16} className="text-orange-500" />}>
+            <div className="flex flex-wrap gap-5">
               <AnimatePresence>
                 {previews.map((src, index) => (
-                  <motion.div key={src} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5 }} className="relative w-32 h-32 md:w-40 md:h-40 rounded-2xl overflow-hidden border border-white/10 group">
-                    <img src={src} className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => removeImage(index)} className="absolute top-2 right-2 bg-red-600 p-2 rounded-full shadow-xl hover:bg-white hover:text-red-600 transition-all"><X size={12}/></button>
+                  <motion.div
+                    key={src}
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5 }}
+                    className="group relative h-32 w-32 overflow-hidden rounded-2xl border border-white/10 md:h-40 md:w-40"
+                  >
+                    <img src={src} className="h-full w-full object-cover" alt="preview" />
+                    <button type="button" onClick={() => removeImage(index)} className="absolute right-2 top-2 rounded-full bg-red-600 p-2 shadow-xl transition-all hover:bg-white hover:text-red-600">
+                      <X size={12} />
+                    </button>
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <label className="w-32 h-32 md:w-40 md:h-40 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-orange-600/10 hover:border-orange-600 transition-all group">
+
+              <label className="flex h-32 w-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 transition-all hover:border-orange-600 hover:bg-orange-600/10 group md:h-40 md:w-40">
                 <ImagePlus className="text-white/20 group-hover:text-orange-500" size={32} />
-                <span className="text-[8px] font-black text-white/20 uppercase mt-3 tracking-widest">Upload</span>
+                <span className="mt-3 text-[8px] font-black uppercase tracking-widest text-white/20">Upload</span>
                 <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
               </label>
             </div>
-          </div>
+          </FormSection>
 
-          <button disabled={loading} type="submit" className="w-full bg-orange-600 hover:bg-white hover:text-black text-white p-8 md:p-10 rounded-full font-black text-[12px] uppercase tracking-[0.4em] shadow-3xl transition-all flex items-center justify-center gap-5 disabled:opacity-50 active:scale-95">
-            {loading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24}/>}
+          <button
+            disabled={loading}
+            type="submit"
+            className="flex w-full items-center justify-center gap-5 rounded-full bg-orange-600 p-8 text-[12px] font-black uppercase tracking-[0.4em] text-white shadow-3xl transition-all hover:bg-white hover:text-black disabled:opacity-50 active:scale-95 md:p-10"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24} />}
             {loading ? "TRANSMITTING DATA..." : "INITIALIZE DEPLOYMENT"}
           </button>
         </form>
@@ -223,5 +361,46 @@ const AddHotel = () => {
     </div>
   );
 };
+
+function FormSection({ title, icon, children }) {
+  return (
+    <div className="space-y-8">
+      <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-orange-500 italic">
+        {icon}
+        {title}
+      </label>
+      <div className="space-y-8 rounded-[30px] border border-white/5 bg-white/[0.02] p-6 md:p-10">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, icon, children }) {
+  return (
+    <div className="space-y-4">
+      <label className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-white/40">
+        {icon}
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function DocumentField({ label, file, onChange }) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[24px] border border-white/10 bg-black/30 px-5 py-5 transition-all hover:border-orange-500/40 hover:bg-black/40">
+      <div>
+        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/55">{label}</p>
+        <p className="mt-2 text-xs text-white/35">{file ? file.name : "Upload JPG, PNG, WEBP or PDF"}</p>
+      </div>
+      <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-[8px] font-black uppercase tracking-[0.24em] text-orange-300">
+        {file ? "Change" : "Select"}
+      </span>
+      <input type="file" accept=".pdf,image/*" className="hidden" onChange={(e) => onChange(e.target.files?.[0] || null)} />
+    </label>
+  );
+}
+
+const inputClass = "w-full rounded-2xl border border-white/10 bg-white/5 p-5 font-bold text-white outline-none transition-all focus:border-orange-600";
 
 export default AddHotel;

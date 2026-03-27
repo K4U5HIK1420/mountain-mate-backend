@@ -16,6 +16,34 @@
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-muted: rgba(255, 255, 255, 0.4);
   --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-bg:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.08), transparent 30%),
+    linear-gradient(180deg, #090909 0%, #050505 42%, #020202 100%);
+  --page-solid: var(--deep-black);
+  --surface-elevated:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(10, 10, 10, 0.7);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --surface-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 28px 70px rgba(0, 0, 0, 0.34);
+}
+
+html:not(.dark) {
+  --text-primary: #18110a;
+  --text-secondary: rgba(24, 17, 10, 0.72);
+  --text-muted: rgba(24, 17, 10, 0.48);
+  --page-bg:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.12), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, #f6efe7 48%, #efe3d7 100%);
+  --page-solid: #fff8f1;
+  --surface-elevated:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 241, 0.88)),
+    rgba(255, 250, 245, 0.9);
+  --surface-border: rgba(24, 17, 10, 0.08);
+  --surface-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 24px 60px rgba(140, 88, 33, 0.12);
 }
 
 html {
@@ -29,9 +57,7 @@ body {
   margin: 0;
   padding: 0;
   display: block !important;
-  background:
-    radial-gradient(circle at top, rgba(249, 115, 22, 0.08), transparent 30%),
-    linear-gradient(180deg, #090909 0%, #050505 42%, #020202 100%);
+  background: var(--page-bg);
   color: var(--text-primary);
   font-family: "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
@@ -40,7 +66,7 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
-  background: var(--deep-black);
+  background: var(--page-solid);
 }
 
 a {
@@ -170,13 +196,9 @@ button {
 .cinematic-surface {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    rgba(10, 10, 10, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 28px 70px rgba(0, 0, 0, 0.34);
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--surface-shadow);
   backdrop-filter: blur(24px);
 }
 
@@ -201,6 +223,10 @@ button {
   pointer-events: none;
   border: 1px solid rgba(255, 255, 255, 0.08);
   mask: linear-gradient(180deg, rgba(255, 255, 255, 1), transparent 75%);
+}
+
+html:not(.dark) .spotlight-border::after {
+  border-color: rgba(24, 17, 10, 0.08);
 }
 
 .hover-lift {
@@ -331,4 +357,39 @@ button {
     radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 0);
   background-position: 0 0, 6px 6px;
   background-size: 12px 12px;
+}
+
+html:not(.dark) [class~="text-white"] {
+  color: #18110a !important;
+}
+
+html:not(.dark) [class*="text-white/"] {
+  color: rgba(24, 17, 10, 0.68) !important;
+}
+
+html:not(.dark) [class*="border-white/"] {
+  border-color: rgba(24, 17, 10, 0.1) !important;
+}
+
+html:not(.dark) [class*="bg-[#050505]"],
+html:not(.dark) [class*="bg-[#040404]"],
+html:not(.dark) [class*="bg-[#0a0a0a]"],
+html:not(.dark) [class~="bg-black"] {
+  background-color: #fff8f1 !important;
+}
+
+html:not(.dark) [class*="bg-black/"] {
+  background-color: rgba(255, 248, 241, 0.82) !important;
+}
+
+html:not(.dark) [class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+html:not(.dark) [class*="from-black"],
+html:not(.dark) [class*="via-black"],
+html:not(.dark) [class*="to-black"] {
+  --tw-gradient-from: rgba(255, 248, 241, 0.96) var(--tw-gradient-from-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  --tw-gradient-to: rgba(239, 227, 215, 0.85) var(--tw-gradient-to-position) !important;
 }

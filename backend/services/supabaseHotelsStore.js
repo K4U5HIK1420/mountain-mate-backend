@@ -13,6 +13,8 @@ function mapHotelRow(row) {
     distance: row.distance,
     images: row.images || [],
     amenities: JSON.stringify(row.amenities ?? []),
+    complianceDetails: row.compliance_details || {},
+    verificationDocuments: row.verification_documents || {},
     owner: row.owner_id,
     status: row.status,
     isVerified: row.is_verified,
@@ -35,6 +37,8 @@ async function addHotel({ ownerId, payload }) {
     distance: payload.distance || "0",
     images: payload.images || [],
     amenities: payload.amenities ? JSON.parse(payload.amenities) : [],
+    compliance_details: payload.complianceDetails || {},
+    verification_documents: payload.verificationDocuments || {},
     status: "pending",
     is_verified: false,
   };
@@ -78,6 +82,8 @@ async function updateHotel({ ownerId, id, updateData }) {
   if (safe.distance !== undefined) patch.distance = safe.distance;
   if (safe.pricePerNight !== undefined) patch.price_per_night = Number(safe.pricePerNight);
   if (safe.roomsAvailable !== undefined) patch.rooms_available = Number(safe.roomsAvailable);
+  if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
+  if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
 
   const { data, error } = await supabase
     .from("hotels")

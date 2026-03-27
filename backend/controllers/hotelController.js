@@ -5,24 +5,75 @@ const fs = require("fs");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 
+const HOTEL_DOC_FIELDS = [
+  "ownerPhoto",
+  "ownerAadhaarDoc",
+  "ownerPanDoc",
+  "propertyRegistrationDoc",
+  "tradeLicenseDoc",
+  "gstCertificateDoc",
+  "fireSafetyDoc",
+];
+
+function uploadFileToCloudinary(file, folder) {
+  return cloudinary.uploader.upload(file.path, {
+    folder,
+    resource_type: "auto",
+  });
+}
+
+function buildHotelComplianceDetails(body = {}) {
+  return {
+    ownerAadhaarNumber: body.ownerAadhaarNumber || "",
+    ownerPanNumber: body.ownerPanNumber || "",
+    gstNumber: body.gstNumber || "",
+    registrationNumber: body.registrationNumber || "",
+    tradeLicenseNumber: body.tradeLicenseNumber || "",
+    fireSafetyCertificateNumber: body.fireSafetyCertificateNumber || "",
+    bankAccountHolder: body.bankAccountHolder || "",
+    bankAccountNumber: body.bankAccountNumber || "",
+    ifscCode: body.ifscCode || "",
+  };
+}
+
 // 1. Add Hotel (Synced with Owner ID)
 exports.addHotel = async (req, res, next) => {
   try {
     const imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      for (let file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: "mountain_mate/hotels",
-        });
+    const verificationDocuments = {};
+    const imageFiles = req.files?.images || [];
+
+    if (imageFiles.length > 0) {
+      for (let file of imageFiles) {
+        const result = await uploadFileToCloudinary(file, "mountain_mate/hotels");
         imageUrls.push(result.secure_url);
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
     }
 
+    for (const field of HOTEL_DOC_FIELDS) {
+      const file = req.files?.[field]?.[0];
+      if (!file) {
+        verificationDocuments[field] = "";
+        continue;
+      }
+
+      const result = await uploadFileToCloudinary(file, "mountain_mate/hotel_verification");
+      verificationDocuments[field] = result.secure_url;
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    }
+
+    const complianceDetails = buildHotelComplianceDetails(req.body);
+
     if (getDataStore() === "supabase") {
       const created = await supabaseHotels.addHotel({
         ownerId: req.user.id,
-        payload: { ...req.body, images: imageUrls },
+        payload: {
+          ...req.body,
+          images: imageUrls,
+          complianceDetails,
+          verificationDocuments,
+        },
       });
       return res.status(201).json(created);
     }
@@ -36,6 +87,8 @@ exports.addHotel = async (req, res, next) => {
       description: req.body.description || "",
       distance: req.body.distance || "0",
       images: imageUrls,
+      complianceDetails,
+      verificationDocuments,
       owner: req.user.id,
       isVerified: false,
       status: "pending",
@@ -45,7 +98,7 @@ exports.addHotel = async (req, res, next) => {
     return res.status(201).json(hotel);
   } catch (error) {
     if (req.files) {
-      req.files.forEach(file => {
+      Object.values(req.files).flat().forEach(file => {
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       });
     }

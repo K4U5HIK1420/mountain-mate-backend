@@ -26,6 +26,9 @@ create table if not exists public.hotels (
   updated_at timestamptz not null default now()
 );
 
+alter table public.hotels add column if not exists compliance_details jsonb default '{}'::jsonb;
+alter table public.hotels add column if not exists verification_documents jsonb default '{}'::jsonb;
+
 create index if not exists hotels_owner_id_idx on public.hotels(owner_id);
 create index if not exists hotels_location_idx on public.hotels(location);
 create index if not exists hotels_verified_idx on public.hotels(is_verified);
@@ -57,6 +60,9 @@ create table if not exists public.transports (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.transports add column if not exists compliance_details jsonb default '{}'::jsonb;
+alter table public.transports add column if not exists verification_documents jsonb default '{}'::jsonb;
 
 create index if not exists transports_owner_id_idx on public.transports(owner_id);
 create index if not exists transports_route_idx on public.transports(route_from, route_to);

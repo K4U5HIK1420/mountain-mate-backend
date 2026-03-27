@@ -1,23 +1,78 @@
 const Transport = require("../models/Transport");
 const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+
+const TRANSPORT_DOC_FIELDS = [
+  "driverPhoto",
+  "driverLicenseDoc",
+  "driverAadhaarDoc",
+  "vehicleRcDoc",
+  "vehicleInsuranceDoc",
+  "vehiclePermitDoc",
+  "pollutionCertificateDoc",
+  "fitnessCertificateDoc",
+];
+
+function buildTransportComplianceDetails(body = {}) {
+  return {
+    driverLicenseNumber: body.driverLicenseNumber || "",
+    driverAadhaarNumber: body.driverAadhaarNumber || "",
+    driverPanNumber: body.driverPanNumber || "",
+    rcNumber: body.rcNumber || "",
+    insurancePolicyNumber: body.insurancePolicyNumber || "",
+    permitNumber: body.permitNumber || "",
+    pollutionCertificateNumber: body.pollutionCertificateNumber || "",
+    fitnessCertificateNumber: body.fitnessCertificateNumber || "",
+  };
+}
+
+function uploadFileToCloudinary(file, folder) {
+  return cloudinary.uploader.upload(file.path, {
+    folder,
+    resource_type: "auto",
+  });
+}
 
 // 1. Add Transport
 exports.addTransport = async (req, res, next) => {
   try {
     const imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      for (let file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path);
+    const verificationDocuments = {};
+    const imageFiles = req.files?.images || [];
+
+    if (imageFiles.length > 0) {
+      for (let file of imageFiles) {
+        const result = await uploadFileToCloudinary(file, "mountain_mate/transports");
         imageUrls.push(result.secure_url);
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
     }
+
+    for (const field of TRANSPORT_DOC_FIELDS) {
+      const file = req.files?.[field]?.[0];
+      if (!file) {
+        verificationDocuments[field] = "";
+        continue;
+      }
+
+      const result = await uploadFileToCloudinary(file, "mountain_mate/transport_verification");
+      verificationDocuments[field] = result.secure_url;
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    }
+
+    const complianceDetails = buildTransportComplianceDetails(req.body);
 
     if (getDataStore() === "supabase") {
       const created = await supabaseTransports.addTransport({
         ownerId: req.user.id,
-        payload: { ...req.body, images: imageUrls },
+        payload: {
+          ...req.body,
+          images: imageUrls,
+          complianceDetails,
+          verificationDocuments,
+        },
       });
       return res.json({
         success: true,
@@ -43,6 +98,8 @@ exports.addTransport = async (req, res, next) => {
       driverName: req.body.driverName || req.user.name,
       contactNumber: req.body.contactNumber,
       images: imageUrls,
+      complianceDetails,
+      verificationDocuments,
       status: "pending",
       isVerified: false // Default false
     });
@@ -53,6 +110,11 @@ exports.addTransport = async (req, res, next) => {
 
     res.json({ success: true, message: "Fleet Transmission Successful! 🚕", transport });
   } catch (error) {
+    if (req.files) {
+      Object.values(req.files).flat().forEach((file) => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      });
+    }
     res.status(400).json({ message: error.message });
   }
 };

@@ -56,6 +56,26 @@ const transportSchema = new mongoose.Schema({
         type: [String],
         required: true
     },
+    complianceDetails: {
+        driverLicenseNumber: { type: String, default: "" },
+        driverAadhaarNumber: { type: String, default: "" },
+        driverPanNumber: { type: String, default: "" },
+        rcNumber: { type: String, default: "" },
+        insurancePolicyNumber: { type: String, default: "" },
+        permitNumber: { type: String, default: "" },
+        pollutionCertificateNumber: { type: String, default: "" },
+        fitnessCertificateNumber: { type: String, default: "" }
+    },
+    verificationDocuments: {
+        driverPhoto: { type: String, default: "" },
+        driverLicenseDoc: { type: String, default: "" },
+        driverAadhaarDoc: { type: String, default: "" },
+        vehicleRcDoc: { type: String, default: "" },
+        vehicleInsuranceDoc: { type: String, default: "" },
+        vehiclePermitDoc: { type: String, default: "" },
+        pollutionCertificateDoc: { type: String, default: "" },
+        fitnessCertificateDoc: { type: String, default: "" }
+    },
     status: {
         type: String,
         enum: ["pending", "approved", "rejected"],

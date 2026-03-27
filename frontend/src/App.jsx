@@ -1,13 +1,12 @@
 import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mountain, LogOut, Settings2, Menu, X, Sparkles, User, PlusCircle, Car, Heart, Gift, Bot, Briefcase, LayoutGrid, ChevronDown, Shield } from 'lucide-react';
+import { Mountain, LogOut, Menu, X, PlusCircle, Car, LayoutGrid, ChevronDown, Shield } from 'lucide-react';
 
 // --- CORE UTILS & CONTEXT ---
 import API from './utils/api';
 import { useNotify } from "./context/NotificationContext";
 import { useAuth } from "./context/AuthContext";
-import { useTheme } from "./context/ThemeContext";
 import { hasSupabaseEnv } from "./utils/supabase";
 
 // --- COMPONENTS ---
@@ -29,6 +28,16 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]);
+
+  return null;
+};
+
 // --- LAZY IMPORTS ---
 const Home = React.lazy(() => import("./pages/Home"));
 const ExploreStays = React.lazy(() => import("./pages/ExploreStays"));
@@ -41,6 +50,7 @@ const ManageRides = React.lazy(() => import("./pages/ManageRides"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const AdminBookings = React.lazy(() => import("./pages/AdminBookings"));
 const Login = React.lazy(() => import("./pages/Login"));
+const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 const Register = React.lazy(() => import("./pages/Register"));
 const RegisterPartner = React.lazy(() => import("./pages/RegisterPartner"));
 const Recommendations = React.lazy(() => import("./pages/Recommendations"));
@@ -56,9 +66,10 @@ const PaymentResult = React.lazy(() => import("./pages/PaymentResult"));
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-  const { isDark, toggle: toggleTheme } = useTheme();
+  const { user, role, signOut } = useAuth();
   const token = !!user;
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
+  const isAdmin = role === "admin" || hasAdminAccess;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isBusinessOpen, setIsBusinessOpen] = useState(false);
   
@@ -85,6 +96,39 @@ const Navbar = () => {
     checkPartnerRoles();
   }, [token]);
 
+  useEffect(() => {
+    let active = true;
+
+    const checkAdminAccess = async () => {
+      if (!token) {
+        setHasAdminAccess(false);
+        return;
+      }
+
+      if (role === "admin") {
+        setHasAdminAccess(true);
+        return;
+      }
+
+      try {
+        await API.get("/admin-console/overview");
+        if (active) {
+          setHasAdminAccess(true);
+        }
+      } catch {
+        if (active) {
+          setHasAdminAccess(false);
+        }
+      }
+    };
+
+    checkAdminAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [token, role]);
+
   // ✅ ONLY CORE SERVICES IN NAVBAR
   const navLinks = useMemo(() => [
     { to: "/explore-stays", label: "STAYS" },
@@ -96,7 +140,7 @@ const Navbar = () => {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`pointer-events-auto mx-auto max-w-7xl flex justify-between items-center rounded-[40px] px-8 py-4 transition-all duration-700 shadow-2xl relative border border-white/10 ${isDark ? 'bg-black/40 backdrop-blur-[40px]' : 'bg-white/60 backdrop-blur-md'}`}
+        className="pointer-events-auto mx-auto max-w-7xl flex justify-between items-center rounded-[40px] px-8 py-4 transition-all duration-700 shadow-2xl relative border border-white/10 bg-black/40 backdrop-blur-[40px]"
       >
         {/* LOGO */}
         <Link to="/" className="flex items-center gap-4 group">
@@ -123,6 +167,23 @@ const Navbar = () => {
               )}
             </Link>
           ))}
+
+          {isAdmin && (
+            <Link
+              to="/admin-mate"
+              className={`relative flex items-center gap-2 text-[10px] font-black tracking-[0.25em] transition-all hover:text-orange-500 uppercase italic ${
+                location.pathname === "/admin-mate" || location.pathname === "/admin-bookings"
+                  ? "text-orange-400"
+                  : "text-white/30"
+              }`}
+            >
+              <Shield size={12} />
+              Admin Console
+              {(location.pathname === "/admin-mate" || location.pathname === "/admin-bookings") && (
+                <motion.span layoutId="nav-pill" className="absolute -bottom-2 left-0 right-0 h-[2px] bg-orange-500 shadow-[0_0_15px_#f97316]" />
+              )}
+            </Link>
+          )}
 
           {/* SMART BUSINESS GATEWAY */}
           <div 
@@ -164,7 +225,15 @@ const Navbar = () => {
 
         {/* RIGHT ACTION BAR */}
         <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className="hidden sm:flex w-10 h-10 rounded-full border border-white/10 items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-all"><Sparkles size={16}/></button>
+          {isAdmin && (
+            <Link
+              to="/admin-mate"
+              className="hidden xl:flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/8 px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-orange-300 transition-all hover:bg-orange-500/14 hover:text-white"
+            >
+              <Shield size={12} />
+              Admin
+            </Link>
+          )}
           {token ? (
             <div className="flex items-center gap-5">
               <Link to="/profile" className="w-10 h-10 rounded-full p-[2.5px] bg-gradient-to-tr from-orange-500 via-amber-400 to-white shadow-2xl hover:scale-110 transition-transform">
@@ -189,6 +258,7 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
+        <ScrollToTop />
         <div className="min-h-screen flex flex-col bg-[#050505] text-white overflow-x-hidden relative font-sans">
           <AnimatedBackground />
           <ParticlesCanvas />
@@ -208,6 +278,7 @@ function App() {
                 <Route path="/admin-mate" element={<AdminDashboard />} />
                 <Route path="/admin-bookings" element={<AdminBookings />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/register-partner" element={<RegisterPartner />} />
                 <Route path="/recommendations" element={<Recommendations />} />
