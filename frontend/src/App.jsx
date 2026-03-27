@@ -61,7 +61,7 @@ const AddTransport = React.lazy(() => import("./pages/AddTransport"));
 const Bookings = React.lazy(() => import("./pages/Bookings"));
 const ManageStays = React.lazy(() => import("./pages/ManageStays"));
 const ManageRides = React.lazy(() => import("./pages/ManageRides"));
-const AdminDashboard = React.lazy(() => import("./pages/AdminCommandCenter"));
+const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const AdminBookings = React.lazy(() => import("./pages/AdminBookingsPanel"));
 const AdminSupport = React.lazy(() => import("./pages/AdminSupport"));
 const Login = React.lazy(() => import("./pages/Login"));
