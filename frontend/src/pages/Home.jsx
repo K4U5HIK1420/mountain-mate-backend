@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   Activity,
@@ -21,6 +21,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Container } from "../components/ui/Container";
 import { Button } from "../components/ui/Button";
+import { getWeatherData } from "../utils/api";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 34 },
@@ -88,11 +89,16 @@ const highlights = [
   },
 ];
 
-const tickerItems = [
-  { icon: <Thermometer size={12} />, text: "Kedarnath 4C", tone: "text-orange-400" },
-  { icon: <CloudRain size={12} />, text: "Rishikesh Clear", tone: "text-amber-400" },
-  { icon: <Activity size={12} />, text: "Route Grid Stable", tone: "text-emerald-400" },
-  { icon: <Zap size={12} />, text: "High Demand Window", tone: "text-yellow-400" },
+const weatherLocations = [
+  { label: "Kedarnath", lat: 30.7346, lon: 79.0669, tone: "text-orange-400" },
+  { label: "Rishikesh", lat: 30.0869, lon: 78.2676, tone: "text-amber-400" },
+];
+
+const defaultTickerItems = [
+  { icon: Thermometer, text: "Kedarnath Weather Offline", tone: "text-orange-400" },
+  { icon: CloudRain, text: "Rishikesh Weather Offline", tone: "text-amber-400" },
+  { icon: Activity, text: "Route Grid Stable", tone: "text-emerald-400" },
+  { icon: Zap, text: "High Demand Window", tone: "text-yellow-400" },
 ];
 
 export default function Home() {
@@ -100,6 +106,60 @@ export default function Home() {
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 700], [0, 180]);
   const hazeY = useTransform(scrollY, [0, 700], [0, -90]);
+  const [tickerItems, setTickerItems] = useState(defaultTickerItems);
+
+  useEffect(() => {
+    let active = true;
+
+    const formatWeatherTicker = (label, weather, tone) => {
+      if (!weather?.main) {
+        return {
+          icon: CloudRain,
+          text: `${label} Weather Offline`,
+          tone,
+        };
+      }
+
+      const temperature = Math.round(weather.main.temp);
+      const summary = weather.weather?.[0]?.main || "Live";
+
+      return {
+        icon: Thermometer,
+        text: `${label} ${temperature}C ${summary}`,
+        tone,
+      };
+    };
+
+    const loadTickerWeather = async () => {
+      try {
+        const weatherResults = await Promise.all(
+          weatherLocations.map((location) => getWeatherData({ lat: location.lat, lon: location.lon }))
+        );
+
+        if (!active) return;
+
+        setTickerItems([
+          ...weatherLocations.map((location, index) =>
+            formatWeatherTicker(location.label, weatherResults[index], location.tone)
+          ),
+          { icon: Activity, text: "Route Grid Stable", tone: "text-emerald-400" },
+          { icon: Zap, text: "High Demand Window", tone: "text-yellow-400" },
+        ]);
+      } catch {
+        if (active) {
+          setTickerItems(defaultTickerItems);
+        }
+      }
+    };
+
+    loadTickerWeather();
+    const refreshId = window.setInterval(loadTickerWeather, 600000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshId);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#040404] text-white">
@@ -126,7 +186,7 @@ export default function Home() {
           <div className="animate-marquee flex min-w-max gap-12 py-3">
             {[...tickerItems, ...tickerItems, ...tickerItems, ...tickerItems].map((item, index) => (
               <div key={`${item.text}-${index}`} className={`flex items-center gap-3 whitespace-nowrap text-[9px] font-black uppercase tracking-[0.45em] ${item.tone}`}>
-                {item.icon}
+                <item.icon size={12} />
                 <span>{item.text}</span>
               </div>
             ))}

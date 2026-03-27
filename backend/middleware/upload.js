@@ -12,13 +12,13 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter (Sirf Images allowed)
+// File filter (images + PDFs for verification documents)
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "application/pdf"];
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error("Invalid file type. Only JPEG, PNG and WEBP are allowed."), false);
+        cb(new Error("Invalid file type. Only JPEG, PNG, WEBP and PDF are allowed."), false);
     }
 };
 

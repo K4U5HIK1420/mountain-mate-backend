@@ -19,6 +19,8 @@ function mapTransportRow(row) {
     pricePerSeat: row.price_per_seat,
     seatsAvailable: row.seats_available,
     images: row.images || [],
+    complianceDetails: row.compliance_details || {},
+    verificationDocuments: row.verification_documents || {},
     status: row.status,
     isVerified: row.is_verified,
     createdAt: row.created_at,
@@ -44,6 +46,8 @@ async function addTransport({ ownerId, payload }) {
     price_per_seat: Number(payload.pricePerSeat),
     seats_available: Number(payload.seatsAvailable),
     images: payload.images || [],
+    compliance_details: payload.complianceDetails || {},
+    verification_documents: payload.verificationDocuments || {},
     status: "pending",
     is_verified: false,
   };
@@ -91,6 +95,8 @@ async function updateTransport({ ownerId, id, updateFields }) {
   if (safe.availableDate !== undefined) patch.available_date = safe.availableDate || null;
   if (safe.pricePerSeat !== undefined) patch.price_per_seat = Number(safe.pricePerSeat);
   if (safe.seatsAvailable !== undefined) patch.seats_available = Number(safe.seatsAvailable);
+  if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
+  if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
 
   const { data, error } = await supabase
     .from("transports")

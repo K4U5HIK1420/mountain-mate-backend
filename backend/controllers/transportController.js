@@ -1,7 +1,19 @@
 const Transport = require("../models/Transport");
 const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+
+const TRANSPORT_DOC_FIELDS = [
+  "driverPhoto",
+  "driverLicenseDoc",
+  "driverAadhaarDoc",
+  "vehicleRcDoc",
+  "vehicleInsuranceDoc",
+  "vehiclePermitDoc",
+  "pollutionCertificateDoc",
+  "fitnessCertificateDoc",
+];
 
 const buildDateFilter = (date) => {
   if (!date) return null;
@@ -14,26 +26,68 @@ const buildDateFilter = (date) => {
   return { $gte: start, $lt: end };
 };
 
-// 1. Add Transport
-exports.addTransport = async (req, res, next) => {
+function buildTransportComplianceDetails(body = {}) {
+  return {
+    driverLicenseNumber: body.driverLicenseNumber || "",
+    driverAadhaarNumber: body.driverAadhaarNumber || "",
+    driverPanNumber: body.driverPanNumber || "",
+    rcNumber: body.rcNumber || "",
+    insurancePolicyNumber: body.insurancePolicyNumber || "",
+    permitNumber: body.permitNumber || "",
+    pollutionCertificateNumber: body.pollutionCertificateNumber || "",
+    fitnessCertificateNumber: body.fitnessCertificateNumber || "",
+  };
+}
+
+function uploadFileToCloudinary(file, folder) {
+  return cloudinary.uploader.upload(file.path, {
+    folder,
+    resource_type: "auto",
+  });
+}
+
+exports.addTransport = async (req, res) => {
   try {
     const imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path);
+    const verificationDocuments = {};
+    const imageFiles = req.files?.images || [];
+
+    if (imageFiles.length > 0) {
+      for (const file of imageFiles) {
+        const result = await uploadFileToCloudinary(file, "mountain_mate/transports");
         imageUrls.push(result.secure_url);
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
     }
+
+    for (const field of TRANSPORT_DOC_FIELDS) {
+      const file = req.files?.[field]?.[0];
+      if (!file) {
+        verificationDocuments[field] = "";
+        continue;
+      }
+
+      const result = await uploadFileToCloudinary(file, "mountain_mate/transport_verification");
+      verificationDocuments[field] = result.secure_url;
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    }
+
+    const complianceDetails = buildTransportComplianceDetails(req.body);
 
     if (getDataStore() === "supabase") {
       const created = await supabaseTransports.addTransport({
         ownerId: req.user.id,
-        payload: { ...req.body, images: imageUrls },
+        payload: {
+          ...req.body,
+          images: imageUrls,
+          complianceDetails,
+          verificationDocuments,
+        },
       });
 
       return res.json({
         success: true,
-        message: "Fleet Transmission Successful! ðŸš•",
+        message: "Fleet Transmission Successful!",
         transport: created,
       });
     }
@@ -53,6 +107,8 @@ exports.addTransport = async (req, res, next) => {
       driverName: req.body.driverName || req.user.name,
       contactNumber: req.body.contactNumber,
       images: imageUrls,
+      complianceDetails,
+      verificationDocuments,
       status: "pending",
       isVerified: false,
     });
@@ -61,15 +117,19 @@ exports.addTransport = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: "Fleet Transmission Successful! ðŸš•",
+      message: "Fleet Transmission Successful!",
       transport,
     });
   } catch (error) {
+    if (req.files) {
+      Object.values(req.files).flat().forEach((file) => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      });
+    }
     res.status(400).json({ message: error.message });
   }
 };
 
-// 2. Get My Rides
 exports.getMyRides = async (req, res) => {
   try {
     if (getDataStore() === "supabase") {
@@ -84,7 +144,6 @@ exports.getMyRides = async (req, res) => {
   }
 };
 
-// 3. Update Transport
 exports.updateTransport = async (req, res) => {
   try {
     if (getDataStore() === "supabase") {
@@ -96,20 +155,16 @@ exports.updateTransport = async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Fleet Data Updated! ðŸš€",
+        message: "Fleet Data Updated!",
         data: updated,
       });
     }
 
-    const updatedRide = await Transport.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true }
-    );
+    const updatedRide = await Transport.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
 
     res.json({
       success: true,
-      message: "Fleet Data Updated! ðŸš€",
+      message: "Fleet Data Updated!",
       data: updatedRide,
     });
   } catch (error) {
@@ -117,7 +172,6 @@ exports.updateTransport = async (req, res) => {
   }
 };
 
-// 4. Book Ride
 exports.bookRide = async (req, res) => {
   try {
     const { rideId, seats } = req.body;
@@ -130,13 +184,12 @@ exports.bookRide = async (req, res) => {
     ride.seatsAvailable -= seats;
     await ride.save();
 
-    res.json({ success: true, message: "Seats reserved! ðŸš•", ride });
+    res.json({ success: true, message: "Seats reserved!", ride });
   } catch (error) {
     res.status(500).json({ message: "Booking failed" });
   }
 };
 
-// 5. Get Approved Transports
 exports.getTransports = async (req, res) => {
   try {
     if (getDataStore() === "supabase") {
@@ -162,7 +215,6 @@ exports.getTransports = async (req, res) => {
   }
 };
 
-// 6. Search Transport
 exports.searchTransport = async (req, res, next) => {
   try {
     if (getDataStore() === "supabase") {
@@ -195,7 +247,6 @@ exports.searchTransport = async (req, res, next) => {
   }
 };
 
-// 7. Admin Verification
 exports.verifyTransport = async (req, res) => {
   try {
     const { rideId, action } = req.body;
@@ -227,7 +278,6 @@ exports.verifyTransport = async (req, res) => {
   }
 };
 
-// 8. Admin All Rides
 exports.getAllRidesForAdmin = async (req, res) => {
   try {
     const rides = await Transport.find().sort({ createdAt: -1 });

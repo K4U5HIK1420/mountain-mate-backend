@@ -21,7 +21,22 @@ router.get("/search", searchTransport);
 router.post("/book", bookRide);
 
 // OWNER
-router.post("/add", supabaseAuth, upload.array("images", 5), addTransport);
+router.post(
+  "/add",
+  supabaseAuth,
+  upload.fields([
+    { name: "images", maxCount: 5 },
+    { name: "driverPhoto", maxCount: 1 },
+    { name: "driverLicenseDoc", maxCount: 1 },
+    { name: "driverAadhaarDoc", maxCount: 1 },
+    { name: "vehicleRcDoc", maxCount: 1 },
+    { name: "vehicleInsuranceDoc", maxCount: 1 },
+    { name: "vehiclePermitDoc", maxCount: 1 },
+    { name: "pollutionCertificateDoc", maxCount: 1 },
+    { name: "fitnessCertificateDoc", maxCount: 1 },
+  ]),
+  addTransport
+);
 router.get("/my-rides", supabaseAuth, getMyRides);
 router.patch("/update/:id", supabaseAuth, updateTransport); // ✅ Line 21 fixed
 
