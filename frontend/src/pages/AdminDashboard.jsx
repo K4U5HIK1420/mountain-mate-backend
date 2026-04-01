@@ -120,11 +120,27 @@ export default function AdminDashboard() {
       setPagination(res.data?.pagination || { page: nextPage, pageSize: nextSize, total: data.length, totalPages: 1 });
       setAccessDenied(false);
     } catch (err) {
+      const message = err?.response?.data?.message || "";
       if ([401, 403].includes(err?.response?.status)) setAccessDenied(true);
-      else notify("Unable to load admin data.", "error");
+      else if (kind === "raw" || message.includes("without Mongo") || message.includes("require Mongo")) {
+        setRows([]);
+        setPagination({ page: nextPage, pageSize: nextSize, total: 0, totalPages: 1 });
+        setAccessDenied(false);
+      } else {
+        notify("Unable to load admin data.", "error");
+      }
     } finally { setLoadingSection(false); }
   };
-  useEffect(() => { if (!authLoading && user) { loadData(section, query, rawCollection, page, pageSize); if (section !== "overview") loadOverview(); } }, [authLoading, user, section, query, rawCollection, page, pageSize, statusFilter, paymentFilter, roleFilter, actionFilter, targetFilter, sortBy, sortDir]);
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadData(section, query, rawCollection, page, pageSize);
+      if (section !== "overview") {
+        loadOverview().catch(() => {
+          setOverview(null);
+        });
+      }
+    }
+  }, [authLoading, user, section, query, rawCollection, page, pageSize, statusFilter, paymentFilter, roleFilter, actionFilter, targetFilter, sortBy, sortDir]);
 
   const refreshCurrent = async () => { await loadData(section, query, rawCollection, page, pageSize); if (section !== "overview") await loadOverview(); };
   const toggleSelectedId = (id) => setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

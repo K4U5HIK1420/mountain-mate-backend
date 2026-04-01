@@ -152,6 +152,17 @@ async function searchApprovedRides({ from, to, date }) {
   return (data || []).map(mapTransportRow);
 }
 
+async function listAllRides() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("transports")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapTransportRow);
+}
+
 module.exports = {
   addTransport,
   getMyRides,
@@ -159,5 +170,6 @@ module.exports = {
   mapTransportRow,
   listApprovedRides,
   searchApprovedRides,
+  listAllRides,
 };
 

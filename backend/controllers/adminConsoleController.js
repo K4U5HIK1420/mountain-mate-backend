@@ -7,6 +7,10 @@ const Trip = require("../models/Trip");
 const Review = require("../models/Review");
 const AdminAuditLog = require("../models/AdminAuditLog");
 const { getSupabaseClient } = require("../utils/supabaseClient");
+const mongoose = require("mongoose");
+const { getDataStore } = require("../utils/dataStore");
+const supabaseHotels = require("../services/supabaseHotelsStore");
+const supabaseTransports = require("../services/supabaseTransportsStore");
 
 const HOTEL_FIELDS = ["hotelName", "location", "pricePerNight", "roomsAvailable", "contactNumber", "description", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
 const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", "routeTo", "fromCoords", "toCoords", "pricePerSeat", "seatsAvailable", "driverName", "contactNumber", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
@@ -88,8 +92,27 @@ function toCsv(rows) {
   return [header, ...lines].join("\n");
 }
 
+function isMongoReady() {
+  return mongoose.connection.readyState === 1;
+}
+
+function isSupabaseStore() {
+  return getDataStore() === "supabase";
+}
+
+async function safeFind(Model, query = {}, projection = null) {
+  if (!isMongoReady()) return [];
+  return Model.find(query, projection).lean();
+}
+
+async function safeCount(Model, query = {}) {
+  if (!isMongoReady()) return 0;
+  return Model.countDocuments(query);
+}
+
 async function logAdminAction(req, action, targetType, targetId, summary, metadata = null) {
   try {
+    if (!isMongoReady()) return;
     await AdminAuditLog.create({
       adminId: req.user?.id || "",
       adminEmail: req.user?.email || "",
@@ -121,11 +144,13 @@ async function loadSupabaseUsers() {
 }
 
 async function countMap(Model, field) {
+  if (!isMongoReady()) return new Map();
   const rows = await Model.aggregate([{ $group: { _id: `$${field}`, count: { $sum: 1 } } }]);
   return new Map(rows.map((item) => [String(item._id || ""), item.count]));
 }
 
 exports.listModelInternal = async (Model, { q, page, pageSize, status, sortBy = "updatedAt", sortDir = "desc" }, searchFields) => {
+  if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
   const query = regex ? { $or: searchFields.map((field) => ({ [field]: regex })) } : {};
   if (status) query.status = status;
@@ -142,8 +167,8 @@ exports.listUsersInternal = async ({ q, page, pageSize, role, sortBy = "createdA
   const regex = buildSearchRegex(q);
   const [supabaseUsers, userMetas, legacyUsers, hotelCounts, rideCounts, bookingCounts, tripCounts] = await Promise.all([
     loadSupabaseUsers(),
-    UserMeta.find().lean(),
-    User.find().lean(),
+    safeFind(UserMeta),
+    safeFind(User),
     countMap(Hotel, "owner"),
     countMap(Transport, "owner"),
     countMap(Booking, "userId"),
@@ -195,6 +220,7 @@ exports.listUsersInternal = async ({ q, page, pageSize, role, sortBy = "createdA
 };
 
 exports.listUserMetaInternal = async ({ q, page, pageSize, sortBy = "updatedAt", sortDir = "desc" }) => {
+  if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
   const query = regex ? { $or: [{ email: regex }, { displayName: regex }, { userId: regex }, { "referral.code": regex }] } : {};
   const direction = sortDir === "asc" ? 1 : -1;
@@ -206,6 +232,7 @@ exports.listUserMetaInternal = async ({ q, page, pageSize, sortBy = "updatedAt",
 };
 
 exports.listBookingsInternal = async ({ q, page, pageSize, status, paymentStatus, sortBy = "createdAt", sortDir = "desc" }) => {
+  if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
   const query = regex ? { $or: [{ customerName: regex }, { phoneNumber: regex }, { status: regex }, { paymentStatus: regex }] } : {};
   if (status) query.status = status;
@@ -219,6 +246,7 @@ exports.listBookingsInternal = async ({ q, page, pageSize, status, paymentStatus
 };
 
 exports.listReviewsInternal = async ({ q, page, pageSize, sortBy = "createdAt", sortDir = "desc" }) => {
+  if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
   const query = regex ? { $or: [{ customerName: regex }, { comment: regex }] } : {};
   const direction = sortDir === "asc" ? 1 : -1;
@@ -230,6 +258,7 @@ exports.listReviewsInternal = async ({ q, page, pageSize, sortBy = "createdAt", 
 };
 
 exports.listAuditLogsInternal = async ({ q, page, pageSize, action, targetType, sortBy = "createdAt", sortDir = "desc" }) => {
+  if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
   const query = regex ? { $or: [{ adminEmail: regex }, { action: regex }, { targetType: regex }, { summary: regex }, { targetId: regex }] } : {};
   if (action) query.action = action;
@@ -246,18 +275,20 @@ exports.getOverview = async (_req, res, next) => {
   try {
     const [users, userMetaCount, hotels, pendingHotels, rides, pendingRides, bookings, pendingBookings, trips, reviews, audits] = await Promise.all([
       loadSupabaseUsers(),
-      UserMeta.countDocuments(),
-      Hotel.countDocuments(),
-      Hotel.countDocuments({ status: { $ne: "approved" } }),
-      Transport.countDocuments(),
-      Transport.countDocuments({ status: { $ne: "approved" } }),
-      Booking.countDocuments(),
-      Booking.countDocuments({ status: "pending" }),
-      Trip.countDocuments(),
-      Review.countDocuments(),
-      AdminAuditLog.countDocuments(),
+      safeCount(UserMeta),
+      safeCount(Hotel),
+      safeCount(Hotel, { status: { $ne: "approved" } }),
+      safeCount(Transport),
+      safeCount(Transport, { status: { $ne: "approved" } }),
+      safeCount(Booking),
+      safeCount(Booking, { status: "pending" }),
+      safeCount(Trip),
+      safeCount(Review),
+      safeCount(AdminAuditLog),
     ]);
-    const recentBookings = await Booking.find().sort({ createdAt: -1 }).limit(6).populate("listingId").lean();
+    const recentBookings = isMongoReady()
+      ? await Booking.find().sort({ createdAt: -1 }).limit(6).populate("listingId").lean()
+      : [];
     return res.json({
       success: true,
       data: {
@@ -281,8 +312,66 @@ exports.getOverview = async (_req, res, next) => {
 
 exports.listUsers = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "createdAt", sortDir: "desc" }); const data = await exports.listUsersInternal({ q: req.query.q, role: req.query.role, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
 exports.listUserMeta = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req); const data = await exports.listUserMetaInternal({ q: req.query.q, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
-exports.listHotels = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req); const data = await exports.listModelInternal(Hotel, { q: req.query.q, status: req.query.status, page, pageSize, ...sort }, ["hotelName", "location", "contactNumber", "description"]); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
-exports.listRides = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req); const data = await exports.listModelInternal(Transport, { q: req.query.q, status: req.query.status, page, pageSize, ...sort }, ["vehicleModel", "vehicleType", "routeFrom", "routeTo", "plateNumber", "driverName"]); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
+exports.listHotels = async (req, res, next) => {
+  try {
+    const { page, pageSize } = getPaging(req);
+    const sort = getSort(req);
+    if (isSupabaseStore()) {
+      let rows = await supabaseHotels.listAllHotels();
+      const regex = buildSearchRegex(req.query.q);
+      if (regex) {
+        rows = rows.filter((row) =>
+          [row.hotelName, row.location, row.contactNumber, row.description]
+            .some((value) => regex.test(String(value || "")))
+        );
+      }
+      if (req.query.status) {
+        rows = rows.filter((row) => row.status === req.query.status);
+      }
+      const direction = sort.sortDir === "asc" ? 1 : -1;
+      rows.sort((a, b) => {
+        const av = a[sort.sortBy] ?? "";
+        const bv = b[sort.sortBy] ?? "";
+        return av > bv ? direction : av < bv ? -direction : 0;
+      });
+      const start = (page - 1) * pageSize;
+      const paged = rows.slice(start, start + pageSize);
+      return res.json({ success: true, data: paged, pagination: paginateRows([], rows.length, page, pageSize).pagination });
+    }
+    const data = await exports.listModelInternal(Hotel, { q: req.query.q, status: req.query.status, page, pageSize, ...sort }, ["hotelName", "location", "contactNumber", "description"]);
+    return res.json({ success: true, data: data.rows, pagination: data.pagination });
+  } catch (err) { next(err); }
+};
+exports.listRides = async (req, res, next) => {
+  try {
+    const { page, pageSize } = getPaging(req);
+    const sort = getSort(req);
+    if (isSupabaseStore()) {
+      let rows = await supabaseTransports.listAllRides();
+      const regex = buildSearchRegex(req.query.q);
+      if (regex) {
+        rows = rows.filter((row) =>
+          [row.vehicleModel, row.vehicleType, row.routeFrom, row.routeTo, row.plateNumber, row.driverName]
+            .some((value) => regex.test(String(value || "")))
+        );
+      }
+      if (req.query.status) {
+        rows = rows.filter((row) => row.status === req.query.status);
+      }
+      const direction = sort.sortDir === "asc" ? 1 : -1;
+      rows.sort((a, b) => {
+        const av = a[sort.sortBy] ?? "";
+        const bv = b[sort.sortBy] ?? "";
+        return av > bv ? direction : av < bv ? -direction : 0;
+      });
+      const start = (page - 1) * pageSize;
+      const paged = rows.slice(start, start + pageSize);
+      return res.json({ success: true, data: paged, pagination: paginateRows([], rows.length, page, pageSize).pagination });
+    }
+    const data = await exports.listModelInternal(Transport, { q: req.query.q, status: req.query.status, page, pageSize, ...sort }, ["vehicleModel", "vehicleType", "routeFrom", "routeTo", "plateNumber", "driverName"]);
+    return res.json({ success: true, data: data.rows, pagination: data.pagination });
+  } catch (err) { next(err); }
+};
 exports.listBookings = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "createdAt", sortDir: "desc" }); const data = await exports.listBookingsInternal({ q: req.query.q, status: req.query.status, paymentStatus: req.query.paymentStatus, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
 exports.listTrips = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req); const data = await exports.listModelInternal(Trip, { q: req.query.q, status: req.query.status, page, pageSize, ...sort }, ["title", "status", "userId"]); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
 exports.listReviews = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "createdAt", sortDir: "desc" }); const data = await exports.listReviewsInternal({ q: req.query.q, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
@@ -303,7 +392,13 @@ exports.updateUser = async (req, res, next) => {
     if (bannedUntil !== undefined) payload.banned_until = bannedUntil || null;
     const { data, error } = await supabase.auth.admin.updateUserById(req.params.id, payload);
     if (error) return res.status(400).json({ success: false, message: error.message });
-    if (typeof displayName === "string" || data.user?.email) await UserMeta.findOneAndUpdate({ userId: req.params.id }, { $set: { email: data.user?.email || "", displayName: displayName ?? "" } }, { upsert: true, new: true });
+    if (isMongoReady() && (typeof displayName === "string" || data.user?.email)) {
+      await UserMeta.findOneAndUpdate(
+        { userId: req.params.id },
+        { $set: { email: data.user?.email || "", displayName: displayName ?? "" } },
+        { upsert: true, new: true }
+      );
+    }
     await logAdminAction(req, "update", "user", req.params.id, "Updated user role/profile", { role: nextAppMetadata.role, displayName });
     return res.json({ success: true, data: { id: data.user.id, email: data.user.email, role: data.user.app_metadata?.role || "user", displayName: data.user.user_metadata?.full_name || "", bannedUntil: data.user.banned_until || null } });
   } catch (err) { next(err); }
@@ -315,7 +410,16 @@ exports.terminateUser = async (req, res, next) => {
     const current = await supabase.auth.admin.getUserById(req.params.id);
     if (current.error || !current.data?.user) return res.status(404).json({ success: false, message: "User not found" });
     const email = current.data.user.email || "";
-    await Promise.all([UserMeta.deleteOne({ userId: req.params.id }), Trip.deleteMany({ userId: req.params.id }), Booking.deleteMany({ userId: req.params.id }), Hotel.deleteMany({ owner: req.params.id }), Transport.deleteMany({ owner: req.params.id }), User.deleteMany({ email })]);
+    if (isMongoReady()) {
+      await Promise.all([
+        UserMeta.deleteOne({ userId: req.params.id }),
+        Trip.deleteMany({ userId: req.params.id }),
+        Booking.deleteMany({ userId: req.params.id }),
+        Hotel.deleteMany({ owner: req.params.id }),
+        Transport.deleteMany({ owner: req.params.id }),
+        User.deleteMany({ email }),
+      ]);
+    }
     const { error } = await supabase.auth.admin.deleteUser(req.params.id);
     if (error) return res.status(400).json({ success: false, message: error.message });
     await logAdminAction(req, "terminate", "user", req.params.id, "Terminated user", { email });
@@ -363,6 +467,10 @@ exports.deleteReview = async (req, res, next) => { try { const data = await dele
 
 exports.getRawCollection = async (req, res, next) => {
   try {
+    if (!isMongoReady()) {
+      const { page, pageSize } = getPaging(req);
+      return res.json({ success: true, data: [], pagination: paginateRows([], 0, page, pageSize).pagination });
+    }
     const model = getRawModel(req.params.collection);
     const { page, pageSize } = getPaging(req);
     const regex = buildSearchRegex(req.query.q);
@@ -377,6 +485,7 @@ exports.getRawCollection = async (req, res, next) => {
 
 exports.updateRawRecord = async (req, res, next) => {
   try {
+    if (!isMongoReady()) return res.status(400).json({ success: false, message: "Raw ops require Mongo-backed collections." });
     const model = getRawModel(req.params.collection);
     const payload = { ...(req.body || {}) };
     delete payload._id;
@@ -390,6 +499,7 @@ exports.updateRawRecord = async (req, res, next) => {
 
 exports.deleteRawRecord = async (req, res, next) => {
   try {
+    if (!isMongoReady()) return res.status(400).json({ success: false, message: "Raw ops require Mongo-backed collections." });
     const model = getRawModel(req.params.collection);
     const data = await model.findByIdAndDelete(req.params.id).lean();
     if (!data) return res.status(404).json({ success: false, message: "Record not found" });
@@ -400,6 +510,7 @@ exports.deleteRawRecord = async (req, res, next) => {
 
 exports.bulkAction = async (req, res, next) => {
   try {
+    if (!isMongoReady()) return res.status(400).json({ success: false, message: "Bulk actions are unavailable without Mongo-backed collections." });
     const { section, ids = [], action, payload = {} } = req.body || {};
     if (!section || !action || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ success: false, message: "section, action, and ids are required" });
     let result;

@@ -97,5 +97,69 @@ async function updateHotel({ ownerId, id, updateData }) {
   return mapHotelRow(data);
 }
 
-module.exports = { addHotel, getMyHotels, updateHotel, mapHotelRow };
+async function listAllHotels() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("hotels")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapHotelRow);
+}
+
+async function listApprovedHotels() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("hotels")
+    .select("*")
+    .eq("is_verified", true)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapHotelRow);
+}
+
+async function searchApprovedHotels({ location = "", minPrice, maxPrice, sort }) {
+  const supabase = getSupabaseClient();
+  let query = supabase
+    .from("hotels")
+    .select("*")
+    .eq("is_verified", true);
+
+  if (location) {
+    query = query.ilike("location", `%${location}%`);
+  }
+
+  if (minPrice) {
+    query = query.gte("price_per_night", Number(minPrice));
+  }
+
+  if (maxPrice) {
+    query = query.lte("price_per_night", Number(maxPrice));
+  }
+
+  if (sort === "price_asc") {
+    query = query.order("price_per_night", { ascending: true });
+  } else if (sort === "price_desc") {
+    query = query.order("price_per_night", { ascending: false });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapHotelRow);
+}
+
+module.exports = {
+  addHotel,
+  getMyHotels,
+  updateHotel,
+  listAllHotels,
+  listApprovedHotels,
+  searchApprovedHotels,
+  mapHotelRow,
+};
 

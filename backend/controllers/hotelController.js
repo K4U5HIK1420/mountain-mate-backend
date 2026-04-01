@@ -206,6 +206,10 @@ exports.verifyHotel = async (req, res, next) => {
 // 5. Admin View (All Data)
 exports.getAllHotelsForAdmin = async (req, res, next) => {
   try {
+    if (getDataStore() === "supabase") {
+      const hotels = await supabaseHotels.listAllHotels();
+      return successResponse(res, "All hotels fetched for admin vault", hotels);
+    }
     const hotels = await Hotel.find().sort({ createdAt: -1 });
     successResponse(res, "All hotels fetched for admin vault", hotels);
   } catch (error) {
@@ -216,6 +220,10 @@ exports.getAllHotelsForAdmin = async (req, res, next) => {
 // 6. Get Verified Hotels (Public Users)
 exports.getHotels = async (req, res, next) => {
   try {
+    if (getDataStore() === "supabase") {
+      const hotels = await supabaseHotels.listApprovedHotels();
+      return successResponse(res, "Verified hotels fetched successfully", hotels);
+    }
     const hotels = await Hotel.find({ isVerified: true }).sort({ createdAt: -1 });
     successResponse(res, "Verified hotels fetched successfully", hotels);
   } catch (error) {
@@ -226,6 +234,16 @@ exports.getHotels = async (req, res, next) => {
 // 7. Search Verified Hotels
 exports.searchHotels = async (req, res, next) => {
   try {
+    if (getDataStore() === "supabase") {
+      const hotels = await supabaseHotels.searchApprovedHotels({
+        location: req.query.location || "",
+        minPrice: req.query.minPrice,
+        maxPrice: req.query.maxPrice,
+        sort: req.query.sort,
+      });
+      return res.json(hotels);
+    }
+
     const { location, maxPrice, minPrice, sort } = req.query;
     let query = { isVerified: true };
     if (location) query.location = { $regex: location, $options: "i" };
