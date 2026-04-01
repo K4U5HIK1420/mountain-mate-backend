@@ -46,6 +46,9 @@ const Footer = () => {
           <ul className="space-y-3">
             <li><Link to="/explore-stays" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">Elite Stays</Link></li>
             <li><Link to="/explore-rides" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">Fleet Services</Link></li>
+            <li><Link to="/planner" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">AI Planner</Link></li>
+            <li><Link to="/wishlist" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">Wishlist</Link></li>
+            <li><Link to="/referral" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">Referral Hub</Link></li>
             <li><Link to="/bookings" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">My Expeditions</Link></li>
             <li><Link to="/profile" className="text-white/70 hover:text-orange-500 transition-colors text-sm font-medium">My Profile</Link></li>
           </ul>

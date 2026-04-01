@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/authMiddleware");
 const anyAuth = require("../middleware/anyAuth");
 // Dost ka naya middleware
 const { supabaseAuth } = require("../middleware/supabaseAuthMiddleware");
@@ -21,9 +20,9 @@ const {
 } = require("../controllers/userFeaturesController");
 
 // --- Standard User Routes ---
-router.get("/wishlist", auth, getWishlist);
-router.get("/wishlist/items", auth, getWishlistItems);
-router.post("/wishlist/toggle", auth, toggleWishlist);
+router.get("/wishlist", anyAuth, getWishlist);
+router.get("/wishlist/items", anyAuth, getWishlistItems);
+router.post("/wishlist/toggle", anyAuth, toggleWishlist);
 
 // --- Booking Routes (Role Based) ---
 // 1. User apni bookings dekhega
@@ -37,7 +36,7 @@ router.post("/bookings/update-status", anyAuth, updateBookingStatus);
 router.post("/setup-profile", supabaseAuth, setupProfile);
 
 // --- Tere Referral Routes ---
-router.get("/referral", auth, getReferralStats);
-router.post("/referral/redeem", auth, redeemCode);
+router.get("/referral", anyAuth, getReferralStats);
+router.post("/referral/redeem", anyAuth, redeemCode);
 
 module.exports = router;

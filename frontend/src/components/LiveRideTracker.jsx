@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MapContainer, TileLayer, CircleMarker, Polyline, useMap } from "react-leaflet";
+import { GoogleMap, useLoadScript, Marker, Polyline } from "@react-google-maps/api";
 import { Calendar, Clock3, Loader2, MapPin, Navigation, Route, ShieldCheck, X } from "lucide-react";
 import API from "../utils/api";
 import socket from "../utils/socket";
@@ -34,6 +34,87 @@ const getDistanceKm = (pointA, pointB) => {
   return earthKm * c;
 };
 
+const mapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#263c3f" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#6b9a76" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#38414e" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#212a37" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9ca5b3" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#746855" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1f2835" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#f3d19c" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#2f3948" }],
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#17263c" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#515c6d" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#17263c" }],
+  },
+];
+
 export default function LiveRideTracker({ bookingId, initialBooking, initialViewerRole = "rider", open, onClose }) {
   const { user } = useAuth();
   const { notify } = useNotify();
@@ -45,6 +126,11 @@ export default function LiveRideTracker({ bookingId, initialBooking, initialView
   const watchIdRef = useRef(null);
   const lastEmitRef = useRef(0);
   const nearAlertRef = useRef(false);
+  const mapRef = useRef(null);
+
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+  });
 
   const actorId = String(user?.id || user?._id || "");
   const viewerRole = booking?.viewerRole || initialViewerRole || "rider";
@@ -214,10 +300,23 @@ export default function LiveRideTracker({ bookingId, initialBooking, initialView
 
   const routePoints = useMemo(() => {
     const points = [];
-    if (riderLocation?.lat && riderLocation?.lng) points.push([riderLocation.lat, riderLocation.lng]);
-    if (driverLocation?.lat && driverLocation?.lng) points.push([driverLocation.lat, driverLocation.lng]);
+    if (riderLocation?.lat && riderLocation?.lng) points.push({ lat: riderLocation.lat, lng: riderLocation.lng });
+    if (driverLocation?.lat && driverLocation?.lng) points.push({ lat: driverLocation.lat, lng: driverLocation.lng });
     return points;
   }, [driverLocation, riderLocation]);
+
+  useEffect(() => {
+    if (mapRef.current && routePoints.length > 0) {
+      if (routePoints.length === 1) {
+        mapRef.current.panTo(routePoints[0]);
+        mapRef.current.setZoom(13);
+      } else {
+        const bounds = new window.google.maps.LatLngBounds();
+        routePoints.forEach(point => bounds.extend(point));
+        mapRef.current.fitBounds(bounds);
+      }
+    }
+  }, [routePoints, isLoaded]);
 
   const distanceKm = useMemo(() => getDistanceKm(driverLocation, riderLocation), [driverLocation, riderLocation]);
   const etaMinutes = useMemo(() => {
@@ -260,6 +359,10 @@ export default function LiveRideTracker({ bookingId, initialBooking, initialView
       setUpdatingStatus("");
     }
   };
+  
+  const onMapLoad = (map) => {
+    mapRef.current = map;
+  };
 
   return (
     <AnimatePresence>
@@ -285,30 +388,44 @@ export default function LiveRideTracker({ bookingId, initialBooking, initialView
             className="relative mx-auto flex h-full max-h-[92vh] w-full max-w-[1320px] overflow-hidden rounded-[38px] border border-white/10 bg-[#060606] shadow-[0_40px_120px_rgba(0,0,0,0.52)] lg:grid lg:grid-cols-[1.15fr_0.85fr]"
           >
             <div className="relative min-h-[360px] border-b border-white/8 lg:border-b-0 lg:border-r">
-              {loading ? (
+              {loading || !isLoaded ? (
                 <div className="flex h-full items-center justify-center text-white/55">
                   <Loader2 className="animate-spin text-orange-400" size={34} />
                 </div>
+              ) : loadError ? (
+                <div className="flex h-full items-center justify-center text-red-400">
+                  Error loading map
+                </div>
               ) : (
-                <MapContainer
-                  center={[30.3165, 78.0322]}
+                <GoogleMap
+                  mapContainerClassName="h-full w-full"
+                  center={{ lat: 30.3165, lng: 78.0322 }}
                   zoom={10}
-                  className="h-full w-full"
+                  options={{ styles: mapStyles, disableDefaultUI: true }}
+                  onLoad={onMapLoad}
                 >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {riderLocation?.lat && riderLocation?.lng ? (
-                    <CircleMarker center={[riderLocation.lat, riderLocation.lng]} radius={12} pathOptions={{ color: "#f97316", fillColor: "#fdba74", fillOpacity: 0.95 }}>
-                    </CircleMarker>
-                  ) : null}
-                  {driverLocation?.lat && driverLocation?.lng ? (
-                    <CircleMarker center={[driverLocation.lat, driverLocation.lng]} radius={12} pathOptions={{ color: "#22c55e", fillColor: "#86efac", fillOpacity: 0.95 }}>
-                    </CircleMarker>
-                  ) : null}
-                  {routePoints.length === 2 ? (
-                    <Polyline positions={routePoints} pathOptions={{ color: "#f97316", weight: 4, opacity: 0.8, dashArray: "10 8" }} />
-                  ) : null}
-                  <FitLiveBounds points={routePoints} />
-                </MapContainer>
+                  {riderLocation?.lat && riderLocation?.lng && (
+                    <Marker position={{ lat: riderLocation.lat, lng: riderLocation.lng }} icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/orange-dot.png' }} />
+                  )}
+                  {driverLocation?.lat && driverLocation?.lng && (
+                    <Marker position={{ lat: driverLocation.lat, lng: driverLocation.lng }} icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png' }} />
+                  )}
+                  {routePoints.length === 2 && (
+                    <Polyline
+                      path={routePoints}
+                      options={{
+                        strokeColor: "#f97316",
+                        strokeOpacity: 0.8,
+                        strokeWeight: 4,
+                        icons: [{
+                          icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 4 },
+                          offset: '0',
+                          repeat: '20px'
+                        }]
+                      }}
+                    />
+                  )}
+                </GoogleMap>
               )}
 
               <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-5">
@@ -430,19 +547,4 @@ function LocationCard({ label, tone, location, emptyText }) {
       )}
     </div>
   );
-}
-
-function FitLiveBounds({ points }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!points.length) return;
-    if (points.length === 1) {
-      map.setView(points[0], 13);
-      return;
-    }
-    map.fitBounds(points, { padding: [60, 60] });
-  }, [map, points]);
-
-  return null;
 }

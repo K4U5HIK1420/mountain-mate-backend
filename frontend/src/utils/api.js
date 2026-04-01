@@ -69,7 +69,8 @@ export const getWeatherData = async (location) => {
 };
 
 export const saveTrip = (tripData) => API.post("/trips", tripData);
-export const getUserTrips = () => API.get("/trips/my-trips");
-export const getAIRecommendations = (preferences) => API.post("/ai/recommend", preferences);
+export const updateTrip = (tripId, tripData) => API.patch(`/trips/${tripId}`, tripData);
+export const getUserTrips = () => API.get("/trips");
+export const getAIRecommendations = (prompt) => API.post("/ai/chat", { prompt });
 
 export default API;

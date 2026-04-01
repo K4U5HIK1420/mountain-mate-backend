@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Bell, Calendar, Car, CheckCircle2, Clock3, IndianRupee, Loader2, MapPin, Navigation, Phone, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowRight, Bell, Calendar, Car, CheckCircle2, Clock3, IndianRupee, Loader2, MapPin, Navigation, Phone, ShieldCheck, Star, XCircle } from "lucide-react";
 import API from "../utils/api";
 import socket from "../utils/socket";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,7 @@ import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
 import LiveRideTracker from "../components/LiveRideTracker";
+import DriverSimulation from "../components/DriverSimulation";
 
 const ease = [0.22, 1, 0.36, 1];
 
@@ -21,6 +22,8 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState("");
   const [trackingSelection, setTrackingSelection] = useState(null);
+  const [reviewDrafts, setReviewDrafts] = useState({});
+  const [reviewingId, setReviewingId] = useState("");
 
   const loadAll = async () => {
     setLoading(true);
@@ -76,6 +79,45 @@ export default function Bookings() {
     }
   };
 
+  const updateReviewDraft = (bookingId, patch) => {
+    setReviewDrafts((prev) => ({
+      ...prev,
+      [bookingId]: {
+        rating: prev[bookingId]?.rating || 5,
+        comment: prev[bookingId]?.comment || "",
+        ...patch,
+      },
+    }));
+  };
+
+  const submitReview = async (bookingId) => {
+    const draft = reviewDrafts[bookingId] || { rating: 5, comment: "" };
+    if (!draft.comment?.trim()) {
+      notify("Add a short review comment before submitting.", "error");
+      return;
+    }
+
+    setReviewingId(bookingId);
+    try {
+      await API.post("/review/add", {
+        bookingId,
+        rating: draft.rating || 5,
+        comment: draft.comment.trim(),
+      });
+      notify("Review submitted successfully.", "success");
+      setReviewDrafts((prev) => {
+        const next = { ...prev };
+        delete next[bookingId];
+        return next;
+      });
+      await loadAll();
+    } catch (err) {
+      notify(err?.response?.data?.message || "Unable to submit review right now.", "error");
+    } finally {
+      setReviewingId("");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#040404] text-white">
       <Container className="px-6 pb-20 pt-10 sm:px-8 lg:px-12">
@@ -113,6 +155,10 @@ export default function Bookings() {
               {activeTab === "user" && (
                 <BookingList
                   items={userBookings}
+                  reviewDrafts={reviewDrafts}
+                  reviewingId={reviewingId}
+                  onReviewDraftChange={updateReviewDraft}
+                  onSubmitReview={submitReview}
                   onTrack={(booking, viewerRole) => setTrackingSelection({ booking, viewerRole })}
                   emptyTitle="No bookings yet"
                   emptyText="Once you request a stay or ride, it will appear here with payment and approval status."
@@ -143,11 +189,12 @@ export default function Bookings() {
         open={Boolean(trackingSelection?.booking?._id)}
         onClose={() => setTrackingSelection(null)}
       />
+      <DriverSimulation />
     </div>
   );
 }
 
-function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, onTrack, emptyTitle, emptyText }) {
+function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, onTrack, emptyTitle, emptyText, reviewDrafts = {}, reviewingId = "", onReviewDraftChange, onSubmitReview }) {
   if (!items.length) {
     return (
       <div className="rounded-[34px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center text-white/35">
@@ -216,12 +263,29 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
             </div>
           )}
           {mode === "user" && (
-            <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
-              {booking.status === "pending" && "Your request is paid and waiting for owner or driver approval."}
-              {booking.status === "confirmed" && "Your booking has been approved. You are ready to proceed."}
-              {booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
-              {booking.status === "cancelled" && "This booking was cancelled."}
-            </div>
+            <>
+              <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
+                {booking.status === "pending" && "Your request is paid and waiting for owner or driver approval."}
+                {booking.status === "confirmed" && "Your booking has been approved. You are ready to proceed."}
+                {booking.status === "completed" && "This booking is completed. You can leave a rating if reviews are enabled for this trip."}
+                {booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
+                {booking.status === "cancelled" && "This booking was cancelled."}
+              </div>
+              {booking.hasReview && (
+                <div className="rounded-[22px] border border-green-500/20 bg-green-500/10 px-4 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-green-300">
+                  Review submitted
+                </div>
+              )}
+              {booking.canReview && (
+                <ReviewComposer
+                  booking={booking}
+                  draft={reviewDrafts[booking._id] || { rating: 5, comment: "" }}
+                  reviewing={reviewingId === booking._id}
+                  onChange={(patch) => onReviewDraftChange?.(booking._id, patch)}
+                  onSubmit={() => onSubmitReview?.(booking._id)}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -298,4 +362,40 @@ function StatusPill({ status }) {
 
 function isStayBooking(booking) {
   return booking.bookingType === "Hotel" || !!booking.listingId?.hotelName;
+}
+
+function ReviewComposer({ booking, draft, reviewing, onChange, onSubmit }) {
+  return (
+    <div className="rounded-[24px] border border-orange-500/20 bg-orange-500/10 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-300">
+        {booking.bookingType === "Transport" ? "Rate your ride" : "Rate your stay"}
+      </p>
+      <div className="mt-4 flex gap-2">
+        {[1, 2, 3, 4, 5].map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onChange({ rating: value })}
+            className={`rounded-full border px-3 py-2 transition-all ${
+              value <= (draft.rating || 5)
+                ? "border-orange-400 bg-orange-500/20 text-orange-300"
+                : "border-white/10 bg-white/5 text-white/30"
+            }`}
+          >
+            <Star size={14} className={value <= (draft.rating || 5) ? "fill-current" : ""} />
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={draft.comment || ""}
+        onChange={(e) => onChange({ comment: e.target.value })}
+        rows={3}
+        placeholder="Share your experience"
+        className="mt-4 w-full rounded-[20px] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
+      />
+      <Button onClick={onSubmit} disabled={reviewing} className="mt-4 rounded-[20px] text-[10px] tracking-[0.26em]">
+        {reviewing ? <Loader2 size={15} className="animate-spin" /> : <><Star size={15} /> Submit Review</>}
+      </Button>
+    </div>
+  );
 }

@@ -1,4 +1,5 @@
 const Trip = require("../models/Trip");
+const { resolveAppUser } = require("../utils/resolveAppUser");
 
 /**
  * @desc    Create a new tactical itinerary
@@ -8,6 +9,7 @@ const Trip = require("../models/Trip");
 exports.createTrip = async (req, res, next) => {
   try {
     const { title, itinerary } = req.body || {};
+    const user = await resolveAppUser(req);
     
     if (!title) {
       return res.status(400).json({ 
@@ -17,7 +19,7 @@ exports.createTrip = async (req, res, next) => {
     }
 
     const trip = await Trip.create({
-      user: req.user.id, // Comes from Auth Middleware
+      userId: String(user?._id || req.user?.id || req.user?._id || ""),
       title: String(title).trim(),
       itinerary: Array.isArray(itinerary)
         ? itinerary.map((d, idx) => ({
@@ -46,7 +48,9 @@ exports.createTrip = async (req, res, next) => {
  */
 exports.getMyTrips = async (req, res, next) => {
   try {
-    const trips = await Trip.find({ user: req.user.id }).sort({ createdAt: -1 });
+    const user = await resolveAppUser(req);
+    const ownerId = String(user?._id || req.user?.id || req.user?._id || "");
+    const trips = await Trip.find({ userId: ownerId }).sort({ createdAt: -1 });
     return res.json({ 
       success: true, 
       count: trips.length,
@@ -65,13 +69,14 @@ exports.getMyTrips = async (req, res, next) => {
 exports.updateTrip = async (req, res, next) => {
   try {
     const { title, itinerary } = req.body || {};
+    const user = await resolveAppUser(req);
     const update = {};
 
     if (typeof title === "string" && title.trim()) update.title = title.trim();
     if (Array.isArray(itinerary)) update.itinerary = itinerary;
 
     const trip = await Trip.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.id },
+      { _id: req.params.id, userId: String(user?._id || req.user?.id || req.user?._id || "") },
       { $set: update },
       { new: true, runValidators: true }
     );
@@ -99,9 +104,10 @@ exports.updateTrip = async (req, res, next) => {
  */
 exports.deleteTrip = async (req, res, next) => {
   try {
+    const user = await resolveAppUser(req);
     const trip = await Trip.findOneAndDelete({ 
       _id: req.params.id, 
-      user: req.user.id 
+      userId: String(user?._id || req.user?.id || req.user?._id || "") 
     });
 
     if (!trip) {

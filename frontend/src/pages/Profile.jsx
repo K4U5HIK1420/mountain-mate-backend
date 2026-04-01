@@ -18,19 +18,22 @@ const Profile = () => {
   const [bookings, setBookings] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [savedTrips, setSavedTrips] = useState([]);
+  const [referralData, setReferralData] = useState({ credits: 0, referralCount: 0 });
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingRes, tripsRes] = await Promise.all([
+        const [bookingRes, tripsRes, wishlistRes, referralRes] = await Promise.all([
           API.get('/user/bookings').catch(() => ({ data: { data: [] } })),
-          API.get('/trips/my-trips').catch(() => ({ data: [] }))
+          API.get('/trips').catch(() => ({ data: { data: [] } })),
+          API.get('/user/wishlist/items').catch(() => ({ data: { data: [] } })),
+          API.get('/user/referral').catch(() => ({ data: { data: null } }))
         ]);
         setBookings(bookingRes.data.data || []);
-        setSavedTrips(tripsRes.data || []);
-        const storedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-        setWishlist(storedWishlist);
+        setSavedTrips(tripsRes.data?.data || []);
+        setWishlist(wishlistRes.data?.data || []);
+        setReferralData(referralRes.data?.data || { credits: 0, referralCount: 0 });
       } catch (error) { console.error("Profile Sync Failed"); }
     };
     if (user) fetchData();
@@ -119,7 +122,13 @@ const Profile = () => {
           <StatCard label="Completed missions" val={bookings.length} />
           <StatCard label="Planned paths" val={savedTrips.length} />
           <StatCard label="Vaulted items" val={wishlist.length} />
-          <StatCard label="Referral Credits" val="₹1,250" />
+          <StatCard label="Referral Credits" val={`Rs ${referralData.credits || 0}`} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
+          <ProfileShortcut title="Planner" meta={`${savedTrips.length} saved`} onClick={() => setActiveTab('trips')} />
+          <ProfileShortcut title="Wishlist" meta={`${wishlist.length} items`} onClick={() => setActiveTab('wishlist')} />
+          <ProfileShortcut title="Referrals" meta={`${referralData.referralCount || 0} joined`} onClick={() => setActiveTab('referrals')} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -129,6 +138,7 @@ const Profile = () => {
               { id: 'bookings', label: 'Recent Activity', icon: <Package size={18}/> },
               { id: 'trips', label: 'Tactical Maps', icon: <MapIcon size={18}/> },
               { id: 'wishlist', label: 'Secured Vault', icon: <Heart size={18}/> },
+              { id: 'referrals', label: 'Referral Hub', icon: <Gift size={18}/> },
               { id: 'settings', label: 'Identity Config', icon: <Settings size={18}/> }
             ].map(tab => (
               <button
@@ -157,12 +167,12 @@ const Profile = () => {
                 className="space-y-6"
               >
                 {activeTab === 'bookings' && (
-                  bookings.length === 0 ? <EmptyState title="No Recent Deployments" /> : bookings.slice(0, 3).map(b => <BookingCard key={b._id} booking={b} />)
+                  bookings.length === 0 ? <EmptyState title="No bookings yet" /> : bookings.slice(0, 3).map(b => <BookingCard key={b._id} booking={b} />)
                 )}
 
                 {activeTab === 'trips' && (
-                  savedTrips.length === 0 ? <EmptyState title="No Tactical Drafts" /> : savedTrips.map((t, i) => (
-                    <div key={i} className="bg-white/5 border border-white/10 p-8 rounded-[35px] flex justify-between items-center group hover:bg-white/[0.08] transition-all cursor-pointer">
+                  savedTrips.length === 0 ? <EmptyState title="No saved trips yet" /> : savedTrips.map((t, i) => (
+                    <div key={i} onClick={() => navigate('/planner')} className="bg-white/5 border border-white/10 p-8 rounded-[35px] flex justify-between items-center group hover:bg-white/[0.08] transition-all cursor-pointer">
                        <div className="space-y-2">
                          <div className="flex items-center gap-2 text-orange-500 font-black text-[8px] uppercase tracking-widest italic"><Clock size={12}/> Draft Log</div>
                          <h4 className="text-xl font-black italic uppercase tracking-tighter">{t.title}</h4>
@@ -174,7 +184,20 @@ const Profile = () => {
 
                 {activeTab === 'wishlist' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {wishlist.length === 0 ? <EmptyState title="Vault Devoid of Items" /> : wishlist.map(w => <WishCard key={w._id} item={w} />)}
+                    {wishlist.length === 0 ? <EmptyState title="No wishlist items yet" /> : wishlist.map(w => <WishCard key={w._id || w.item?._id} item={w} />)}
+                  </div>
+                )}
+
+                {activeTab === 'referrals' && (
+                  <div className="space-y-6">
+                    <div onClick={() => navigate('/referral')} className="bg-white/5 border border-white/10 p-8 rounded-[35px] flex justify-between items-center group hover:bg-white/[0.08] transition-all cursor-pointer">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-orange-500 font-black text-[8px] uppercase tracking-widest italic"><Gift size={12}/> Referral Overview</div>
+                        <h4 className="text-xl font-black italic uppercase tracking-tighter">Invite friends and track credits</h4>
+                        <p className="text-sm text-white/45">Recruits: {referralData.referralCount || 0} | Credits: Rs {referralData.credits || 0}</p>
+                      </div>
+                      <ExternalLink className="text-white/20 group-hover:text-orange-500 transition-colors" />
+                    </div>
                   </div>
                 )}
 
@@ -205,17 +228,28 @@ const StatCard = ({ label, val }) => (
   </div>
 );
 
+const ProfileShortcut = ({ title, meta, onClick }) => (
+  <button
+    onClick={onClick}
+    className="rounded-[30px] border border-white/10 bg-white/5 px-6 py-6 text-left transition-all hover:border-orange-500/30 hover:bg-white/[0.08]"
+  >
+    <p className="text-[8px] font-black uppercase tracking-[0.35em] text-white/25">{title}</p>
+    <p className="mt-3 text-2xl font-black italic tracking-tight text-white">{meta}</p>
+    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-orange-400">Open in profile</p>
+  </button>
+);
+
 const BookingCard = ({ booking }) => (
   <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-[35px] flex flex-col md:flex-row gap-6 items-center hover:border-orange-500/20 transition-all">
     <div className="w-16 h-16 rounded-2xl bg-orange-600/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
       <ShieldCheck size={24} />
     </div>
     <div className="flex-1 text-center md:text-left">
-      <div className="text-[8px] font-black text-green-500 uppercase tracking-widest mb-1">Active Deployment</div>
-      <h4 className="text-xl font-black italic uppercase tracking-tighter">{booking.hotelId?.hotelName || 'Fleet Request'}</h4>
+      <div className="text-[8px] font-black text-green-500 uppercase tracking-widest mb-1">{booking.status || 'Active'}</div>
+      <h4 className="text-xl font-black italic uppercase tracking-tighter">{booking.listingLabel || booking.hotelId?.hotelName || booking.customerName || 'Booking'}</h4>
     </div>
     <div className="text-right">
-       <p className="text-xl font-black italic text-white">₹{booking.totalPrice || '---'}</p>
+       <p className="text-xl font-black italic text-white">Rs {booking.totalPrice || '---'}</p>
     </div>
   </div>
 );
@@ -223,10 +257,10 @@ const BookingCard = ({ booking }) => (
 const WishCard = ({ item }) => (
   <div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden group relative">
     <div className="h-40 relative">
-       <img src={item.images?.[0]} className="w-full h-full object-cover opacity-50 group-hover:scale-110 transition-transform duration-700" alt="vaulted" />
+       <img src={item.item?.images?.[0] || item.images?.[0]} className="w-full h-full object-cover opacity-50 group-hover:scale-110 transition-transform duration-700" alt={item.item?.hotelName || item.hotelName || item.item?.vehicleType || "wishlist item"} />
        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
        <div className="absolute bottom-4 left-6">
-         <h4 className="text-lg font-black italic uppercase tracking-tighter">{item.hotelName}</h4>
+         <h4 className="text-lg font-black italic uppercase tracking-tighter">{item.item?.hotelName || item.hotelName || item.item?.vehicleType || item.itemType || "Saved item"}</h4>
        </div>
     </div>
   </div>
@@ -235,7 +269,7 @@ const WishCard = ({ item }) => (
 const InputGroup = ({ label, val }) => (
   <div className="space-y-3">
     <p className="text-[8px] font-black text-white/30 uppercase tracking-[0.4em] ml-2">{label}</p>
-    <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold text-white/50 italic">{val || 'Awaiting Input'}</div>
+    <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold text-white/50 italic">{val || 'Not available'}</div>
   </div>
 );
 

@@ -2,8 +2,10 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Hotel = require("../models/Hotel");
 const Transport = require("../models/Transport");
+const Review = require("../models/Review");
 const { restoreBookingInventory } = require("../utils/bookingInventory");
 const { createNotification } = require("../services/notificationService");
+const { resolveAppUser } = require("../utils/resolveAppUser");
 
 // --- 🏔️ PROFILE SETUP ---
 exports.setupProfile = async (req, res) => {
@@ -45,9 +47,37 @@ exports.getMyBookings = async (req, res) => {
     const ownerId = String(req.user?.id || req.user?._id || "");
     const data = await Booking.find({ userId: ownerId })
       .sort({ createdAt: -1 })
-      .populate("listingId");
-    
-    res.json({ success: true, data: data || [] });
+      .populate("listingId")
+      .lean();
+
+    const bookingIds = data.map((item) => item._id);
+    const reviews = bookingIds.length
+      ? await Review.find({ bookingId: { $in: bookingIds } }).select("bookingId").lean()
+      : [];
+    const reviewedBookingIds = new Set(reviews.map((item) => String(item.bookingId)));
+
+    const enriched = data.map((booking) => {
+      const stayCheckoutPassed =
+        booking.bookingType === "Hotel" &&
+        booking.endDate &&
+        new Date(booking.endDate).getTime() <= Date.now();
+
+      const canReview =
+        booking.paymentStatus === "paid" &&
+        !reviewedBookingIds.has(String(booking._id)) &&
+        (
+          (booking.bookingType === "Transport" && booking.status === "completed") ||
+          (booking.bookingType === "Hotel" && (booking.status === "completed" || stayCheckoutPassed))
+        );
+
+      return {
+        ...booking,
+        hasReview: reviewedBookingIds.has(String(booking._id)),
+        canReview,
+      };
+    });
+
+    res.json({ success: true, data: enriched || [] });
   } catch (err) { 
     res.status(500).json({ success: false, message: "Failed to fetch your expeditions" }); 
   }
@@ -145,7 +175,7 @@ exports.updateBookingStatus = async (req, res) => {
 // --- 🏔️ REFERRAL SYSTEM ---
 exports.getReferralStats = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await resolveAppUser(req);
     if (!user) return res.status(404).json({ success: false, message: "Explorer not found" });
 
     res.json({
@@ -166,7 +196,7 @@ exports.redeemCode = async (req, res) => {
   if (!code) return res.status(400).json({ success: false, message: "Code required" });
 
   try {
-    const currentUser = await User.findById(req.user._id);
+    const currentUser = await resolveAppUser(req);
     const inputCode = code.trim().toUpperCase();
 
     if (!currentUser.referrals) currentUser.referrals = { invitedUsers: [], credits: 0, hasRedeemed: false };
@@ -181,7 +211,7 @@ exports.redeemCode = async (req, res) => {
     
     if (!referrer.referrals) referrer.referrals = { invitedUsers: [], credits: 0 };
     referrer.referrals.credits += 50;
-    referrer.referrals.invitedUsers.push(currentUser._id);
+    referrer.referrals.invitedUsers.addToSet(currentUser._id);
 
     await Promise.all([currentUser.save(), referrer.save()]);
     res.json({ success: true, message: "Credits added successfully!" });
@@ -193,14 +223,14 @@ exports.redeemCode = async (req, res) => {
 // --- 🏔️ WISHLIST LOGIC ---
 exports.getWishlist = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await resolveAppUser(req);
     res.json({ success: true, wishlist: user?.wishlist || [] });
   } catch (err) { res.status(500).json({ success: false, message: "Wishlist fetch failed" }); }
 };
 
 exports.getWishlistItems = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await resolveAppUser(req);
     const wishlist = user?.wishlist || [];
     if (wishlist.length === 0) return res.json({ success: true, data: [] });
 
@@ -226,10 +256,16 @@ exports.getWishlistItems = async (req, res) => {
 exports.toggleWishlist = async (req, res) => {
   try {
     const { itemType, itemId } = req.body;
-    const user = await User.findById(req.user._id);
+    if (!["Hotel", "Transport"].includes(itemType) || !itemId) {
+      return res.status(400).json({ success: false, message: "Valid itemType and itemId are required" });
+    }
+
+    const user = await resolveAppUser(req);
     if (!user.wishlist) user.wishlist = [];
 
-    const idx = user.wishlist.findIndex(w => String(w.itemId) === String(itemId));
+    const idx = user.wishlist.findIndex(
+      (w) => String(w.itemId) === String(itemId) && w.itemType === itemType
+    );
     if (idx >= 0) user.wishlist.splice(idx, 1);
     else user.wishlist.push({ itemType, itemId });
 

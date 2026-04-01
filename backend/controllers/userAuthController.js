@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { createResetToken, sha256 } = require("../utils/tokens");
 const crypto = require("crypto");
+const { resolveAppUser } = require("../utils/resolveAppUser");
 
 function makeReferralCode() {
   // short, shareable, reasonably unique
@@ -121,9 +122,17 @@ exports.updateMe = async (req, res) => {
 
 // Referral info (JWT)
 exports.getReferral = async (req, res) => {
-  const user = await User.findById(req.user.id).select("referrals name email");
+  const user = await resolveAppUser(req);
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
-  return res.json({ success: true, data: user.referrals });
+  return res.json({
+    success: true,
+    data: {
+      code: user.referrals?.code || "MM-UPDATING",
+      referralCount: user.referrals?.invitedUsers?.length || 0,
+      credits: user.referrals?.credits || 0,
+      hasRedeemed: !!user.referrals?.hasRedeemed,
+    },
+  });
 };
 
 // Redeem referral after signup (JWT)
@@ -131,10 +140,10 @@ exports.redeemReferral = async (req, res) => {
   const { code } = req.body || {};
   if (!code) return res.status(400).json({ success: false, message: "Code required" });
 
-  const user = await User.findById(req.user.id);
+  const user = await resolveAppUser(req);
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
-  if (user.referrals?.invitedBy) {
-    return res.status(400).json({ success: false, message: "Referral already set" });
+  if (user.referrals?.hasRedeemed || user.referrals?.invitedBy) {
+    return res.status(400).json({ success: false, message: "Referral already redeemed" });
   }
 
   const inviter = await User.findOne({ "referrals.code": String(code).trim().toUpperCase() });
@@ -145,11 +154,26 @@ exports.redeemReferral = async (req, res) => {
 
   user.referrals = user.referrals || {};
   user.referrals.invitedBy = inviter._id;
+  user.referrals.hasRedeemed = true;
+  user.referrals.credits = Number(user.referrals.credits || 0) + 100;
   if (!user.referrals.code) user.referrals.code = makeReferralCode();
   await user.save();
 
-  await User.findByIdAndUpdate(inviter._id, { $addToSet: { "referrals.invitedUsers": user._id } });
-  return res.json({ success: true });
+  await User.findByIdAndUpdate(inviter._id, {
+    $addToSet: { "referrals.invitedUsers": user._id },
+    $inc: { "referrals.credits": 50 },
+  });
+
+  return res.json({
+    success: true,
+    message: "Referral redeemed successfully",
+    data: {
+      code: user.referrals.code,
+      referralCount: user.referrals?.invitedUsers?.length || 0,
+      credits: user.referrals.credits,
+      hasRedeemed: true,
+    },
+  });
 };
 
 // Forgot password (JWT users)

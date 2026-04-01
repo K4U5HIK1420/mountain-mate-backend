@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const auth = require("../middleware/authMiddleware");
+const anyAuth = require("../middleware/anyAuth");
 const {
   registerUser,
   loginUser,
@@ -19,7 +20,7 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/me", auth, getMe);
 router.patch("/me", auth, updateMe);
-router.get("/referral", auth, getReferral);
-router.post("/referral/redeem", auth, redeemReferral);
+router.get("/referral", anyAuth, getReferral);
+router.post("/referral/redeem", anyAuth, redeemReferral);
 
 module.exports = router;
