@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mountain, LogOut, Menu, X, PlusCircle, Car, LayoutGrid, ChevronDown, Shield, Bell } from "lucide-react";
+import { LogOut, Menu, X, PlusCircle, Car, LayoutGrid, ChevronDown, Shield, Bell } from "lucide-react";
 
 import API from "./utils/api";
 import { useNotify } from "./context/NotificationContext";
@@ -217,11 +217,13 @@ const Navbar = () => {
       >
         <div className="flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="relative rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 p-2.5 text-white shadow-xl transition-transform group-hover:rotate-6">
-              <Mountain size={20} />
-            </div>
+            <img
+              src="/mountain-mate-mark.svg"
+              alt="Mountain Mate logo"
+              className="h-12 w-12 rounded-2xl shadow-xl transition-transform duration-500 group-hover:rotate-6"
+            />
             <div className="flex flex-col text-left">
-              <h1 className="font-black tracking-tighter text-lg uppercase italic leading-none text-white sm:text-xl">M-Mate</h1>
+              <h1 className="font-black tracking-tighter text-lg uppercase italic leading-none text-white sm:text-xl">Mountain Mate</h1>
               <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.3em] text-orange-500">Uttarakhand</span>
             </div>
           </Link>

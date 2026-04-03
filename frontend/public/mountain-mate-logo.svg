@@ -1,0 +1,27 @@
+<svg width="720" height="220" viewBox="0 0 720 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="card" x1="30" y1="24" x2="190" y2="196" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.55" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#155E75"/>
+    </linearGradient>
+    <linearGradient id="peak" x1="74" y1="64" x2="178" y2="172" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="96" y1="120" x2="168" y2="186" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BAE6FD"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+  <rect x="28" y="20" width="172" height="172" rx="42" fill="#080808"/>
+  <rect x="36" y="28" width="156" height="156" rx="34" fill="url(#card)"/>
+  <path d="M76 140L108 92L128 118L150 78L180 140H76Z" fill="#000000" fill-opacity="0.14"/>
+  <path d="M80 138L110 86L128 110L149 72L176 138H80Z" fill="url(#peak)"/>
+  <path d="M95 153C104 141 117 133 128 133C140 133 151 140 160 154" stroke="url(#trail)" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="128" cy="66" r="8" fill="#F8FAFC"/>
+  <path d="M250 91.6H274.2L309.4 145.8L344.6 91.6H368.8V174H344.6V128.3L324.4 159H294.1L274.2 128.8V174H250V91.6Z" fill="#F8FAFC"/>
+  <path d="M385.7 174V91.6H411.9L445.5 141.2L479 91.6H505.3V174H481V128.2L460.8 158.8H430.4L410.4 128.5V174H385.7Z" fill="#F8FAFC"/>
+  <path d="M526.1 174V91.6H592.6V111.9H551.4V124.1H588.8V143.4H551.4V174H526.1Z" fill="#7DD3FC"/>
+  <path d="M604.4 174V91.6H629.7V154H675.8V174H604.4Z" fill="#7DD3FC"/>
+</svg>
