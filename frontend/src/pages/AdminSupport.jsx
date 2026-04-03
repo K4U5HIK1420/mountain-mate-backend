@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { LifeBuoy, Loader2, Lock, MessageSquare, Send, ShieldAlert, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import API from "../utils/api";
@@ -45,33 +45,46 @@ export default function AdminSupport() {
   const [reply, setReply] = useState("");
   const messagesEndRef = useRef(null);
 
+  const loadConversations = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    setAccessDenied(false);
+    try {
+      const res = await API.get("/support/admin/conversations");
+      const rows = (res.data?.data || []).map(normalizeConversation);
+      setConversations(rows);
+      setSelectedId((prev) => {
+        if (prev && rows.some((row) => row.id === prev)) return prev;
+        return rows[0]?.id || "";
+      });
+    } catch (error) {
+      if (!silent) {
+        setConversations([]);
+      }
+      if ([401, 403].includes(error?.response?.status)) {
+        setAccessDenied(true);
+      } else if (!silent) {
+        notify("Support queue failed to load", "error");
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, [notify]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedId, conversations]);
 
   useEffect(() => {
-    const loadConversations = async () => {
-      setLoading(true);
-      setAccessDenied(false);
-      try {
-        const res = await API.get("/support/admin/conversations");
-        const rows = (res.data?.data || []).map(normalizeConversation);
-        setConversations(rows);
-        setSelectedId((prev) => prev || rows[0]?.id || "");
-      } catch (error) {
-        setConversations([]);
-        if ([401, 403].includes(error?.response?.status)) {
-          setAccessDenied(true);
-        } else {
-          notify("Support queue failed to load", "error");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadConversations();
-  }, [notify]);
+    const intervalId = window.setInterval(() => {
+      loadConversations({ silent: true });
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [loadConversations]);
 
   useEffect(() => {
     socket.emit("support:join-admin");
@@ -161,9 +174,9 @@ export default function AdminSupport() {
               <h1 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-6xl">
                 Live support <span className="text-orange-500">handoff.</span>
               </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/55">
-                The AI assistant answers from live platform records first. Anything uncertain or missing is queued here for an admin to pick up.
-              </p>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-white/55">
+                User support messages are queued here in real time so admins can pick up and resolve them quickly.
+                </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <div className="rounded-[24px] border border-white/10 bg-black/30 px-5 py-4">
@@ -208,7 +221,7 @@ export default function AdminSupport() {
                 <div className="rounded-[28px] border border-dashed border-white/10 bg-black/20 p-8 text-center">
                   <Sparkles size={24} className="mx-auto text-orange-400/70" />
                   <p className="mt-4 text-[10px] font-black uppercase tracking-[0.32em] text-white/35">No pending conversations</p>
-                  <p className="mt-3 text-sm leading-7 text-white/50">New AI escalations will appear here automatically.</p>
+                  <p className="mt-3 text-sm leading-7 text-white/50">New user support messages will appear here automatically.</p>
                 </div>
               ) : (
                 conversations.map((item) => (
@@ -249,7 +262,7 @@ export default function AdminSupport() {
                 <MessageSquare size={30} className="text-orange-400/70" />
                 <p className="mt-5 text-[10px] font-black uppercase tracking-[0.35em] text-white/35">Select a conversation</p>
                 <p className="mt-4 max-w-md text-sm leading-7 text-white/50">
-                  Choose any queued thread to review the AI response, see the customer question, and reply as an admin.
+                  Choose any queued thread, review the customer message, and reply as an admin.
                 </p>
               </div>
             ) : (
@@ -262,7 +275,7 @@ export default function AdminSupport() {
                         {selectedConversation.userEmail || selectedConversation.guestLabel || "Explorer"}
                       </h2>
                       <p className="mt-2 text-sm text-white/50">
-                        {selectedConversation.handoffReason || "AI escalated this thread for human review."}
+                        {selectedConversation.handoffReason || "Live support conversation."}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -280,7 +293,7 @@ export default function AdminSupport() {
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
                   {selectedConversation.messages.map((message, index) => {
                     const senderLabel =
-                      message.sender === "user" ? "Explorer" : message.sender === "admin" ? "Admin" : "AI";
+                      message.sender === "user" ? "Explorer" : message.sender === "admin" ? "Admin" : "Support";
                     const tone =
                       message.sender === "user"
                         ? "ml-auto bg-orange-600 text-white"

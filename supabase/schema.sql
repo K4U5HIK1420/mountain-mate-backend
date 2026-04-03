@@ -166,3 +166,27 @@ create trigger set_reviews_updated_at
 before update on public.reviews
 for each row execute function public.set_updated_at();
 
+-- Support conversations (AI + admin handoff)
+create table if not exists public.support_conversations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid,
+  user_email text default '',
+  guest_label text default 'Explorer',
+  status text not null default 'queued' check (status in ('ai_resolved','queued','open','resolved')),
+  handoff_reason text default '',
+  last_user_message text default '',
+  last_admin_message text default '',
+  messages jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists support_conversations_status_idx on public.support_conversations(status);
+create index if not exists support_conversations_updated_idx on public.support_conversations(updated_at desc);
+create index if not exists support_conversations_user_id_idx on public.support_conversations(user_id);
+
+drop trigger if exists set_support_conversations_updated_at on public.support_conversations;
+create trigger set_support_conversations_updated_at
+before update on public.support_conversations
+for each row execute function public.set_updated_at();
+

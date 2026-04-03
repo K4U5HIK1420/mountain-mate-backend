@@ -1,0 +1,85 @@
+[
+  {
+    "id": "ee4ef52c-9afb-4901-9827-d008ac0f2997",
+    "user_id": "1c5b006f-8869-4fcd-8d50-1e70d8af0b26",
+    "user_email": "aswalshardul29@gmail.com",
+    "guest_label": "aswalshardul29@gmail.com",
+    "status": "open",
+    "handoff_reason": "AI provider unavailable or quota exceeded",
+    "last_user_message": "hy",
+    "last_admin_message": "hello",
+    "messages": [
+      {
+        "sender": "user",
+        "text": "hello",
+        "createdAt": "2026-04-03T10:37:16.319Z"
+      },
+      {
+        "sender": "ai",
+        "text": "I could not complete an AI lookup right now, so I have routed your question to an admin for live help.",
+        "createdAt": "2026-04-03T10:37:16.319Z"
+      },
+      {
+        "sender": "admin",
+        "text": "hello",
+        "createdAt": "2026-04-03T10:38:43.293Z"
+      },
+      {
+        "sender": "user",
+        "text": "i am uanle to list my property",
+        "createdAt": "2026-04-03T10:39:00.236Z"
+      },
+      {
+        "sender": "ai",
+        "text": "I could not complete an AI lookup right now, so I have routed your question to an admin for live help.",
+        "createdAt": "2026-04-03T10:39:00.236Z"
+      },
+      {
+        "sender": "user",
+        "text": "hello",
+        "createdAt": "2026-04-03T10:44:28.117Z"
+      },
+      {
+        "sender": "ai",
+        "text": "I could not complete an AI lookup right now, so I have routed your question to an admin for live help.",
+        "createdAt": "2026-04-03T10:44:28.118Z"
+      },
+      {
+        "sender": "user",
+        "text": "hy",
+        "createdAt": "2026-04-03T10:47:35.333Z"
+      },
+      {
+        "sender": "user",
+        "text": "hy",
+        "createdAt": "2026-04-03T10:51:21.259Z"
+      },
+      {
+        "sender": "admin",
+        "text": "hello",
+        "createdAt": "2026-04-03T10:51:34.082Z"
+      }
+    ],
+    "created_at": "2026-04-03T10:37:16.112Z",
+    "updated_at": "2026-04-03T10:51:34.082Z"
+  },
+  {
+    "id": "b74bf2eb-158b-4501-9237-df31d89a67cd",
+    "user_id": "",
+    "user_email": "",
+    "guest_label": "Explorer",
+    "status": "queued",
+    "handoff_reason": "Live admin support requested",
+    "last_user_message": "Need help listing property",
+    "last_admin_message": "",
+    "messages": [
+      {
+        "sender": "user",
+        "text": "Need help listing property",
+        "createdAt": "2026-04-03T10:42:18.656Z"
+      }
+    ],
+    "created_at": "2026-04-03T10:42:17.940Z",
+    "updated_at": "2026-04-03T10:42:18.656Z"
+  }
+]

@@ -7,10 +7,11 @@ import socket from "../utils/socket";
 const STORAGE_KEY = "mm_support_conversation_id";
 
 function mapMessage(message) {
+  const sender = message.sender === "user" ? "user" : message.sender === "admin" ? "admin" : "support";
   return {
     id: `${message.sender}-${message.createdAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     text: message.text,
-    sender: message.sender === "user" ? "user" : "bot",
+    sender,
     timestamp: message.createdAt ? new Date(message.createdAt) : new Date(),
   };
 }
@@ -21,8 +22,8 @@ const LiveChat = () => {
   const [messages, setMessages] = useState([
     {
       id: "welcome",
-      text: "Welcome to Mountain Mate. Ask about stays, rides, routes, or planning, and I will answer from live platform records first.",
-      sender: "bot",
+      text: "Welcome to Mountain Mate live support. Send your message and an admin will reply shortly.",
+      sender: "support",
       timestamp: new Date(),
     },
   ]);
@@ -96,7 +97,7 @@ const LiveChat = () => {
         conversationId: conversationId || undefined,
       });
 
-      const { answer, conversation, needsHuman } = res.data || {};
+      const { conversation, needsHuman } = res.data || {};
 
       if (conversation?.id) {
         setConversationId(conversation.id);
@@ -106,9 +107,9 @@ const LiveChat = () => {
         setMessages((prev) => [
           ...prev,
           {
-            id: `bot-${Date.now()}`,
-            text: answer || "I could not generate a response just now.",
-            sender: "bot",
+            id: `support-${Date.now()}`,
+            text: "Message received. An admin will reply shortly.",
+            sender: "support",
             timestamp: new Date(),
           },
         ]);
@@ -121,9 +122,9 @@ const LiveChat = () => {
       setMessages((prev) => [
         ...prev,
         {
-          id: `bot-${Date.now()}`,
+          id: `support-${Date.now()}`,
           text: "Support uplink is temporarily unstable. Please try again in a moment.",
-          sender: "bot",
+          sender: "support",
           timestamp: new Date(),
         },
       ]);
@@ -144,7 +145,7 @@ const LiveChat = () => {
       ? "Waiting for admin"
       : queueStatus === "open"
         ? "Admin joined"
-        : "AI live";
+        : "Live support";
 
   return (
     <>
@@ -177,7 +178,7 @@ const LiveChat = () => {
                 <div className="flex items-center gap-3">
                   <Bot size={20} />
                   <div className="text-left">
-                    <h3 className="text-sm font-bold leading-none">M-Mate Intelligence</h3>
+                    <h3 className="text-sm font-bold leading-none">M-Mate Live Support</h3>
                     <p className="mt-1 text-[10px] font-black uppercase tracking-widest italic opacity-70">Expedition Support</p>
                   </div>
                 </div>
@@ -201,7 +202,9 @@ const LiveChat = () => {
                         className={`max-w-[85%] rounded-2xl p-4 ${
                           message.sender === "user"
                             ? "bg-orange-600 text-white shadow-lg"
-                            : "border border-white/10 bg-white/5 text-white"
+                            : message.sender === "admin"
+                              ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-50"
+                              : "border border-white/10 bg-white/5 text-white"
                         }`}
                       >
                         <p className="text-[13px] font-medium leading-relaxed">{message.text}</p>
@@ -246,7 +249,7 @@ const LiveChat = () => {
                     </motion.button>
                   </div>
                   <div className="mt-3 flex items-center justify-between px-1">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-white/20 italic">AI + Admin Support</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/20 italic">User + Admin Support</span>
                     <span className={`text-[9px] font-black uppercase tracking-widest italic ${queueStatus === "queued" ? "text-amber-400" : "text-orange-600/50"}`}>
                       {queueLabel}
                     </span>
