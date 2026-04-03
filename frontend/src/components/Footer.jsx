@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mountain, Heart, Github, Twitter, Linkedin, Mail, Phone } from 'lucide-react';
+import { Heart, Github, Twitter, Linkedin, Mail, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -27,10 +27,15 @@ const Footer = () => {
         {/* Brand Info */}
         <motion.div variants={fadeIn} className="space-y-6 lg:col-span-2">
           <Link to="/" className="flex items-center gap-3">
-            <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 p-3 text-white shadow-[0_20px_45px_rgba(249,115,22,0.35)]">
-              <Mountain size={24}/>
+            <img
+              src="/mountain-mate-mark.svg"
+              alt="Mountain Mate logo"
+              className="h-14 w-14 rounded-2xl shadow-[0_20px_45px_rgba(249,115,22,0.35)]"
+            />
+            <div>
+              <h3 className="text-3xl font-black tracking-tighter uppercase italic leading-none">Mountain Mate</h3>
+              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.38em] text-orange-400">Peak Travel Command</p>
             </div>
-            <h3 className="text-3xl font-black tracking-tighter uppercase italic leading-none">M-Mate</h3>
           </Link>
           <p className="max-w-sm text-sm font-medium leading-relaxed text-white/60">
             A cinematic basecamp for the Himalayas: curated stays, reliable rides, and journey planning that feels precise from the first click.

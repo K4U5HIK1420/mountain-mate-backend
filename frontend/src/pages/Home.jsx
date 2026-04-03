@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import {
   Activity,
   ArrowRight,
@@ -44,48 +44,48 @@ const stagger = {
 
 const featuredRoutes = [
   {
-    name: "Kedarnath Trek",
-    difficulty: "Moderate",
-    time: "6-8 Hrs",
+    name: "Kedarnath Access",
+    difficulty: "Pilgrimage",
+    time: "Trusted Route",
     img: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=1200",
-    price: "Rs 2,500",
+    price: "Stay + Ride Ready",
   },
   {
-    name: "Chopta Chandrashila",
-    difficulty: "Easy",
-    time: "4 Hrs",
+    name: "Rishikesh To Chopta",
+    difficulty: "Touring",
+    time: "Multi-stop Planning",
     img: "https://images.unsplash.com/photo-1596328330768-ae380299f187?q=80&w=1200",
-    price: "Rs 1,800",
+    price: "Cleaner Booking",
   },
   {
     name: "Valley Of Flowers",
-    difficulty: "Hard",
-    time: "3 Days",
+    difficulty: "Adventure",
+    time: "Season-sensitive",
     img: "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1200",
-    price: "Rs 5,200",
+    price: "Local Support",
   },
 ];
 
 const highlights = [
   {
     icon: <ShieldCheck size={28} />,
-    title: "Tactical Vetting",
-    desc: "Every fleet and stay is screened for terrain, trust, and reliability.",
+    title: "Verified Inventory",
+    desc: "Stays and rides are presented with trust, clarity, and a stronger sense of dependability.",
   },
   {
     icon: <HeartPulse size={28} />,
-    title: "Rapid Support",
-    desc: "Assistance feels close at hand before, during, and after a mountain run.",
+    title: "Human Support",
+    desc: "When plans change in the mountains, support should not feel far away or impossible to reach.",
   },
   {
     icon: <Eye size={28} />,
-    title: "Live Route Vision",
-    desc: "Road, weather, and timing updates keep every plan responsive.",
+    title: "One Journey Flow",
+    desc: "Stays, rides, and trip planning live together instead of forcing users across scattered sources.",
   },
   {
     icon: <Compass size={28} />,
-    title: "Local Intelligence",
-    desc: "Decision-making backed by on-ground context, not guesswork.",
+    title: "Uttarakhand Focus",
+    desc: "Built around real mountain travel routes, pilgrimage movement, and destination-specific planning needs.",
   },
 ];
 
@@ -99,6 +99,31 @@ const defaultTickerItems = [
   { icon: CloudRain, text: "Rishikesh Weather Offline", tone: "text-amber-400" },
   { icon: Activity, text: "Route Grid Stable", tone: "text-emerald-400" },
   { icon: Zap, text: "High Demand Window", tone: "text-yellow-400" },
+];
+
+const landingSignals = [
+  "Verified stays and rides for Uttarakhand travel",
+  "One journey flow instead of scattered booking chaos",
+  "Built for pilgrims, families, tourists, and route planners",
+  "Support when mountain plans change unexpectedly",
+];
+
+const rotatingReasons = [
+  {
+    eyebrow: "Why People Switch",
+    title: "From scattered calls to one clear platform",
+    text: "Stop jumping between random listings, transport numbers, and disconnected planning tools.",
+  },
+  {
+    eyebrow: "Trust First",
+    title: "Confidence before the journey even begins",
+    text: "Mountain Mate is designed to make booking feel cleaner, safer, and more transparent from the first click.",
+  },
+  {
+    eyebrow: "Built Local",
+    title: "Generic travel apps do not understand mountain flow",
+    text: "This platform is shaped around Uttarakhand movement, route uncertainty, and destination-specific travel needs.",
+  },
 ];
 
 export default function Home() {
@@ -197,27 +222,22 @@ export default function Home() {
           <motion.div variants={stagger} initial="hidden" animate="show" className="max-w-6xl">
             <motion.div variants={fadeUp} className="mb-8 inline-flex items-center gap-3 rounded-full border border-orange-400/20 bg-orange-500/10 px-5 py-2 backdrop-blur-xl">
               <Sparkles size={14} className="text-amber-300" />
-              <span className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-200">Bold Mountain Command</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-200">Built For Uttarakhand Travel</span>
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-balance text-5xl font-black uppercase italic tracking-[-0.06em] text-white sm:text-7xl lg:text-[10rem] lg:leading-[0.82]">
-              Journeys
+              From Booking
               <br />
               <span className="bg-gradient-to-r from-white via-amber-200 to-orange-500 bg-clip-text text-transparent">
-                With Impact.
+                To Basecamp.
               </span>
             </motion.h1>
 
-            <motion.div variants={fadeUp} className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+            <motion.div variants={fadeUp} className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
               <p className="max-w-2xl border-l border-orange-500/30 pl-6 text-base font-medium leading-8 text-white/68 md:text-lg">
-                Mountain Mate already has the product flow. This pass is about making it feel unforgettable: cinematic depth, sharper motion, and a stronger sense of confidence in every interaction.
+                Mountain Mate helps travelers book verified stays, reliable rides, and smoother mountain journeys in one place. Built for Uttarakhand, it turns scattered planning into a cleaner, safer, and more dependable travel experience.
               </p>
-              <div className="cinematic-surface spotlight-border rounded-[32px] p-6">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <StatCard value="4.9" label="Rider Score" />
-                  <StatCard value="2K+" label="Peak Trips" />
-                </div>
-              </div>
+              <RotatingReasonCard />
             </motion.div>
 
             <motion.div variants={fadeUp} className="mt-10 cinematic-surface spotlight-border rounded-[34px] p-3 md:rounded-[42px] md:p-4">
@@ -228,20 +248,33 @@ export default function Home() {
                     <span className="text-[9px] font-black uppercase tracking-[0.35em] text-white/45">Where To</span>
                   </div>
                   <input
-                    placeholder="ENTER YOUR NEXT ASCENT..."
+                    placeholder="SEARCH YOUR NEXT ROUTE..."
                     className="w-full bg-transparent text-sm font-black uppercase tracking-[0.25em] text-white outline-none placeholder:text-white/24 md:text-base"
                   />
                 </div>
                 <div className="rounded-[28px] border border-white/8 bg-white/6 px-6 py-5 backdrop-blur-xl">
                   <div className="mb-3 flex items-center gap-3 text-amber-300">
                     <BellRing size={18} />
-                    <span className="text-[9px] font-black uppercase tracking-[0.35em] text-white/45">Journey Type</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.35em] text-white/45">Travel Need</span>
                   </div>
-                  <p className="text-sm font-black uppercase tracking-[0.25em] text-white/78 md:text-base">Stay, Ride, Or Both</p>
+                  <p className="text-sm font-black uppercase tracking-[0.25em] text-white/78 md:text-base">Stay, Ride, Or Full Planning</p>
                 </div>
                 <Button size="lg" onClick={() => navigate("/explore-stays")} className="min-h-full rounded-[28px] px-8 text-[11px] tracking-[0.3em]">
-                  Start Access <ArrowRight size={16} />
+                  Start Your Journey <ArrowRight size={16} />
                 </Button>
+              </div>
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-black/25 backdrop-blur-2xl">
+              <div className="animate-signal-marquee flex min-w-max gap-4 px-4 py-4">
+                {[...landingSignals, ...landingSignals, ...landingSignals].map((item, index) => (
+                  <div
+                    key={`${item}-${index}`}
+                    className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-[10px] font-black uppercase tracking-[0.28em] text-white/70"
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
             </motion.div>
           </motion.div>
@@ -253,9 +286,9 @@ export default function Home() {
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             className="mt-16 grid gap-4 md:grid-cols-3"
           >
-            <InfoStrip title="Route Precision" text="Cinematic booking flow with clearer momentum and hierarchy." />
-            <InfoStrip title="Layered Motion" text="Softer transitions, smarter reveals, and premium hover behavior." />
-            <InfoStrip title="Travel Command" text="The interface feels like a guided ascent, not just a list of screens." />
+            <InfoStrip title="Trusted Stays" text="Find accommodation that feels more dependable than random listings and disconnected calls." />
+            <InfoStrip title="Reliable Rides" text="Book mountain transport with clearer coordination and better confidence around the route." />
+            <InfoStrip title="One Platform" text="Plan, book, and manage the journey without bouncing across multiple apps and contacts." />
           </motion.div>
         </Container>
       </section>
@@ -273,14 +306,14 @@ export default function Home() {
               <BellRing size={28} />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Ritual Windows</p>
-              <h2 className="mt-3 text-3xl font-black uppercase italic tracking-tight text-white md:text-5xl">Sacred timing, designed with atmosphere.</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Why It Exists</p>
+              <h2 className="mt-3 text-3xl font-black uppercase italic tracking-tight text-white md:text-5xl">Mountain travel should feel exciting, not chaotic.</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <TimingBox icon={<Sunrise size={16} />} time="04:00 AM" label="Abhishek" />
-              <TimingBox icon={<BellRing size={16} />} time="06:30 PM" label="Aarti" />
-              <TimingBox icon={<Sunset size={16} />} time="08:30 PM" label="Shayan" />
-              <TimingBox icon={<Zap size={16} />} time="OPEN" label="Live Status" highlight />
+              <TimingBox icon={<Sunrise size={16} />} time="TRUST" label="Before Booking" />
+              <TimingBox icon={<BellRing size={16} />} time="CLARITY" label="While Planning" />
+              <TimingBox icon={<Sunset size={16} />} time="SUPPORT" label="During Travel" />
+              <TimingBox icon={<Zap size={16} />} time="ONE FLOW" label="After Booking" highlight />
             </div>
           </motion.div>
         </Container>
@@ -295,8 +328,8 @@ export default function Home() {
             transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
             className="mb-14 md:mb-20"
           >
-            <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-400">Expedition Edge</p>
-            <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.04em] text-white md:text-7xl">A frontend that lands with authority.</h2>
+            <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-400">Why Choose Us</p>
+            <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.04em] text-white md:text-7xl">Built for real routes, real uncertainty, and real mountain travel.</h2>
           </motion.div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -324,14 +357,14 @@ export default function Home() {
         <Container>
           <div className="mb-14 flex flex-col gap-6 md:mb-20 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-400">Featured Routes</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-400">Real Use Cases</p>
               <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-7xl lg:text-8xl">
-                The elite
-                <span className="ml-3 text-white/20">manifest.</span>
+                Where travelers
+                <span className="ml-3 text-white/20">need us most.</span>
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-7 text-white/56 md:text-base">
-              These cards now feel like destination panels instead of static tiles: stronger image drama, better motion depth, and cleaner visual rhythm.
+              From pilgrimage movement to family trips and mountain touring, the platform is designed to reduce friction where generic booking products usually fall short.
             </p>
           </div>
 
@@ -369,7 +402,7 @@ export default function Home() {
                       {route.name}
                     </h3>
                     <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
-                      <span className="text-[10px] font-black uppercase tracking-[0.32em] text-white/42">Deploy Plan</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.32em] text-white/42">Travel Better</span>
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-white to-orange-100 text-black transition-transform duration-500 group-hover:translate-x-1 group-hover:scale-105">
                         <ArrowRight size={18} />
                       </div>
@@ -396,21 +429,79 @@ export default function Home() {
           >
             <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Final Call</p>
             <h2 className="mt-6 text-5xl font-black uppercase italic tracking-[-0.06em] text-white md:text-8xl lg:text-[10rem] lg:leading-[0.84]">
-              Ascend
+              Plan
               <br />
               <span className="bg-gradient-to-b from-amber-200 via-orange-400 to-orange-700 bg-clip-text text-transparent">Together.</span>
             </h2>
             <p className="mx-auto mt-8 max-w-2xl text-base leading-8 text-white/62 md:text-lg">
-              The new direction makes the app feel high-end and intentional without losing the adventurous energy it already has.
+              Generic travel platforms can help you search. Mountain Mate is built to help you actually move, book, and arrive with more confidence.
             </p>
-            <div className="mt-10 flex justify-center">
-              <Button as="button" size="lg" variant="neutral" onClick={() => navigate("/register")} className="rounded-full px-10">
-                Join The Fleet <ArrowRight size={16} />
+            <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
+              <Button as="button" size="lg" variant="neutral" onClick={() => navigate("/explore-stays")} className="rounded-full px-10">
+                Explore Stays <ArrowRight size={16} />
+              </Button>
+              <Button as="button" size="lg" onClick={() => navigate("/explore-rides")} className="rounded-full px-10">
+                Explore Rides <ArrowRight size={16} />
+              </Button>
+              <Button as="button" size="lg" variant="ghost" onClick={() => navigate("/planner")} className="rounded-full px-10">
+                Plan My Trip
               </Button>
             </div>
           </motion.div>
         </Container>
       </section>
+    </div>
+  );
+}
+
+function RotatingReasonCard() {
+  const [activeReason, setActiveReason] = useState(0);
+
+  useEffect(() => {
+    const rotateId = window.setInterval(() => {
+      setActiveReason((prev) => (prev + 1) % rotatingReasons.length);
+    }, 3200);
+
+    return () => {
+      window.clearInterval(rotateId);
+    };
+  }, []);
+
+  return (
+    <div className="cinematic-surface spotlight-border rounded-[32px] p-6">
+      <div className="relative min-h-[260px] md:min-h-[220px]">
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={activeReason}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="absolute inset-0"
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.38em] text-orange-300">
+            {rotatingReasons[activeReason].eyebrow}
+          </p>
+          <h3 className="mt-4 text-2xl font-black uppercase italic tracking-tight text-white">
+            {rotatingReasons[activeReason].title}
+          </h3>
+          <p className="mt-4 text-sm leading-7 text-white/58">
+            {rotatingReasons[activeReason].text}
+          </p>
+          <div className="mt-6 flex gap-2">
+            {rotatingReasons.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-label={`Show reason ${index + 1}`}
+                onClick={() => setActiveReason(index)}
+                className={`h-2.5 rounded-full transition-all duration-500 ${index === activeReason ? "w-9 bg-orange-400" : "w-2.5 bg-white/20 hover:bg-white/35"}`}
+              />
+            ))}
+          </div>
+        </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
