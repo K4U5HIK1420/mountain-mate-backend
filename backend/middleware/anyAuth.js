@@ -1,6 +1,12 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const { getSupabaseClient } = require("../utils/supabaseClient");
+const { getDataStore } = require("../utils/dataStore");
+
+function canUseMongoAuth() {
+  return getDataStore() === "mongo" && mongoose.connection.readyState === 1;
+}
 
 module.exports = async (req, res, next) => {
   try {
@@ -14,16 +20,18 @@ module.exports = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id || decoded._id).select("-password");
-      if (user) {
-        req.user = user;
-        req.authType = "legacy";
-        return next();
+    if (canUseMongoAuth()) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id || decoded._id).select("-password");
+        if (user) {
+          req.user = user;
+          req.authType = "legacy";
+          return next();
+        }
+      } catch (_legacyErr) {
+        // Fall through to Supabase validation.
       }
-    } catch (_legacyErr) {
-      // Fall through to Supabase validation.
     }
 
     const supabase = getSupabaseClient();

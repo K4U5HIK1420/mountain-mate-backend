@@ -212,10 +212,6 @@ export default function AddTransport() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!images.length) return notify("Vehicle gallery is required.", "error");
-    if (!documents.driverPhoto || !documents.driverLicenseDoc || !documents.vehicleRcDoc || !documents.vehicleInsuranceDoc) {
-      return notify("Driver photo, driver license, RC, and insurance proofs are required.", "error");
-    }
 
     setLoading(true);
 
@@ -282,10 +278,10 @@ export default function AddTransport() {
             <Panel title="Core Identity Specs" index="01" icon={<CheckCircle2 size={16} className="text-white/10" />}>
               <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                 <Field label="Vehicle Model">
-                  <input name="vehicleModel" value={formData.vehicleModel} onChange={handleChange} required placeholder="Innova Crysta / Premium SUV" className={inputClass} />
+                  <input name="vehicleModel" value={formData.vehicleModel} onChange={handleChange} placeholder="Innova Crysta / Premium SUV" className={inputClass} />
                 </Field>
                 <Field label="Vehicle Type">
-                  <select name="vehicleType" value={formData.vehicleType} onChange={handleChange} required className={inputClass}>
+                  <select name="vehicleType" value={formData.vehicleType} onChange={handleChange} className={inputClass}>
                     <option value="" className="bg-black">SELECT TYPE</option>
                     {["SUV", "MUV", "Sedan", "Hatchback", "Tempo Traveller", "Taxi", "Other"].map((item) => (
                       <option key={item} value={item} className="bg-black">
@@ -295,10 +291,10 @@ export default function AddTransport() {
                   </select>
                 </Field>
                 <Field label="Lead Pilot Name">
-                  <input name="driverName" value={formData.driverName} onChange={handleChange} required placeholder="Lead Navigator" className={inputClass} />
+                  <input name="driverName" value={formData.driverName} onChange={handleChange} placeholder="Lead Navigator" className={inputClass} />
                 </Field>
                 <Field label="Encrypted Comms Line">
-                  <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} required placeholder="WhatsApp Terminal" className={inputClass} />
+                  <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} placeholder="WhatsApp Terminal" className={inputClass} />
                 </Field>
               </div>
             </Panel>
@@ -317,7 +313,6 @@ export default function AddTransport() {
                           setUsingLivePickup(false);
                           setLiveFromCoords(null);
                         }}
-                        required
                         placeholder="ORIGIN TERMINAL"
                         className="w-full bg-transparent text-xs font-black uppercase tracking-widest text-white outline-none"
                       />
@@ -343,13 +338,12 @@ export default function AddTransport() {
                       handleChange(e);
                       setLiveToCoords(null);
                     }}
-                    required
                     placeholder="DESTINATION HUB"
                     className={inputClass}
                   />
                 </Field>
                 <Field label="Available Date" icon={<Navigation className="text-orange-500" size={18} />}>
-                  <input name="availableDate" type="date" value={formData.availableDate} onChange={handleChange} required className={`${inputClass} [color-scheme:dark]`} />
+                  <input name="availableDate" type="date" value={formData.availableDate} onChange={handleChange} className={`${inputClass} [color-scheme:dark]`} />
                 </Field>
               </div>
 
@@ -367,13 +361,13 @@ export default function AddTransport() {
             <Panel title="Valuation Matrix" index="03" icon={<IndianRupee size={16} className="text-white/10" />}>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <MetricCard label="Price Strategy" icon={<IndianRupee size={18} className="text-orange-500" />}>
-                  <input name="pricePerSeat" value={formData.pricePerSeat} onChange={handleChange} required type="number" className="w-20 bg-transparent text-center text-4xl font-black italic tracking-tighter text-white outline-none" placeholder="00" />
+                  <input name="pricePerSeat" value={formData.pricePerSeat} onChange={handleChange} type="number" className="w-20 bg-transparent text-center text-4xl font-black italic tracking-tighter text-white outline-none" placeholder="00" />
                 </MetricCard>
                 <MetricCard label="Seat Matrix" icon={<Users size={18} className="text-orange-500" />}>
-                  <input name="seatsAvailable" value={formData.seatsAvailable} onChange={handleChange} required type="number" className="w-20 bg-transparent text-center text-4xl font-black italic tracking-tighter text-white outline-none" />
+                  <input name="seatsAvailable" value={formData.seatsAvailable} onChange={handleChange} type="number" className="w-20 bg-transparent text-center text-4xl font-black italic tracking-tighter text-white outline-none" />
                 </MetricCard>
                 <MetricCard label="Fleet Code" icon={<Car size={18} className="text-orange-500" />}>
-                  <input name="plateNumber" value={formData.plateNumber} onChange={handleChange} required className="w-full bg-transparent text-center text-sm font-black uppercase tracking-widest text-white outline-none" placeholder="UK 13 TA..." />
+                  <input name="plateNumber" value={formData.plateNumber} onChange={handleChange} className="w-full bg-transparent text-center text-sm font-black uppercase tracking-widest text-white outline-none" placeholder="UK 13 TA..." />
                 </MetricCard>
               </div>
             </Panel>
@@ -381,10 +375,10 @@ export default function AddTransport() {
             <Panel title="Driver & Vehicle Compliance" index="04" icon={<FileBadge2 size={16} className="text-white/10" />}>
               <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
                 <Field label="Driver License Number">
-                  <input name="driverLicenseNumber" value={formData.driverLicenseNumber} onChange={handleChange} required placeholder="DL-042011..." className={inputClass} />
+                  <input name="driverLicenseNumber" value={formData.driverLicenseNumber} onChange={handleChange} placeholder="DL-042011..." className={inputClass} />
                 </Field>
                 <Field label="Driver Aadhaar Number">
-                  <input name="driverAadhaarNumber" value={formData.driverAadhaarNumber} onChange={handleChange} required placeholder="XXXX XXXX XXXX" className={inputClass} />
+                  <input name="driverAadhaarNumber" value={formData.driverAadhaarNumber} onChange={handleChange} placeholder="XXXX XXXX XXXX" className={inputClass} />
                 </Field>
                 <Field label="Driver PAN Number">
                   <input name="driverPanNumber" value={formData.driverPanNumber} onChange={handleChange} placeholder="Optional but useful" className={inputClass} />
@@ -393,10 +387,10 @@ export default function AddTransport() {
 
               <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
                 <Field label="RC Number">
-                  <input name="rcNumber" value={formData.rcNumber} onChange={handleChange} required placeholder="Vehicle RC number" className={inputClass} />
+                  <input name="rcNumber" value={formData.rcNumber} onChange={handleChange} placeholder="Vehicle RC number" className={inputClass} />
                 </Field>
                 <Field label="Insurance Policy No.">
-                  <input name="insurancePolicyNumber" value={formData.insurancePolicyNumber} onChange={handleChange} required placeholder="Insurance reference" className={inputClass} />
+                  <input name="insurancePolicyNumber" value={formData.insurancePolicyNumber} onChange={handleChange} placeholder="Insurance reference" className={inputClass} />
                 </Field>
                 <Field label="Permit Number">
                   <input name="permitNumber" value={formData.permitNumber} onChange={handleChange} placeholder="Commercial / tourist permit" className={inputClass} />

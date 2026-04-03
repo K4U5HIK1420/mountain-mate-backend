@@ -1,5 +1,53 @@
 const { getSupabaseClient } = require("../utils/supabaseClient");
 
+function extractMissingColumn(errorMessage = "") {
+  const match = String(errorMessage).match(/Could not find the '([^']+)' column/i);
+  return match ? match[1] : "";
+}
+
+async function insertWithSchemaFallback(supabase, table, payload) {
+  let current = { ...payload };
+
+  for (let i = 0; i < 6; i += 1) {
+    const { data, error } = await supabase.from(table).insert(current).select("*").single();
+    if (!error) return { data, error: null };
+
+    const missing = extractMissingColumn(error.message);
+    if (!missing || !(missing in current)) {
+      return { data: null, error };
+    }
+
+    delete current[missing];
+  }
+
+  return { data: null, error: { message: "Insert failed due to schema mismatch." } };
+}
+
+async function updateWithSchemaFallback(supabase, table, payload, id, ownerId) {
+  let current = { ...payload };
+
+  for (let i = 0; i < 6; i += 1) {
+    const { data, error } = await supabase
+      .from(table)
+      .update(current)
+      .eq("id", id)
+      .eq("owner_id", ownerId)
+      .select("*")
+      .single();
+
+    if (!error) return { data, error: null };
+
+    const missing = extractMissingColumn(error.message);
+    if (!missing || !(missing in current)) {
+      return { data: null, error };
+    }
+
+    delete current[missing];
+  }
+
+  return { data: null, error: { message: "Update failed due to schema mismatch." } };
+}
+
 function mapTransportRow(row) {
   if (!row) return null;
   return {
@@ -52,11 +100,7 @@ async function addTransport({ ownerId, payload }) {
     is_verified: false,
   };
 
-  const { data, error } = await supabase
-    .from("transports")
-    .insert(insert)
-    .select("*")
-    .single();
+  const { data, error } = await insertWithSchemaFallback(supabase, "transports", insert);
 
   if (error) throw new Error(error.message);
   return mapTransportRow(data);
@@ -71,6 +115,18 @@ async function getMyRides(ownerId) {
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data || []).map(mapTransportRow);
+}
+
+async function getRideById(id) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("transports")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return mapTransportRow(data);
 }
 
 async function updateTransport({ ownerId, id, updateFields }) {
@@ -98,13 +154,7 @@ async function updateTransport({ ownerId, id, updateFields }) {
   if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
   if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
 
-  const { data, error } = await supabase
-    .from("transports")
-    .update(patch)
-    .eq("id", id)
-    .eq("owner_id", ownerId)
-    .select("*")
-    .single();
+  const { data, error } = await updateWithSchemaFallback(supabase, "transports", patch, id, ownerId);
 
   if (error) throw new Error(error.message);
   return mapTransportRow(data);
@@ -165,6 +215,7 @@ async function listAllRides() {
 
 module.exports = {
   addTransport,
+  getRideById,
   getMyRides,
   updateTransport,
   mapTransportRow,

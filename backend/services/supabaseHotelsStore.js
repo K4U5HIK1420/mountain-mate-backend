@@ -1,5 +1,53 @@
 const { getSupabaseClient } = require("../utils/supabaseClient");
 
+function extractMissingColumn(errorMessage = "") {
+  const match = String(errorMessage).match(/Could not find the '([^']+)' column/i);
+  return match ? match[1] : "";
+}
+
+async function insertWithSchemaFallback(supabase, table, payload) {
+  let current = { ...payload };
+
+  for (let i = 0; i < 6; i += 1) {
+    const { data, error } = await supabase.from(table).insert(current).select("*").single();
+    if (!error) return { data, error: null };
+
+    const missing = extractMissingColumn(error.message);
+    if (!missing || !(missing in current)) {
+      return { data: null, error };
+    }
+
+    delete current[missing];
+  }
+
+  return { data: null, error: { message: "Insert failed due to schema mismatch." } };
+}
+
+async function updateWithSchemaFallback(supabase, table, payload, id, ownerId) {
+  let current = { ...payload };
+
+  for (let i = 0; i < 6; i += 1) {
+    const { data, error } = await supabase
+      .from(table)
+      .update(current)
+      .eq("id", id)
+      .eq("owner_id", ownerId)
+      .select("*")
+      .single();
+
+    if (!error) return { data, error: null };
+
+    const missing = extractMissingColumn(error.message);
+    if (!missing || !(missing in current)) {
+      return { data: null, error };
+    }
+
+    delete current[missing];
+  }
+
+  return { data: null, error: { message: "Update failed due to schema mismatch." } };
+}
+
 function mapHotelRow(row) {
   if (!row) return null;
   return {
@@ -43,11 +91,7 @@ async function addHotel({ ownerId, payload }) {
     is_verified: false,
   };
 
-  const { data, error } = await supabase
-    .from("hotels")
-    .insert(insert)
-    .select("*")
-    .single();
+  const { data, error } = await insertWithSchemaFallback(supabase, "hotels", insert);
 
   if (error) throw new Error(error.message);
   return mapHotelRow(data);
@@ -63,6 +107,18 @@ async function getMyHotels(ownerId) {
 
   if (error) throw new Error(error.message);
   return (data || []).map(mapHotelRow);
+}
+
+async function getHotelById(id) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("hotels")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return mapHotelRow(data);
 }
 
 async function updateHotel({ ownerId, id, updateData }) {
@@ -85,13 +141,7 @@ async function updateHotel({ ownerId, id, updateData }) {
   if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
   if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
 
-  const { data, error } = await supabase
-    .from("hotels")
-    .update(patch)
-    .eq("id", id)
-    .eq("owner_id", ownerId)
-    .select("*")
-    .single();
+  const { data, error } = await updateWithSchemaFallback(supabase, "hotels", patch, id, ownerId);
 
   if (error) throw new Error(error.message);
   return mapHotelRow(data);
@@ -155,6 +205,7 @@ async function searchApprovedHotels({ location = "", minPrice, maxPrice, sort })
 
 module.exports = {
   addHotel,
+  getHotelById,
   getMyHotels,
   updateHotel,
   listAllHotels,

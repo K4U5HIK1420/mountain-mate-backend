@@ -435,9 +435,114 @@ async function updateAndLog(req, Model, id, allowed, targetType, summary) {
   return data;
 }
 
+function buildHotelSupabasePatch(body = {}) {
+  const update = pickAllowed(body, HOTEL_FIELDS);
+  const patch = {};
+  if (update.hotelName !== undefined) patch.hotel_name = update.hotelName;
+  if (update.location !== undefined) patch.location = update.location;
+  if (update.pricePerNight !== undefined) patch.price_per_night = Number(update.pricePerNight);
+  if (update.roomsAvailable !== undefined) patch.rooms_available = Number(update.roomsAvailable);
+  if (update.contactNumber !== undefined) patch.contact_number = update.contactNumber;
+  if (update.description !== undefined) patch.description = update.description;
+  if (update.images !== undefined) patch.images = update.images;
+  if (update.complianceDetails !== undefined) patch.compliance_details = update.complianceDetails;
+  if (update.verificationDocuments !== undefined) patch.verification_documents = update.verificationDocuments;
+  if (update.owner !== undefined) patch.owner_id = update.owner;
+  if (update.status !== undefined) patch.status = update.status;
+  if (update.isVerified !== undefined) patch.is_verified = Boolean(update.isVerified);
+  return patch;
+}
+
+function buildRideSupabasePatch(body = {}) {
+  const update = pickAllowed(body, RIDE_FIELDS);
+  const patch = {};
+  if (update.vehicleModel !== undefined) patch.vehicle_model = update.vehicleModel;
+  if (update.vehicleType !== undefined) patch.vehicle_type = update.vehicleType;
+  if (update.plateNumber !== undefined) patch.plate_number = update.plateNumber;
+  if (update.routeFrom !== undefined) patch.route_from = update.routeFrom;
+  if (update.routeTo !== undefined) patch.route_to = update.routeTo;
+  if (update.fromCoords !== undefined) patch.from_coords = update.fromCoords;
+  if (update.toCoords !== undefined) patch.to_coords = update.toCoords;
+  if (update.pricePerSeat !== undefined) patch.price_per_seat = Number(update.pricePerSeat);
+  if (update.seatsAvailable !== undefined) patch.seats_available = Number(update.seatsAvailable);
+  if (update.driverName !== undefined) patch.driver_name = update.driverName;
+  if (update.contactNumber !== undefined) patch.contact_number = update.contactNumber;
+  if (update.images !== undefined) patch.images = update.images;
+  if (update.complianceDetails !== undefined) patch.compliance_details = update.complianceDetails;
+  if (update.verificationDocuments !== undefined) patch.verification_documents = update.verificationDocuments;
+  if (update.owner !== undefined) patch.owner_id = update.owner;
+  if (update.status !== undefined) patch.status = update.status;
+  if (update.isVerified !== undefined) patch.is_verified = Boolean(update.isVerified);
+  return patch;
+}
+
+function extractMissingColumn(errorMessage = "") {
+  const match = String(errorMessage).match(/Could not find the '([^']+)' column/i);
+  return match ? match[1] : "";
+}
+
+async function supabaseUpdateWithSchemaFallback(table, id, patch = {}) {
+  const supabase = getSupabaseClient();
+  let current = { ...patch };
+
+  for (let i = 0; i < 8; i += 1) {
+    const { data, error } = await supabase
+      .from(table)
+      .update(current)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+
+    if (!error) return { data, error: null, appliedPatch: current };
+
+    const missing = extractMissingColumn(error.message);
+    if (!missing || !(missing in current)) {
+      return { data: null, error, appliedPatch: current };
+    }
+
+    delete current[missing];
+  }
+
+  return { data: null, error: { message: "Update failed due to schema mismatch." }, appliedPatch: current };
+}
+
 exports.updateUserMeta = async (req, res, next) => { try { const data = await updateAndLog(req, UserMeta, req.params.id, USER_META_FIELDS, "userMeta", "Updated user meta"); if (!data) return res.status(404).json({ success: false, message: "User meta not found" }); return res.json({ success: true, data }); } catch (err) { next(err); } };
-exports.updateHotel = async (req, res, next) => { try { const data = await updateAndLog(req, Hotel, req.params.id, HOTEL_FIELDS, "hotel", "Updated hotel"); if (!data) return res.status(404).json({ success: false, message: "Hotel not found" }); return res.json({ success: true, data }); } catch (err) { next(err); } };
-exports.updateRide = async (req, res, next) => { try { const data = await updateAndLog(req, Transport, req.params.id, RIDE_FIELDS, "ride", "Updated ride"); if (!data) return res.status(404).json({ success: false, message: "Ride not found" }); return res.json({ success: true, data }); } catch (err) { next(err); } };
+exports.updateHotel = async (req, res, next) => {
+  try {
+    if (isSupabaseStore()) {
+      const patch = buildHotelSupabasePatch(req.body || {});
+      const { data, error, appliedPatch } = await supabaseUpdateWithSchemaFallback("hotels", req.params.id, patch);
+
+      if (error) return res.status(400).json({ success: false, message: error.message });
+      if (!data) return res.status(404).json({ success: false, message: "Hotel not found" });
+
+      await logAdminAction(req, "update", "hotel", req.params.id, "Updated hotel", appliedPatch);
+      return res.json({ success: true, data: supabaseHotels.mapHotelRow(data) });
+    }
+
+    const data = await updateAndLog(req, Hotel, req.params.id, HOTEL_FIELDS, "hotel", "Updated hotel");
+    if (!data) return res.status(404).json({ success: false, message: "Hotel not found" });
+    return res.json({ success: true, data });
+  } catch (err) { next(err); }
+};
+exports.updateRide = async (req, res, next) => {
+  try {
+    if (isSupabaseStore()) {
+      const patch = buildRideSupabasePatch(req.body || {});
+      const { data, error, appliedPatch } = await supabaseUpdateWithSchemaFallback("transports", req.params.id, patch);
+
+      if (error) return res.status(400).json({ success: false, message: error.message });
+      if (!data) return res.status(404).json({ success: false, message: "Ride not found" });
+
+      await logAdminAction(req, "update", "ride", req.params.id, "Updated ride", appliedPatch);
+      return res.json({ success: true, data: supabaseTransports.mapTransportRow(data) });
+    }
+
+    const data = await updateAndLog(req, Transport, req.params.id, RIDE_FIELDS, "ride", "Updated ride");
+    if (!data) return res.status(404).json({ success: false, message: "Ride not found" });
+    return res.json({ success: true, data });
+  } catch (err) { next(err); }
+};
 exports.updateTrip = async (req, res, next) => { try { const data = await updateAndLog(req, Trip, req.params.id, TRIP_FIELDS, "trip", "Updated trip"); if (!data) return res.status(404).json({ success: false, message: "Trip not found" }); return res.json({ success: true, data }); } catch (err) { next(err); } };
 
 exports.updateBooking = async (req, res, next) => {

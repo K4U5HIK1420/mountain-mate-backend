@@ -3,25 +3,45 @@ const Hotel = require("../models/Hotel");
 const Transport = require("../models/Transport");
 const { restoreBookingInventory } = require("../utils/bookingInventory");
 const { createNotification } = require("../services/notificationService");
+const { getDataStore } = require("../utils/dataStore");
+const supabaseHotels = require("../services/supabaseHotelsStore");
+const supabaseTransports = require("../services/supabaseTransportsStore");
+const supabaseBookings = require("../services/supabaseBookingsStore");
 
 // Create Booking
 exports.createBooking = async (req, res, next) => {
     try {
-        const ListingModel = req.body.bookingType === "Hotel" ? Hotel : Transport;
-        const listing = await ListingModel.findById(req.body.listingId).lean();
+        const isHotel = req.body.bookingType === "Hotel";
+        let listing = null;
+
+        if (getDataStore() === "supabase") {
+          listing = isHotel
+            ? await supabaseHotels.getHotelById(String(req.body.listingId || ""))
+            : await supabaseTransports.getRideById(String(req.body.listingId || ""));
+        } else {
+          const ListingModel = isHotel ? Hotel : Transport;
+          listing = await ListingModel.findById(req.body.listingId).lean();
+        }
+
         if (!listing) {
           return res.status(404).json({ success: false, message: "Listing not found" });
         }
 
-        const ownerId = String(listing.owner || "");
-        const listingLabel =
-          req.body.bookingType === "Hotel"
-            ? listing.hotelName
-            : `${listing.vehicleType} ${listing.routeFrom} - ${listing.routeTo}`;
+        const ownerId = String(listing.owner || listing.ownerId || "");
+        const listingLabel = isHotel
+          ? listing.hotelName
+          : `${listing.vehicleType || ""} ${listing.routeFrom || ""} - ${listing.routeTo || ""}`.trim();
 
-        const booking = new Booking({
+        const resolvedAmount = Number(
+          req.body.amount ||
+          (isHotel ? listing.pricePerNight : listing.pricePerSeat) ||
+          0
+        );
+
+        const bookingPayload = {
           ...req.body,
-          // Attach either legacy Mongo user id or Supabase user id when available.
+          listingId: String(req.body.listingId || ""),
+          amount: Number.isFinite(resolvedAmount) ? resolvedAmount : 0,
           userId: String(req.user?.id || req.user?._id || req.body.userId || ""),
           ownerId,
           listingLabel,
@@ -29,30 +49,38 @@ exports.createBooking = async (req, res, next) => {
             req.body.bookingType === "Transport"
               ? { status: "searching" }
               : undefined,
-        });
-        await booking.save();
+        };
 
-        await createNotification(
-          {
-            userId: booking.userId,
-            title: "Booking created",
-            message: `Your request for ${listingLabel} has been created. Complete payment to send it for approval.`,
-            type: "system",
-            data: { bookingId: String(booking._id), bookingType: booking.bookingType },
-          },
-          req.app.get("io")
-        );
+        const booking =
+          getDataStore() === "supabase"
+            ? await supabaseBookings.createBooking(bookingPayload)
+            : await new Booking(bookingPayload).save();
 
-        await createNotification(
-          {
-            userId: booking.ownerId,
-            title: "New booking started",
-            message: `${booking.customerName} started a booking for ${listingLabel}. It will move to approval after payment.`,
-            type: "booking_request",
-            data: { bookingId: String(booking._id), bookingType: booking.bookingType, stage: "created" },
-          },
-          req.app.get("io")
-        );
+        try {
+          await createNotification(
+            {
+              userId: booking.userId,
+              title: "Booking created",
+              message: `Your request for ${listingLabel} has been created. Complete payment to send it for approval.`,
+              type: "system",
+              data: { bookingId: String(booking._id), bookingType: booking.bookingType },
+            },
+            req.app.get("io")
+          );
+
+          await createNotification(
+            {
+              userId: booking.ownerId,
+              title: "New booking started",
+              message: `${booking.customerName} started a booking for ${listingLabel}. It will move to approval after payment.`,
+              type: "booking_request",
+              data: { bookingId: String(booking._id), bookingType: booking.bookingType, stage: "created" },
+            },
+            req.app.get("io")
+          );
+        } catch (_notificationErr) {
+          // Do not fail booking creation if notification channel is unavailable.
+        }
 
         res.status(201).json(booking);
     } catch (error) {
@@ -63,7 +91,7 @@ exports.createBooking = async (req, res, next) => {
 exports.getTrackingBooking = async (req, res, next) => {
   try {
     const actorId = String(req.user?.id || req.user?._id || "");
-    const booking = await Booking.findById(req.params.id).populate("listingId").lean();
+    const booking = await Booking.findById(req.params.id).lean();
 
     if (!booking) {
       return res.status(404).json({ success: false, message: "Booking not found" });
@@ -168,7 +196,7 @@ exports.updateTrackingStatus = async (req, res, next) => {
 // Get All Bookings
 exports.getBookings = async (req, res, next) => {
     try {
-        const bookings = await Booking.find().populate("listingId");
+        const bookings = await Booking.find();
         res.json(bookings);
     } catch (error) {
         next(error);
@@ -179,7 +207,10 @@ exports.getBookings = async (req, res, next) => {
 exports.getMyBookingById = async (req, res, next) => {
   try {
     const ownerId = String(req.user?.id || req.user?._id || "");
-    const booking = await Booking.findOne({ _id: req.params.id, userId: ownerId }).populate("listingId");
+    const booking =
+      getDataStore() === "supabase"
+        ? await supabaseBookings.getBookingByIdForUser(req.params.id, ownerId)
+        : await Booking.findOne({ _id: req.params.id, userId: ownerId });
     if (!booking) {
       return res.status(404).json({ success: false, message: "Booking not found" });
     }
@@ -240,7 +271,7 @@ exports.getBookingsByStatus = async (req, res, next) => {
     }
 
     const bookings = await Booking.find({ status })
-      .populate("listingId");
+      .lean();
 
     res.json(bookings);
 

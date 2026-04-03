@@ -8,7 +8,6 @@ import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
 import LiveRideTracker from "../components/LiveRideTracker";
-import DriverSimulation from "../components/DriverSimulation";
 
 const ease = [0.22, 1, 0.36, 1];
 
@@ -189,7 +188,6 @@ export default function Bookings() {
         open={Boolean(trackingSelection?.booking?._id)}
         onClose={() => setTrackingSelection(null)}
       />
-      <DriverSimulation />
     </div>
   );
 }

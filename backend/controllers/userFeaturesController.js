@@ -6,6 +6,10 @@ const Review = require("../models/Review");
 const { restoreBookingInventory } = require("../utils/bookingInventory");
 const { createNotification } = require("../services/notificationService");
 const { resolveAppUser } = require("../utils/resolveAppUser");
+const { getDataStore } = require("../utils/dataStore");
+const supabaseBookings = require("../services/supabaseBookingsStore");
+const supabaseHotels = require("../services/supabaseHotelsStore");
+const supabaseTransports = require("../services/supabaseTransportsStore");
 
 // --- 🏔️ PROFILE SETUP ---
 exports.setupProfile = async (req, res) => {
@@ -45,10 +49,13 @@ exports.setupProfile = async (req, res) => {
 exports.getMyBookings = async (req, res) => {
   try {
     const ownerId = String(req.user?.id || req.user?._id || "");
-    const data = await Booking.find({ userId: ownerId })
-      .sort({ createdAt: -1 })
-      .populate("listingId")
-      .lean();
+    const isSupabase = getDataStore() === "supabase";
+    const data = isSupabase
+      ? await supabaseBookings.listBookingsByUserId(ownerId)
+      : await Booking.find({ userId: ownerId })
+          .sort({ createdAt: -1 })
+          .populate("listingId")
+          .lean();
 
     const bookingIds = data.map((item) => item._id);
     const reviews = bookingIds.length
@@ -87,10 +94,13 @@ exports.getMyBookings = async (req, res) => {
 exports.getPartnerIncomingBookings = async (req, res) => {
   try {
     const ownerId = String(req.user?.id || req.user?._id || "");
-    const incoming = await Booking.find({ ownerId })
-      .populate("listingId")
-      .sort({ createdAt: -1 })
-      .lean();
+    const incoming =
+      getDataStore() === "supabase"
+        ? await supabaseBookings.listBookingsByOwnerId(ownerId)
+        : await Booking.find({ ownerId })
+            .populate("listingId")
+            .sort({ createdAt: -1 })
+            .lean();
 
     res.json({ success: true, data: incoming || [] });
   } catch (err) {
@@ -108,7 +118,10 @@ exports.updateBookingStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid booking action" });
     }
     
-    const booking = await Booking.findById(bookingId);
+    const isSupabase = getDataStore() === "supabase";
+    const booking = isSupabase
+      ? await supabaseBookings.getBookingById(String(bookingId))
+      : await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
     const actorId = String(req.user?.id || req.user?._id || "");
@@ -116,10 +129,18 @@ exports.updateBookingStatus = async (req, res) => {
 
     if (!resolvedOwnerId || resolvedOwnerId !== actorId) {
       try {
-        const ListingModel = booking.bookingType === "Hotel" ? Hotel : Transport;
-        const listing = await ListingModel.findById(booking.listingId).select("owner").lean();
+        const listing = isSupabase
+          ? (
+              booking.bookingType === "Hotel"
+                ? await supabaseHotels.getHotelById(String(booking.listingId))
+                : await supabaseTransports.getRideById(String(booking.listingId))
+            )
+          : await (booking.bookingType === "Hotel" ? Hotel : Transport)
+              .findById(booking.listingId)
+              .select("owner")
+              .lean();
         resolvedOwnerId = String(listing?.owner || resolvedOwnerId || "");
-        if (resolvedOwnerId && String(booking.ownerId || "") !== resolvedOwnerId) {
+        if (!isSupabase && resolvedOwnerId && String(booking.ownerId || "") !== resolvedOwnerId) {
           booking.ownerId = resolvedOwnerId;
         }
       } catch (_ownerSyncErr) {
@@ -139,14 +160,28 @@ exports.updateBookingStatus = async (req, res) => {
       await restoreBookingInventory(booking);
     }
 
-    booking.status = normalizedStatus;
-    if (booking.bookingType === "Transport") {
-      booking.liveTracking = {
-        ...(booking.liveTracking || {}),
-        status: normalizedStatus === "confirmed" ? "accepted" : "searching",
-      };
+    const nextLiveTracking =
+      booking.bookingType === "Transport"
+        ? {
+            ...(booking.liveTracking || {}),
+            status: normalizedStatus === "confirmed" ? "accepted" : "searching",
+          }
+        : booking.liveTracking;
+
+    let updatedBooking = booking;
+    if (isSupabase) {
+      updatedBooking = await supabaseBookings.updateBookingById(String(bookingId), {
+        status: normalizedStatus,
+        liveTracking: nextLiveTracking,
+      });
+    } else {
+      booking.status = normalizedStatus;
+      if (booking.bookingType === "Transport") {
+        booking.liveTracking = nextLiveTracking;
+      }
+      await booking.save();
+      updatedBooking = booking;
     }
-    await booking.save();
 
     try {
       await createNotification(
@@ -155,10 +190,10 @@ exports.updateBookingStatus = async (req, res) => {
           title: normalizedStatus === "confirmed" ? "Booking confirmed" : "Booking declined",
           message:
             normalizedStatus === "confirmed"
-              ? `Your booking for ${booking.listingLabel || "the selected listing"} has been confirmed.`
-              : `Your booking for ${booking.listingLabel || "the selected listing"} was declined by the owner or driver.`,
+              ? `Your booking for ${updatedBooking.listingLabel || "the selected listing"} has been confirmed.`
+              : `Your booking for ${updatedBooking.listingLabel || "the selected listing"} was declined by the owner or driver.`,
           type: normalizedStatus === "confirmed" ? "booking_confirmed" : "booking_declined",
-          data: { bookingId: String(booking._id), bookingType: booking.bookingType },
+          data: { bookingId: String(updatedBooking._id), bookingType: updatedBooking.bookingType },
         },
         req.app.get("io")
       );
@@ -166,7 +201,7 @@ exports.updateBookingStatus = async (req, res) => {
       // Don't fail the booking update if notification delivery has an issue.
     }
 
-    res.json({ success: true, message: `Booking status updated to ${normalizedStatus}`, data: booking });
+    res.json({ success: true, message: `Booking status updated to ${normalizedStatus}`, data: updatedBooking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "Status update failed" });
   }

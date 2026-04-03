@@ -5,6 +5,22 @@ import { CheckCircle2, CreditCard, Loader2, ArrowRight, XCircle } from "lucide-r
 import API from "../utils/api";
 import { Button } from "../components/ui/Button";
 
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function BookingConfirm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -15,20 +31,20 @@ export default function BookingConfirm() {
 
   useEffect(() => {
     let mounted = true;
+
     async function load() {
       if (location.state?.booking && String(location.state.booking._id) === String(id)) {
         setLoading(false);
         return;
       }
+
       setLoading(true);
       try {
-        // Prefer direct endpoint (faster + reliable)
         const direct = await API.get(`/booking/me/${id}`);
         const b = direct.data?.data || null;
         if (mounted) setBooking(b);
       } catch {
         try {
-          // Fallback: older method (full list)
           const res = await API.get("/user/bookings");
           const all = res.data?.data || [];
           const b = all.find((x) => String(x._id) === String(id));
@@ -40,6 +56,7 @@ export default function BookingConfirm() {
         if (mounted) setLoading(false);
       }
     }
+
     load();
     return () => {
       mounted = false;
@@ -48,17 +65,66 @@ export default function BookingConfirm() {
 
   const payNow = async () => {
     if (!booking) return;
+
     setPaying(true);
     try {
-      const amount = booking.amount || booking.listingId?.pricePerNight || booking.listingId?.pricePerSeat || 1;
-      const order = await API.post("/payment/create-order", { amount, bookingId: booking._id });
-      // Mock verify (backend currently marks paid without signature verification)
-      await API.post("/payment/verify", {
-        bookingId: booking._id,
-        paymentId: `mock_pay_${Date.now()}`,
-        orderId: order.data?.id || booking.orderId,
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady) {
+        navigate("/payment/failure", { replace: true });
+        return;
+      }
+
+      const [keyRes, orderRes] = await Promise.all([
+        API.get("/payment/key"),
+        API.post("/payment/create-order", { bookingId: booking._id }),
+      ]);
+
+      const key = keyRes.data?.key;
+      const order = orderRes.data?.order;
+
+      if (!key || !order?.id) {
+        navigate("/payment/failure", { replace: true });
+        return;
+      }
+
+      const options = {
+        key,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        name: "Mountain Mate",
+        description: `${booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"} payment`,
+        order_id: order.id,
+        prefill: {
+          name: orderRes.data?.customerName || "",
+          email: orderRes.data?.customerEmail || "",
+          contact: orderRes.data?.customerContact || "",
+        },
+        theme: { color: "#EA580C" },
+        handler: async (response) => {
+          try {
+            await API.post("/payment/verify", {
+              bookingId: booking._id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            navigate("/payment/success", { replace: true });
+          } catch {
+            navigate("/payment/failure", { replace: true });
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", () => {
+        navigate("/payment/failure", { replace: true });
       });
-      navigate("/payment/success", { replace: true });
+      rzp.open();
     } catch {
       navigate("/payment/failure", { replace: true });
     } finally {
@@ -79,7 +145,7 @@ export default function BookingConfirm() {
 
           {loading ? (
             <div className="mt-10 text-white/40 font-black tracking-widest uppercase text-[10px] flex items-center gap-3">
-              <Loader2 className="animate-spin" /> Loading booking…
+              <Loader2 className="animate-spin" /> Loading booking...
             </div>
           ) : !booking ? (
             <div className="mt-10 space-y-5">
@@ -104,7 +170,7 @@ export default function BookingConfirm() {
                   </div>
                   <div className="text-right">
                     <p className="text-white/35 font-black uppercase tracking-[0.3em] text-[10px]">Amount</p>
-                    <p className="text-3xl font-black italic mt-2">₹{booking.amount || booking.listingId?.pricePerNight || booking.listingId?.pricePerSeat}</p>
+                    <p className="text-3xl font-black italic mt-2">Rs {booking.amount || booking.listingId?.pricePerNight || booking.listingId?.pricePerSeat}</p>
                   </div>
                 </div>
                 <div className="mt-5 pt-5 border-t border-white/10 flex items-center justify-between text-white/55 text-sm">
@@ -115,11 +181,11 @@ export default function BookingConfirm() {
 
               <Button disabled={paying} onClick={payNow} size="lg" className="w-full">
                 {paying ? <Loader2 className="animate-spin" /> : <CreditCard size={18} />}
-                {paying ? "PROCESSING…" : "PAY NOW (MOCK)"} <ArrowRight size={16} />
+                {paying ? "PROCESSING..." : "PAY NOW"} <ArrowRight size={16} />
               </Button>
 
               <div className="flex items-center gap-3 text-white/30 text-[10px] font-black uppercase tracking-widest">
-                <CheckCircle2 size={16} className="text-orange-400" /> Payment verification is mocked for now.
+                <CheckCircle2 size={16} className="text-orange-400" /> Secure payment powered by Razorpay.
               </div>
             </div>
           )}

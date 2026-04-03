@@ -280,6 +280,11 @@ exports.verifyTransport = async (req, res) => {
 
 exports.getAllRidesForAdmin = async (req, res) => {
   try {
+    if (getDataStore() === "supabase") {
+      const rides = await supabaseTransports.listAllRides();
+      return res.json(rides);
+    }
+
     const rides = await Transport.find().sort({ createdAt: -1 });
     res.json(rides);
   } catch (error) {

@@ -19,9 +19,9 @@ const bookingSchema = new mongoose.Schema({
         required: true
     },
     listingId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         required: true,
-        refPath: "bookingType"
+        index: true
     },
     // Legacy single-date booking (still supported)
     date: { type: Date, required: true },

@@ -132,18 +132,6 @@ const AddHotel = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.hotelName || !formData.pricePerNight) {
-      return notify("Hotel name and nightly rate are required.", "error");
-    }
-
-    if (!images.length) {
-      return notify("Add at least one property image.", "error");
-    }
-
-    if (!documents.ownerPhoto || !documents.ownerAadhaarDoc || !documents.propertyRegistrationDoc) {
-      return notify("Owner photo, owner Aadhaar, and property registration proof are required.", "error");
-    }
-
     setLoading(true);
     const data = new FormData();
 
@@ -191,7 +179,7 @@ const AddHotel = () => {
           <FormSection title="Property Identity" icon={<Hotel size={16} className="text-orange-500" />}>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-10">
               <Field label="Property Identity" icon={<Hotel size={14} className="text-orange-500" />}>
-                <input name="hotelName" value={formData.hotelName} onChange={handleChange} required placeholder="Kedar Valley Resort" className={inputClass} />
+                <input name="hotelName" value={formData.hotelName} onChange={handleChange} placeholder="Kedar Valley Resort" className={inputClass} />
               </Field>
               <Field label="Classification" icon={<Info size={14} className="text-orange-500" />}>
                 <select name="propertyType" value={formData.propertyType} onChange={handleChange} className={inputClass}>
@@ -215,10 +203,10 @@ const AddHotel = () => {
 
             <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
               <Field label="Rate/Night" icon={<IndianRupee size={12} />}>
-                <input name="pricePerNight" type="number" value={formData.pricePerNight} onChange={handleChange} required placeholder="3500" className={inputClass} />
+                <input name="pricePerNight" type="number" value={formData.pricePerNight} onChange={handleChange} placeholder="3500" className={inputClass} />
               </Field>
               <Field label="Units" icon={<BookOpen size={12} />}>
-                <input name="roomsAvailable" type="number" value={formData.roomsAvailable} onChange={handleChange} required placeholder="10" className={inputClass} />
+                <input name="roomsAvailable" type="number" value={formData.roomsAvailable} onChange={handleChange} placeholder="10" className={inputClass} />
               </Field>
               <Field label="Max Guests" icon={<Users size={12} />}>
                 <input name="guestsPerRoom" type="number" value={formData.guestsPerRoom} onChange={handleChange} className={inputClass} />
@@ -230,10 +218,10 @@ const AddHotel = () => {
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <Field label="Manager Name" icon={<User size={14} />}>
-                <input name="ownerName" value={formData.ownerName} onChange={handleChange} required placeholder="Shardul Aswal" className={inputClass} />
+                <input name="ownerName" value={formData.ownerName} onChange={handleChange} placeholder="Shardul Aswal" className={inputClass} />
               </Field>
               <Field label="Contact Line" icon={<Phone size={14} />}>
-                <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} required placeholder="+91 XXXXX XXXXX" className={inputClass} />
+                <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} placeholder="+91 XXXXX XXXXX" className={inputClass} />
               </Field>
             </div>
           </FormSection>
@@ -273,10 +261,10 @@ const AddHotel = () => {
           <FormSection title="Owner & Legal Compliance" icon={<FileBadge2 size={16} className="text-orange-500" />}>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
               <Field label="Owner Aadhaar Number">
-                <input name="ownerAadhaarNumber" value={formData.ownerAadhaarNumber} onChange={handleChange} required placeholder="XXXX XXXX XXXX" className={inputClass} />
+                <input name="ownerAadhaarNumber" value={formData.ownerAadhaarNumber} onChange={handleChange} placeholder="XXXX XXXX XXXX" className={inputClass} />
               </Field>
               <Field label="Owner PAN Number">
-                <input name="ownerPanNumber" value={formData.ownerPanNumber} onChange={handleChange} required placeholder="ABCDE1234F" className={inputClass} />
+                <input name="ownerPanNumber" value={formData.ownerPanNumber} onChange={handleChange} placeholder="ABCDE1234F" className={inputClass} />
               </Field>
               <Field label="GST Number">
                 <input name="gstNumber" value={formData.gstNumber} onChange={handleChange} placeholder="Optional but recommended" className={inputClass} />
@@ -285,7 +273,7 @@ const AddHotel = () => {
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
               <Field label="Registration Number">
-                <input name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} required placeholder="Property / lease registration" className={inputClass} />
+                <input name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} placeholder="Property / lease registration" className={inputClass} />
               </Field>
               <Field label="Trade License Number">
                 <input name="tradeLicenseNumber" value={formData.tradeLicenseNumber} onChange={handleChange} placeholder="Municipal / tourism license" className={inputClass} />
