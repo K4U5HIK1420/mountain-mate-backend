@@ -5,6 +5,26 @@ import { Calendar, Car, Crosshair, IndianRupee, Loader2, MapPin, Navigation, Sav
 import { useNotify } from "../context/NotificationContext";
 
 const hubs = ["Guptakashi", "Sonprayag", "Phata", "Rudraprayag", "Rishikesh", "Dehradun", "Haridwar", "Joshimath"];
+const complianceFields = [
+  ["driverLicenseNumber", "Driver License No"],
+  ["driverAadhaarNumber", "Driver Aadhaar No"],
+  ["driverPanNumber", "Driver PAN No"],
+  ["rcNumber", "RC Number"],
+  ["insurancePolicyNumber", "Insurance Policy No"],
+  ["permitNumber", "Permit Number"],
+  ["pollutionCertificateNumber", "PUC Number"],
+  ["fitnessCertificateNumber", "Fitness Certificate No"],
+];
+const documentFields = [
+  ["driverPhoto", "Driver Photo"],
+  ["driverLicenseDoc", "Driver License Scan"],
+  ["driverAadhaarDoc", "Driver Aadhaar Scan"],
+  ["vehicleRcDoc", "Vehicle RC"],
+  ["vehicleInsuranceDoc", "Vehicle Insurance"],
+  ["vehiclePermitDoc", "Tourist/Commercial Permit"],
+  ["pollutionCertificateDoc", "PUC Certificate"],
+  ["fitnessCertificateDoc", "Fitness Certificate"],
+];
 
 export default function ManageRides() {
   const { notify } = useNotify();
@@ -34,6 +54,20 @@ export default function ManageRides() {
                 fromCoords: ride.fromCoords || null,
                 toCoords: ride.toCoords || null,
                 driverOnline: ride.driverOnline ?? true,
+                vehicleModel: ride.vehicleModel || "",
+                plateNumber: ride.plateNumber || "",
+                driverName: ride.driverName || "",
+                contactNumber: ride.contactNumber || "",
+                driverLicenseNumber: ride.complianceDetails?.driverLicenseNumber || "",
+                driverAadhaarNumber: ride.complianceDetails?.driverAadhaarNumber || "",
+                driverPanNumber: ride.complianceDetails?.driverPanNumber || "",
+                rcNumber: ride.complianceDetails?.rcNumber || "",
+                insurancePolicyNumber: ride.complianceDetails?.insurancePolicyNumber || "",
+                permitNumber: ride.complianceDetails?.permitNumber || "",
+                pollutionCertificateNumber: ride.complianceDetails?.pollutionCertificateNumber || "",
+                fitnessCertificateNumber: ride.complianceDetails?.fitnessCertificateNumber || "",
+                newImages: [],
+                docFiles: {},
               },
             ])
           )
@@ -121,12 +155,8 @@ export default function ManageRides() {
       notify("Add both source and destination.", "error");
       return;
     }
-    if (!Number(draft.pricePerSeat || ride.pricePerSeat || 0)) {
-      notify("Add a fare for this ride.", "error");
-      return;
-    }
 
-    setSavingId(ride._id);
+    setSavingId(`route-${ride._id}`);
     try {
       const [fromCoords, toCoords] = await Promise.all([
         draft.fromCoords || getCoords(draft.routeFrom),
@@ -149,6 +179,66 @@ export default function ManageRides() {
       notify("Ride updated live for riders.", "success");
     } catch (_err) {
       notify("Unable to update route right now.", "error");
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const onNewImagesPicked = (rideId, fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setDraft(rideId, {
+      newImages: [...(drafts[rideId]?.newImages || []), ...files],
+    });
+  };
+
+  const onDocumentPicked = (rideId, fieldKey, file) => {
+    setDraft(rideId, {
+      docFiles: {
+        ...(drafts[rideId]?.docFiles || {}),
+        [fieldKey]: file || null,
+      },
+    });
+  };
+
+  const saveOptionalDetails = async (ride) => {
+    const draft = drafts[ride._id] || {};
+    setSavingId(`optional-${ride._id}`);
+    try {
+      const data = new FormData();
+      data.append("vehicleModel", draft.vehicleModel || ride.vehicleModel || "");
+      data.append("plateNumber", draft.plateNumber || ride.plateNumber || "");
+      data.append("driverName", draft.driverName || ride.driverName || "");
+      data.append("contactNumber", draft.contactNumber || ride.contactNumber || "");
+      data.append("pricePerSeat", String(draft.pricePerSeat ?? ride.pricePerSeat ?? 0));
+      data.append("seatsAvailable", String(draft.seatsAvailable ?? ride.seatsAvailable ?? 1));
+
+      complianceFields.forEach(([key]) => {
+        const val = draft[key];
+        if (val !== undefined && val !== null && String(val).trim() !== "") {
+          data.append(key, String(val));
+        }
+      });
+
+      (draft.newImages || []).forEach((file) => data.append("images", file));
+      Object.entries(draft.docFiles || {}).forEach(([key, file]) => {
+        if (file) data.append(key, file);
+      });
+
+      const res = await API.patch(`/transport/update/${ride._id}`, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const updated = res.data?.data || ride;
+      setMyRides((prev) => prev.map((item) => (item._id === ride._id ? { ...item, ...updated } : item)));
+      setDraft(ride._id, {
+        ...draft,
+        newImages: [],
+        docFiles: {},
+      });
+      notify("Optional details saved successfully.", "success");
+    } catch (_err) {
+      notify("Optional details save failed.", "error");
     } finally {
       setSavingId("");
     }
@@ -325,6 +415,107 @@ export default function ManageRides() {
                     ))}
                   </div>
 
+                  <details className="mt-6 rounded-[28px] border border-white/10 bg-black/25 p-5">
+                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.28em] text-orange-300">
+                      Complete Optional Details (Pricing/Documents/Images)
+                    </summary>
+
+                    <div className="mt-5 space-y-5">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <Field icon={<Car size={16} />} label="Vehicle Model">
+                          <input
+                            value={draft.vehicleModel || ""}
+                            onChange={(e) => setDraft(ride._id, { vehicleModel: e.target.value })}
+                            className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
+                            placeholder="Innova / Sedan"
+                          />
+                        </Field>
+                        <Field icon={<Car size={16} />} label="Plate Number">
+                          <input
+                            value={draft.plateNumber || ""}
+                            onChange={(e) => setDraft(ride._id, { plateNumber: e.target.value })}
+                            className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
+                            placeholder="UK07 XX 1234"
+                          />
+                        </Field>
+                        <Field icon={<Users size={16} />} label="Driver Name">
+                          <input
+                            value={draft.driverName || ""}
+                            onChange={(e) => setDraft(ride._id, { driverName: e.target.value })}
+                            className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
+                            placeholder="Driver name"
+                          />
+                        </Field>
+                        <Field icon={<Users size={16} />} label="Contact Number">
+                          <input
+                            value={draft.contactNumber || ""}
+                            onChange={(e) => setDraft(ride._id, { contactNumber: e.target.value })}
+                            className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
+                            placeholder="9876543210"
+                          />
+                        </Field>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        {complianceFields.map(([key, label]) => (
+                          <Field key={`${ride._id}-${key}`} icon={<Navigation size={16} />} label={label}>
+                            <input
+                              value={draft[key] || ""}
+                              onChange={(e) => setDraft(ride._id, { [key]: e.target.value })}
+                              className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
+                              placeholder={label}
+                            />
+                          </Field>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.26em] text-white/45">Add Ride Images</p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => onNewImagesPicked(ride._id, e.target.files)}
+                            className="mt-3 block w-full text-xs text-white/70 file:mr-3 file:rounded-full file:border-0 file:bg-orange-500/20 file:px-4 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-[0.2em] file:text-orange-200"
+                          />
+                          {(draft.newImages || []).length > 0 ? (
+                            <p className="mt-2 text-xs text-orange-200">{(draft.newImages || []).length} new image(s) selected</p>
+                          ) : null}
+                        </div>
+
+                        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.26em] text-white/45">Upload Verification Documents</p>
+                          <div className="mt-3 grid gap-3">
+                            {documentFields.map(([key, label]) => (
+                              <label key={`${ride._id}-${key}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/75">
+                                <span>{label}</span>
+                                <input
+                                  type="file"
+                                  accept=".pdf,image/*"
+                                  onChange={(e) => onDocumentPicked(ride._id, key, e.target.files?.[0] || null)}
+                                  className="max-w-[180px] text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-orange-500/20 file:px-3 file:py-1 file:font-black file:uppercase file:tracking-[0.16em] file:text-orange-200"
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => saveOptionalDetails(ride)}
+                          disabled={savingId === `optional-${ride._id}`}
+                          className="inline-flex items-center justify-center gap-3 rounded-[20px] border border-orange-500/30 bg-orange-500/15 px-6 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-orange-200 transition-all hover:bg-orange-500/25 disabled:opacity-60"
+                        >
+                          {savingId === `optional-${ride._id}` ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                          Save Optional Details
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+
                   <div className="mt-8 flex flex-col gap-4 border-t border-white/8 pt-6 md:flex-row md:items-center md:justify-between">
                     <div className="rounded-[24px] border border-orange-500/15 bg-orange-500/[0.05] px-5 py-4 text-sm leading-7 text-white/58">
                       Use this to relaunch the same car from today’s arrival point tomorrow morning. The map route will update with the new source and destination.
@@ -341,10 +532,10 @@ export default function ManageRides() {
                       <button
                         type="button"
                         onClick={() => republishRide(ride)}
-                        disabled={savingId === ride._id}
+                        disabled={savingId === `route-${ride._id}`}
                         className="inline-flex items-center justify-center gap-3 rounded-[24px] bg-gradient-to-r from-orange-600 to-amber-500 px-8 py-5 text-[11px] font-black uppercase tracking-[0.28em] text-white shadow-[0_20px_60px_rgba(249,115,22,0.25)] transition-all hover:brightness-110 disabled:opacity-60"
                       >
-                        {savingId === ride._id ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Update Live Ride</>}
+                        {savingId === `route-${ride._id}` ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Update Live Ride</>}
                       </button>
                     </div>
                   </div>

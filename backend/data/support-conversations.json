@@ -6,8 +6,8 @@
     "guest_label": "aswalshardul29@gmail.com",
     "status": "open",
     "handoff_reason": "AI provider unavailable or quota exceeded",
-    "last_user_message": "hy",
-    "last_admin_message": "hello",
+    "last_user_message": "sir",
+    "last_admin_message": "yes what can i help you",
     "messages": [
       {
         "sender": "user",
@@ -58,10 +58,20 @@
         "sender": "admin",
         "text": "hello",
         "createdAt": "2026-04-03T10:51:34.082Z"
+      },
+      {
+        "sender": "user",
+        "text": "sir",
+        "createdAt": "2026-04-04T05:03:35.955Z"
+      },
+      {
+        "sender": "admin",
+        "text": "yes what can i help you",
+        "createdAt": "2026-04-04T05:16:57.756Z"
       }
     ],
     "created_at": "2026-04-03T10:37:16.112Z",
-    "updated_at": "2026-04-03T10:51:34.082Z"
+    "updated_at": "2026-04-04T05:16:57.807Z"
   },
   {
     "id": "b74bf2eb-158b-4501-9237-df31d89a67cd",

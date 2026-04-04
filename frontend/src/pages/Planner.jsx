@@ -1,337 +1,386 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, MapPin, CloudSun, Sparkles, Plus, Trash2, Loader2, Zap } from "lucide-react";
+import { motion } from "framer-motion";
+import { Compass, Route, ShieldCheck, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Container } from "../components/ui/Container";
 import { useNotify } from "../context/NotificationContext";
-import { getAIRecommendations, getUserTrips, getWeatherData, saveTrip, updateTrip } from "../utils/api";
+import StepForm from "../components/planner/StepForm";
+import Itinerary from "../components/planner/Itinerary";
 
-const createEmptyDay = (id = Date.now()) => ({
-  id,
-  title: "",
-  location: "",
-  activity: "",
-});
+const STORAGE_KEY = "mountain_mate_strategy_planner_v2";
 
-const Planner = () => {
+const popularRoutes = [
+  { destination: "Kedarnath", path: ["Delhi", "Rishikesh", "Guptkashi", "Kedarnath"] },
+  { destination: "Badrinath", path: ["Delhi", "Rishikesh", "Joshimath", "Badrinath"] },
+  { destination: "Auli", path: ["Delhi", "Rishikesh", "Joshimath", "Auli"] },
+  { destination: "Valley of Flowers", path: ["Delhi", "Rishikesh", "Joshimath", "Govindghat"] },
+];
+
+const budgetLabelMap = {
+  low: "Low Budget",
+  medium: "Medium Budget",
+  premium: "Premium",
+};
+
+const monthDemandMap = {
+  Kedarnath: [5, 6, 9, 10],
+  Badrinath: [5, 6, 9, 10],
+  Auli: [12, 1, 2],
+};
+
+const monthWeatherRisk = [7, 8];
+
+const initialFormData = {
+  destination: "",
+  startDate: "",
+  endDate: "",
+  travelers: 2,
+  budget: "medium",
+  travelType: "pilgrimage",
+};
+
+const dayInMs = 24 * 60 * 60 * 1000;
+
+const getDateCount = (startDate, endDate) => {
+  if (!startDate || !endDate) return 4;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 4;
+  return Math.max(2, Math.round((end - start) / dayInMs) + 1);
+};
+
+const findRoutePath = (destination) => {
+  const match = popularRoutes.find(
+    (item) => item.destination.toLowerCase() === String(destination || "").trim().toLowerCase()
+  );
+  return match?.path || ["Delhi", "Rishikesh", destination || "Destination"];
+};
+
+const buildAlerts = (formData) => {
+  const destination = String(formData.destination || "").trim();
+  const startMonth = formData.startDate ? new Date(formData.startDate).getMonth() + 1 : null;
+  const alerts = [];
+
+  if (startMonth && monthDemandMap[destination]?.includes(startMonth)) {
+    alerts.push({
+      title: "High demand window",
+      message: "Stays and rides can fill fast. Pre-booking recommended for better rates.",
+      severity: "high",
+    });
+  }
+
+  if (startMonth && monthWeatherRisk.includes(startMonth)) {
+    alerts.push({
+      title: "Weather risk",
+      message: "Monsoon disruption possible. Keep flexible buffers and earlier departure slots.",
+      severity: "medium",
+    });
+  }
+
+  if (destination === "Kedarnath" || destination === "Badrinath") {
+    alerts.push({
+      title: "Route instability",
+      message: "Mountain roads may experience temporary blocks. Buffer time has been added.",
+      severity: "medium",
+    });
+  }
+
+  if (!alerts.length) {
+    alerts.push({
+      title: "Route health stable",
+      message: "Current strategy has normal risk profile. Keep weather checks 24h before departure.",
+      severity: "low",
+    });
+  }
+
+  return alerts;
+};
+
+const buildTransportSummary = (formData) => {
+  const budget = formData.budget || "medium";
+  const travelers = Number(formData.travelers || 1);
+
+  if (budget === "low") {
+    return {
+      transportType: "shared",
+      transportSummary:
+        travelers >= 4
+          ? "Intercity shared SUV + local shared cabs for mountain segments."
+          : "Volvo/Bus till base hubs + shared jeep/cab for final stretch.",
+    };
+  }
+
+  if (budget === "premium") {
+    return {
+      transportType: "private",
+      transportSummary:
+        "Private SUV transfers with priority early slots. Optional helicopter segment for pilgrimage routes.",
+    };
+  }
+
+  return {
+    transportType: "private",
+    transportSummary:
+      "Hybrid strategy: private cab for long legs, shared local options where efficient.",
+  };
+};
+
+const buildPlanFromInput = (formData) => {
+  const path = findRoutePath(formData.destination);
+  const dayCount = getDateCount(formData.startDate, formData.endDate);
+  const { transportType, transportSummary } = buildTransportSummary(formData);
+  const alerts = buildAlerts(formData);
+  const destination = formData.destination || "Destination";
+
+  const days = [];
+  const travelTypeLabel =
+    formData.travelType === "trek"
+      ? "Trek"
+      : formData.travelType === "family"
+        ? "Family comfort"
+        : "Pilgrimage";
+
+  days.push({
+    id: "day-1",
+    title: `Depart for ${path[1] || destination}`,
+    route: `${path[0]} → ${path[1] || destination}`,
+    stay: `${path[1] || destination} town stay`,
+    travelMode: transportType === "shared" ? "Shared transfer" : "Private cab",
+    tip: "Start before 6 AM to avoid uphill traffic delays.",
+  });
+
+  if (path.length > 3) {
+    days.push({
+      id: "day-2",
+      title: "Move closer to base camp",
+      route: `${path[1]} → ${path[2]}`,
+      stay: `${path[2]} stay with early check-in`,
+      travelMode: transportType === "shared" ? "Shared jeep" : "SUV transfer",
+      tip: "Keep one light day for acclimatization.",
+    });
+  }
+
+  days.push({
+    id: "day-3",
+    title: `${destination} main experience`,
+    route: `${path[path.length - 2] || path[0]} → ${destination}`,
+    stay: `${destination} stay (verified partner preferred)`,
+    travelMode: formData.travelType === "trek" ? "Trek + local transfer" : "Road access",
+    tip: `${travelTypeLabel} day: keep permit and ID copies ready.`,
+  });
+
+  if (dayCount >= 4) {
+    days.push({
+      id: "day-4",
+      title: "Buffer and local exploration",
+      route: `${destination} local circuit`,
+      stay: `${destination} or nearby hub`,
+      travelMode: "Local mobility",
+      tip: "Use this day for weather buffer or recovery.",
+    });
+  }
+
+  if (dayCount >= 5) {
+    days.push({
+      id: "day-5",
+      title: "Return leg",
+      route: `${destination} → ${path[1]} → ${path[0]}`,
+      stay: "Optional transit stay",
+      travelMode: transportType === "shared" ? "Shared + bus" : "Private return transfer",
+      tip: "Avoid late descent to reduce mountain driving risk.",
+    });
+  }
+
+  while (days.length < dayCount) {
+    const idx = days.length + 1;
+    days.push({
+      id: `day-${idx}`,
+      title: `Flexible Day ${idx}`,
+      route: `${destination} surrounding routes`,
+      stay: `${destination} alternate stay`,
+      travelMode: "Flexible",
+      tip: "Keep this day for weather, crowds, or rest.",
+    });
+  }
+
+  return {
+    routeLine: path.join(" → "),
+    budgetLabel: budgetLabelMap[formData.budget] || "Medium Budget",
+    transportType,
+    transportSummary,
+    alerts,
+    days: days.slice(0, dayCount),
+  };
+};
+
+export default function Planner() {
+  const navigate = useNavigate();
   const { notify } = useNotify();
-  const [tripId, setTripId] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [advisorLoading, setAdvisorLoading] = useState(false);
-  const [days, setDays] = useState([createEmptyDay(1)]);
-  const [weather, setWeather] = useState({ temp: "--", status: "Add a location", humidity: 0, wind: 0 });
-  const [tripTitle, setTripTitle] = useState("");
-  const [advisorMessage, setAdvisorMessage] = useState(
-    "Add your trip details to get AI suggestions based on your itinerary and current weather."
-  );
-
-  const primaryLocation = useMemo(
-    () => days.find((day) => day.location?.trim())?.location?.trim() || "",
-    [days]
-  );
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState(initialFormData);
+  const [dayEdits, setDayEdits] = useState({});
 
   useEffect(() => {
-    const hydrateTrip = async () => {
-      try {
-        const res = await getUserTrips();
-        const latestTrip = res.data?.data?.[0];
-        if (!latestTrip) return;
-
-        setTripId(latestTrip._id);
-        setTripTitle(latestTrip.title || "");
-
-        if (Array.isArray(latestTrip.itinerary) && latestTrip.itinerary.length > 0) {
-          setDays(
-            latestTrip.itinerary.map((day, index) => ({
-              id: `${latestTrip._id}-${index}`,
-              title: day.title || "",
-              location: day.location || "",
-              activity: day.activity || "",
-            }))
-          );
-        }
-      } catch {
-        // Keep the blank planner for first-time users.
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.formData) {
+        setFormData((prev) => ({ ...prev, ...parsed.formData }));
       }
-    };
-
-    hydrateTrip();
+      if (parsed?.dayEdits && typeof parsed.dayEdits === "object") {
+        setDayEdits(parsed.dayEdits);
+      }
+    } catch {
+      // Skip corrupt local state.
+    }
   }, []);
 
-  useEffect(() => {
-    const loadWeather = async () => {
-      if (!primaryLocation) {
-        setWeather({ temp: "--", status: "Add a location", humidity: 0, wind: 0 });
-        return;
-      }
+  const generatedPlan = useMemo(() => buildPlanFromInput(formData), [formData]);
 
-      try {
-        const weatherData = await getWeatherData(primaryLocation);
-        if (!weatherData) {
-          setWeather({ temp: "--", status: "Unavailable", humidity: 0, wind: 0 });
-          return;
-        }
-
-        setWeather({
-          temp: Math.round(weatherData.main.temp),
-          status: "Live",
-          humidity: weatherData.main.humidity,
-          wind: weatherData.wind.speed,
-        });
-      } catch {
-        setWeather({ temp: "--", status: "Unavailable", humidity: 0, wind: 0 });
-      }
-    };
-
-    loadWeather();
-  }, [primaryLocation]);
-
-  const addDay = () => {
-    setDays((prev) => [...prev, createEmptyDay()]);
-    notify("New day added", "success");
-  };
-
-  const removeDay = (id) => {
-    if (days.length <= 1) return;
-    setDays((prev) => prev.filter((day) => day.id !== id));
-    notify("Day removed", "success");
-  };
-
-  const updateDayField = (id, field, value) => {
-    setDays((prev) => prev.map((day) => (day.id === id ? { ...day, [field]: value } : day)));
-  };
-
-  const serializeItinerary = () =>
-    days.map((day, index) => ({
-      day: index + 1,
-      title: day.title?.trim() || `Day ${index + 1}`,
-      location: day.location?.trim() || "",
-      activity: day.activity?.trim() || "",
+  const mergedPlan = useMemo(() => {
+    const days = generatedPlan.days.map((day) => ({
+      ...day,
+      ...(dayEdits[day.id] || {}),
     }));
+    return { ...generatedPlan, days };
+  }, [generatedPlan, dayEdits]);
 
-  const handleSave = async () => {
-    const normalizedTitle = tripTitle.trim();
-    if (!normalizedTitle) {
-      notify("Add a trip title before saving", "error");
-      return;
-    }
+  const handleSavePlan = () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        formData,
+        dayEdits,
+        savedAt: new Date().toISOString(),
+      })
+    );
+    notify("Strategy plan saved locally", "success");
+  };
 
-    setSaving(true);
+  const handleEditDay = (dayId, field, value) => {
+    setDayEdits((prev) => ({
+      ...prev,
+      [dayId]: {
+        ...(prev[dayId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleShare = async () => {
+    const payload = {
+      destination: formData.destination,
+      route: mergedPlan.routeLine,
+      days: mergedPlan.days.length,
+      budget: mergedPlan.budgetLabel,
+    };
+    const text = `Mountain Mate Plan: ${payload.destination || "Trip"} | ${payload.route} | ${payload.days} days | ${payload.budget}`;
     try {
-      const payload = { title: normalizedTitle, itinerary: serializeItinerary() };
-      const res = tripId ? await updateTrip(tripId, payload) : await saveTrip(payload);
-      const savedTrip = res.data?.data;
-      if (savedTrip?._id) setTripId(savedTrip._id);
-      notify("Planner synced successfully", "success");
-    } catch (err) {
-      notify(err?.response?.data?.message || "Planner sync failed", "error");
-    } finally {
-      setSaving(false);
+      if (navigator.share) {
+        await navigator.share({ title: "Mountain Mate Strategy Plan", text });
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      notify("Plan summary ready to share", "success");
+    } catch {
+      notify("Share action cancelled", "error");
     }
   };
 
-  const runAdvisor = async () => {
-    setAdvisorLoading(true);
-    try {
-      const prompt = [
-        `Trip title: ${tripTitle || "Untitled trip"}`,
-        `Primary location: ${primaryLocation || "Not set"}`,
-        `Weather: ${weather.temp}C, ${weather.status}, humidity ${weather.humidity}%, wind ${weather.wind} km/h`,
-        `Itinerary: ${JSON.stringify(serializeItinerary())}`,
-        "Reply with a concise itinerary recommendation, one safety note, and one next best action.",
-      ].join("\n");
-
-      const res = await getAIRecommendations(prompt);
-      setAdvisorMessage(res.data?.answer || "No AI guidance was returned for this itinerary yet.");
-      notify("Advisor uplink complete", "success");
-    } catch (err) {
-      setAdvisorMessage("AI guidance is unavailable right now. You can still save and manage your trip manually.");
-      notify(err?.response?.data?.answer || "Advisor uplink failed", "error");
-    } finally {
-      setAdvisorLoading(false);
-    }
+  const handleExport = () => {
+    notify("Opening print view for PDF export", "success");
+    window.print();
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pt-32 md:pt-40 pb-20 selection:bg-orange-600 relative overflow-x-hidden font-sans">
-      <div className="fixed top-[-10%] right-[-10%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-orange-600/5 blur-[100px] md:blur-[150px] rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-[#050505] pb-20 pt-32 text-white md:pt-36">
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute left-[5%] top-12 h-[22rem] w-[22rem] rounded-full bg-orange-500/12 blur-[120px]" />
+        <div className="absolute bottom-[-5rem] right-[4%] h-[24rem] w-[24rem] rounded-full bg-amber-400/8 blur-[120px]" />
+      </div>
 
-      <Container className="px-4 md:px-8">
+      <Container className="relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-16 md:mb-24 gap-10 border-b border-white/5 pb-12"
+          transition={{ duration: 0.35 }}
+          className="mb-8 rounded-[34px] border border-white/10 bg-black/35 p-5 backdrop-blur-2xl md:p-7"
         >
-          <div className="max-w-xl">
-            <div className="flex items-center gap-3 text-orange-500 mb-6 group cursor-pointer">
-              <Calendar size={18} className="group-hover:rotate-12 transition-transform" />
-              <span className="font-black uppercase tracking-[0.4em] text-[8px] md:text-[10px] italic">
-                Tactical Itinerary Control
-              </span>
-            </div>
-            <h1 className="text-5xl md:text-8xl lg:text-[9rem] font-black italic uppercase tracking-tighter leading-[0.85] text-white">
-              STRATEGY <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-white">PLANNER.</span>
-            </h1>
-          </div>
-
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="w-full lg:w-auto bg-white/[0.03] backdrop-blur-3xl border border-white/10 p-5 md:p-8 rounded-[30px] md:rounded-[40px] flex flex-col sm:flex-row items-center gap-6 md:gap-10 shadow-3xl"
-          >
-            <div className="text-center sm:text-left flex-1">
-              <p className="text-[8px] md:text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">
-                Trip Name
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#FFB37D]">
+                <Sparkles size={12} />
+                Strategy Planner
               </p>
-              <input
-                value={tripTitle}
-                onChange={(e) => setTripTitle(e.target.value)}
-                placeholder="Enter trip name"
-                className="font-black italic text-white text-xl md:text-2xl bg-transparent outline-none tracking-tighter w-full max-w-[260px] placeholder:text-white/20"
-              />
+              <h1 className="mt-3 text-4xl font-black uppercase italic tracking-[-0.04em] text-white md:text-6xl">
+                Plan Smarter.
+                <span className="ml-2 bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text text-transparent">Travel Better.</span>
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm text-white/60 md:text-base">
+                Build your complete mountain travel strategy with live itinerary, route optimization, stay suggestions, and transport planning.
+              </p>
             </div>
-            <div className="hidden sm:block h-12 w-[1px] bg-white/10" />
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full sm:w-auto bg-orange-600 hover:bg-white hover:text-black px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-orange-600/20 italic disabled:opacity-70 disabled:hover:bg-orange-600 disabled:hover:text-white"
-            >
-              {saving ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 size={14} className="animate-spin" />
-                  Saving
-                </span>
-              ) : (
-                "Save Plan"
-              )}
-            </button>
-          </motion.div>
+            <div className="grid gap-2 text-right">
+              <div className="inline-flex items-center justify-end gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+                <Route size={12} />
+                Delhi to mountain optimized routes
+              </div>
+              <div className="inline-flex items-center justify-end gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+                <ShieldCheck size={12} />
+                Conversion-first booking flow
+              </div>
+              <div className="inline-flex items-center justify-end gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+                <Compass size={12} />
+                Live editable itinerary blocks
+              </div>
+            </div>
+          </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
-          <div className="lg:col-span-8 space-y-12 md:space-y-16">
-            <AnimatePresence mode="popLayout">
-              {days.map((day, index) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  key={day.id}
-                  className="relative flex gap-4 md:gap-10 items-start group"
-                >
-                  <div className="flex flex-col items-center flex-shrink-0 pt-2">
-                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-[20px] md:rounded-[28px] bg-white/5 border border-white/10 flex items-center justify-center font-black italic text-orange-500 group-hover:bg-orange-600 group-hover:text-white transition-all shadow-xl text-sm md:text-xl">
-                      {index + 1 < 10 ? `0${index + 1}` : index + 1}
-                    </div>
-                    {index !== days.length - 1 && (
-                      <div className="w-[1px] h-32 md:h-44 bg-gradient-to-b from-orange-600/40 to-transparent my-4" />
-                    )}
-                  </div>
+        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <div className="space-y-5">
+            <StepForm
+              formData={formData}
+              setFormData={setFormData}
+              currentStep={currentStep}
+              setCurrentStep={setCurrentStep}
+              popularRoutes={popularRoutes}
+              onSavePlan={handleSavePlan}
+            />
 
-                  <div className="flex-1 bg-white/[0.02] border border-white/5 p-6 md:p-12 rounded-[35px] md:rounded-[55px] hover:border-orange-500/20 transition-all relative overflow-hidden shadow-2xl">
-                    <button
-                      onClick={() => removeDay(day.id)}
-                      className="absolute top-6 right-6 md:top-10 md:right-10 text-white/10 hover:text-red-500 transition-colors z-10"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-
-                    <div className="flex items-center gap-3 text-orange-500 mb-6 font-black uppercase text-[8px] md:text-[10px] tracking-widest">
-                      <MapPin size={14} />
-                      <input
-                        value={day.location}
-                        onChange={(e) => updateDayField(day.id, "location", e.target.value)}
-                        className="bg-transparent focus:outline-none w-full italic placeholder:text-white/10"
-                        placeholder="Location"
-                      />
-                    </div>
-
-                    <input
-                      className="bg-transparent text-2xl md:text-4xl font-black italic tracking-tighter text-white focus:outline-none w-full mb-4 py-1 placeholder:text-white/18"
-                      value={day.title}
-                      onChange={(e) => updateDayField(day.id, "title", e.target.value)}
-                      placeholder="Day title"
-                    />
-                    <textarea
-                      className="bg-transparent text-sm md:text-base text-white/40 font-medium leading-relaxed w-full focus:outline-none resize-none overflow-hidden tracking-tight placeholder:text-white/18"
-                      value={day.activity}
-                      onChange={(e) => updateDayField(day.id, "activity", e.target.value)}
-                      rows="2"
-                      placeholder="Activity details"
-                    />
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            <button
-              onClick={addDay}
-              className="w-full py-16 md:py-24 border-2 border-dashed border-white/5 rounded-[40px] md:rounded-[60px] flex flex-col items-center justify-center gap-5 text-white/10 hover:border-orange-600/40 hover:text-orange-500 transition-all group bg-white/[0.01]"
-            >
-              <div className="p-5 rounded-full bg-white/5 group-hover:bg-orange-600/10 transition-colors">
-                <Plus size={32} className="group-hover:rotate-90 transition-transform duration-500" />
-              </div>
-              <span className="font-black uppercase tracking-[0.6em] text-[8px] md:text-[10px] italic">
-                Add Day
-              </span>
-            </button>
-          </div>
-
-          <div className="lg:col-span-4 space-y-8">
-            <div className="bg-[#0a0a0a] border border-white/5 p-10 rounded-[40px] md:rounded-[50px] relative overflow-hidden group shadow-3xl">
-              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                <CloudSun size={100} className="text-orange-500" />
-              </div>
-              <p className="text-white/20 text-[9px] font-black uppercase tracking-widest mb-10 italic">
-                Weather
-              </p>
-              <div className="space-y-2 relative z-10">
-                <h3 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
-                  {primaryLocation || "Location pending"}
-                </h3>
-                <p className="text-orange-500 font-black text-3xl italic tracking-tighter">
-                  {weather.temp}°C / {weather.status}
-                </p>
-              </div>
-              <div className="mt-12 pt-8 border-t border-white/5 flex justify-between text-[9px] font-black text-white/40 uppercase tracking-widest relative z-10">
-                <span>Humidity: {weather.humidity}%</span>
-                <span>Wind: {weather.wind} km/h</span>
+            <div className="rounded-[30px] border border-white/10 bg-black/30 p-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Suggested Popular Routes</p>
+              <div className="mt-3 grid gap-2">
+                {popularRoutes.map((item) => (
+                  <button
+                    key={item.destination}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, destination: item.destination }))}
+                    className="rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-left transition hover:border-[#FF6A00]/40"
+                  >
+                    <p className="text-sm font-bold text-white">{item.destination}</p>
+                    <p className="mt-1 text-xs text-white/55">{item.path.join(" → ")}</p>
+                  </button>
+                ))}
               </div>
             </div>
-
-            <div className="bg-orange-600 p-10 rounded-[40px] md:rounded-[50px] shadow-3xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:rotate-12 transition-transform">
-                <Sparkles size={80} />
-              </div>
-              <div className="flex items-center gap-3 mb-8 relative z-10">
-                <Zap size={18} className="text-white animate-pulse" />
-                <span className="text-white font-black uppercase tracking-widest text-[9px] italic">
-                  AI Advisor
-                </span>
-              </div>
-              <p className="text-white font-bold italic leading-relaxed text-base md:text-lg relative z-10">
-                {advisorMessage}
-              </p>
-              <button
-                onClick={runAdvisor}
-                disabled={advisorLoading}
-                className="mt-12 w-full bg-white text-black py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl italic hover:bg-black hover:text-white disabled:opacity-70 disabled:hover:bg-white disabled:hover:text-black"
-              >
-                {advisorLoading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 size={14} className="animate-spin" />
-                    Connecting
-                  </span>
-                ) : (
-                  "Generate Advice"
-                )}
-              </button>
-            </div>
           </div>
+
+          <Itinerary
+            formData={formData}
+            plan={mergedPlan}
+            onEditDay={handleEditDay}
+            onBookPlan={() => navigate("/bookings")}
+            onReserve={() => {
+              navigate("/explore-stays");
+              notify("Reserve stays first, then add rides", "success");
+            }}
+            onShare={handleShare}
+            onExport={handleExport}
+          />
         </div>
       </Container>
     </div>
   );
-};
-
-export default Planner;
+}

@@ -125,12 +125,62 @@ exports.getMyHotels = async (req, res, next) => {
 exports.updateHotel = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const imageUrls = [];
+    const uploadedDocs = {};
+    const imageFiles = req.files?.images || [];
+
+    if (imageFiles.length > 0) {
+      for (const file of imageFiles) {
+        const result = await uploadFileToCloudinary(file, "mountain_mate/hotels");
+        imageUrls.push(result.secure_url);
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+    }
+
+    for (const field of HOTEL_DOC_FIELDS) {
+      const file = req.files?.[field]?.[0];
+      if (!file) continue;
+      const result = await uploadFileToCloudinary(file, "mountain_mate/hotel_verification");
+      uploadedDocs[field] = result.secure_url;
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    }
 
     if (getDataStore() === "supabase") {
+      const existing = await supabaseHotels.getHotelById(id);
+      if (!existing || String(existing.owner || "") !== String(req.user.id || "")) {
+        return res.status(404).json({ message: "Hotel not found or unauthorized to update" });
+      }
+
+      const existingCompliance = existing.complianceDetails || {};
+      const existingDocs = existing.verificationDocuments || {};
+      const mergedCompliance = {
+        ...existingCompliance,
+        ...buildHotelComplianceDetails(req.body),
+      };
+      const mergedDocs = {
+        ...existingDocs,
+        ...uploadedDocs,
+      };
+
+      let parsedAmenities;
+      if (req.body.amenities !== undefined) {
+        try {
+          parsedAmenities = JSON.parse(req.body.amenities);
+        } catch (_err) {
+          parsedAmenities = existing.amenities ? JSON.parse(existing.amenities) : [];
+        }
+      }
+
       const updated = await supabaseHotels.updateHotel({
         ownerId: req.user.id,
         id,
-        updateData: req.body,
+        updateData: {
+          ...req.body,
+          amenities: parsedAmenities,
+          images: imageUrls.length ? [...(existing.images || []), ...imageUrls] : undefined,
+          complianceDetails: mergedCompliance,
+          verificationDocuments: mergedDocs,
+        },
       });
       return res.json({
         success: true,
@@ -157,6 +207,26 @@ exports.updateHotel = async (req, res, next) => {
     if (updateData.pricePerNight) updateData.pricePerNight = Number(updateData.pricePerNight);
     if (updateData.roomsAvailable) updateData.roomsAvailable = Number(updateData.roomsAvailable);
 
+    if (Object.keys(uploadedDocs).length) {
+      updateData.verificationDocuments = {
+        ...(hotel.verificationDocuments || {}),
+        ...uploadedDocs,
+      };
+    }
+    if (imageUrls.length) {
+      updateData.images = [...(hotel.images || []), ...imageUrls];
+    }
+    updateData.complianceDetails = {
+      ...(hotel.complianceDetails || {}),
+      ...buildHotelComplianceDetails(req.body),
+    };
+    if (req.body.amenities !== undefined) {
+      try {
+        updateData.amenities = JSON.parse(req.body.amenities);
+      } catch (_err) {
+      }
+    }
+
     const updatedHotel = await Hotel.findByIdAndUpdate(
       id,
       { $set: updateData },
@@ -169,6 +239,11 @@ exports.updateHotel = async (req, res, next) => {
       data: updatedHotel 
     });
   } catch (error) {
+    if (req.files) {
+      Object.values(req.files).flat().forEach((file) => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      });
+    }
     console.error("Update Error:", error);
     res.status(500).json({ message: "Failed to update property details. Database sync error." });
   }
