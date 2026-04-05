@@ -19,6 +19,7 @@ const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", 
 const BOOKING_FIELDS = ["customerName", "phoneNumber", "status", "paymentStatus", "date", "startDate", "endDate", "guests", "rooms", "amount", "currency", "manualPayment"];
 const TRIP_FIELDS = ["title", "status", "itinerary"];
 const USER_META_FIELDS = ["email", "displayName", "avatarUrl", "wishlist", "referral"];
+const PAYMENT_REVIEW_STATUSES = ["under_review", "paid", "failed"];
 const RAW_COLLECTIONS = { users: User, userMeta: UserMeta, hotels: Hotel, rides: Transport, bookings: Booking, trips: Trip, reviews: Review, audit: AdminAuditLog };
 
 const EXPORT_FETCHERS = {
@@ -27,6 +28,7 @@ const EXPORT_FETCHERS = {
   hotels: async () => (await exports.listModelInternal(Hotel, { q: "", page: 1, pageSize: 1000 }, ["hotelName", "location", "contactNumber", "description"])).rows,
   rides: async () => (await exports.listModelInternal(Transport, { q: "", page: 1, pageSize: 1000 }, ["vehicleModel", "vehicleType", "routeFrom", "routeTo", "plateNumber", "driverName"])).rows,
   bookings: async () => (await exports.listBookingsInternal({ q: "", page: 1, pageSize: 1000 })).rows,
+  payments: async () => (await exports.listPaymentsInternal({ q: "", page: 1, pageSize: 1000 })).rows,
   trips: async () => (await exports.listModelInternal(Trip, { q: "", page: 1, pageSize: 1000 }, ["title", "status", "userId"])).rows,
   reviews: async () => (await exports.listReviewsInternal({ q: "", page: 1, pageSize: 1000 })).rows,
   audit: async () => (await exports.listAuditLogsInternal({ q: "", page: 1, pageSize: 1000 })).rows,
@@ -267,6 +269,72 @@ exports.listBookingsInternal = async ({ q, page, pageSize, status, paymentStatus
   return paginateRows(rows.map((item) => ({ ...item, listingLabel: item.listingId?.hotelName || item.listingId?.vehicleType || "Listing" })), total, page, pageSize);
 };
 
+function extractManualPayment(booking) {
+  return booking?.manualPayment || booking?.liveTracking?.manualPayment || null;
+}
+
+function mapPaymentReviewRow(booking) {
+  const manualPayment = extractManualPayment(booking);
+  return {
+    ...booking,
+    paymentMethod: manualPayment?.method || "upi_qr",
+    transactionId: manualPayment?.transactionId || booking?.paymentId || "",
+    screenshotUrl: manualPayment?.screenshotUrl || "",
+    paymentNote: manualPayment?.note || "",
+    submittedAt: manualPayment?.submittedAt || booking?.updatedAt || booking?.createdAt || null,
+    reviewedAt: manualPayment?.reviewedAt || null,
+    reviewedBy: manualPayment?.reviewedBy || "",
+    reviewStatus: manualPayment?.reviewStatus || (booking?.paymentStatus === "paid" ? "approved" : booking?.paymentStatus === "failed" ? "declined" : "pending"),
+    reviewReason: manualPayment?.reviewReason || "",
+  };
+}
+
+exports.listPaymentsInternal = async ({ q, page, pageSize, paymentStatus, sortBy = "submittedAt", sortDir = "desc" }) => {
+  const data = await exports.listBookingsInternal({
+    q,
+    page: 1,
+    pageSize: 5000,
+    sortBy: "updatedAt",
+    sortDir: "desc",
+  });
+
+  const regex = buildSearchRegex(q);
+  let rows = (data.rows || [])
+    .filter((item) => {
+      const manualPayment = extractManualPayment(item);
+      if (manualPayment?.method === "upi_qr") return true;
+      return PAYMENT_REVIEW_STATUSES.includes(String(item.paymentStatus || "").toLowerCase());
+    })
+    .map(mapPaymentReviewRow);
+
+  if (regex) {
+    rows = rows.filter((item) =>
+      [
+        item.customerName,
+        item.listingLabel,
+        item.paymentStatus,
+        item.transactionId,
+        item.paymentMethod,
+        item.phoneNumber,
+      ].some((value) => regex.test(String(value || "")))
+    );
+  }
+
+  if (paymentStatus) {
+    rows = rows.filter((item) => item.paymentStatus === paymentStatus);
+  }
+
+  const direction = sortDir === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    const av = a[sortBy] ?? "";
+    const bv = b[sortBy] ?? "";
+    return av > bv ? direction : av < bv ? -direction : 0;
+  });
+
+  const start = (page - 1) * pageSize;
+  return paginateRows(rows.slice(start, start + pageSize), rows.length, page, pageSize);
+};
+
 exports.listReviewsInternal = async ({ q, page, pageSize, sortBy = "createdAt", sortDir = "desc" }) => {
   if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
@@ -295,27 +363,44 @@ exports.listAuditLogsInternal = async ({ q, page, pageSize, action, targetType, 
 
 exports.getOverview = async (_req, res, next) => {
   try {
-    const [users, userMetaCount, hotels, pendingHotels, rides, pendingRides, bookings, pendingBookings, trips, reviews, audits] = await Promise.all([
+    const [users, userMetaCount, hotels, pendingHotels, rides, pendingRides, trips, reviews, audits, allSupabaseBookings] = await Promise.all([
       loadSupabaseUsers(),
       safeCount(UserMeta),
       safeCount(Hotel),
       safeCount(Hotel, { status: { $ne: "approved" } }),
       safeCount(Transport),
       safeCount(Transport, { status: { $ne: "approved" } }),
-      safeCount(Booking),
-      safeCount(Booking, { status: "pending" }),
       safeCount(Trip),
       safeCount(Review),
       safeCount(AdminAuditLog),
+      isSupabaseStore() ? supabaseBookings.listAllBookings() : Promise.resolve([]),
     ]);
-    const recentBookings = isMongoReady()
-      ? await Booking.find().sort({ createdAt: -1 }).limit(6).populate("listingId").lean()
-      : [];
+    const bookings = isSupabaseStore() ? allSupabaseBookings.length : await safeCount(Booking);
+    const pendingBookings = isSupabaseStore()
+      ? allSupabaseBookings.filter((item) => item.status === "pending").length
+      : await safeCount(Booking, { status: "pending" });
+    const pendingPayments = isSupabaseStore()
+      ? allSupabaseBookings.filter((item) => item.paymentStatus === "under_review").length
+      : await safeCount(Booking, { paymentStatus: "under_review" });
+    const recentBookings = isSupabaseStore()
+      ? allSupabaseBookings.slice(0, 6).map((item) => ({
+          _id: item._id,
+          customerName: item.customerName,
+          bookingType: item.bookingType,
+          status: item.status,
+          paymentStatus: item.paymentStatus,
+          amount: item.amount,
+          createdAt: item.createdAt,
+          listingLabel: item.listingLabel || "Listing",
+        }))
+      : isMongoReady()
+        ? await Booking.find().sort({ createdAt: -1 }).limit(6).populate("listingId").lean()
+        : [];
     return res.json({
       success: true,
       data: {
-        totals: { users: users.length, userMeta: userMetaCount, hotels, pendingHotels, rides, pendingRides, bookings, pendingBookings, trips, reviews, audits },
-        recentBookings: recentBookings.map((item) => ({
+        totals: { users: users.length, userMeta: userMetaCount, hotels, pendingHotels, rides, pendingRides, bookings, pendingBookings, pendingPayments, trips, reviews, audits },
+        recentBookings: isSupabaseStore() ? recentBookings : recentBookings.map((item) => ({
           _id: item._id,
           customerName: item.customerName,
           bookingType: item.bookingType,
@@ -395,6 +480,7 @@ exports.listRides = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 exports.listBookings = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "createdAt", sortDir: "desc" }); const data = await exports.listBookingsInternal({ q: req.query.q, status: req.query.status, paymentStatus: req.query.paymentStatus, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
+exports.listPayments = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "submittedAt", sortDir: "desc" }); const data = await exports.listPaymentsInternal({ q: req.query.q, paymentStatus: req.query.paymentStatus, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
 exports.listTrips = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req); const data = await exports.listModelInternal(Trip, { q: req.query.q, status: req.query.status, page, pageSize, ...sort }, ["title", "status", "userId"]); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
 exports.listReviews = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "createdAt", sortDir: "desc" }); const data = await exports.listReviewsInternal({ q: req.query.q, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
 exports.listAuditLogs = async (req, res, next) => { try { const { page, pageSize } = getPaging(req); const sort = getSort(req, { sortBy: "createdAt", sortDir: "desc" }); const data = await exports.listAuditLogsInternal({ q: req.query.q, action: req.query.action, targetType: req.query.targetType, page, pageSize, ...sort }); return res.json({ success: true, data: data.rows, pagination: data.pagination }); } catch (err) { next(err); } };
@@ -620,6 +706,65 @@ async function applyBookingInventoryApproval(booking) {
   }
 }
 
+async function emitPaymentQueueUpdate(io, type, booking) {
+  if (!io) return;
+  const queue = await exports.listPaymentsInternal({ q: "", page: 1, pageSize: 5000, sortBy: "submittedAt", sortDir: "desc" });
+  io.to("admin-payments").emit("payment:queue-updated", {
+    type,
+    payment: booking ? mapPaymentReviewRow(booking) : null,
+    pendingCount: (queue.rows || []).filter((item) => item.paymentStatus === "under_review").length,
+  });
+}
+
+function buildReviewedManualPayment(currentManualPayment, reviewerId, status, reason = "") {
+  return {
+    ...(currentManualPayment || {}),
+    reviewStatus: status,
+    reviewReason: String(reason || "").trim(),
+    reviewedAt: new Date(),
+    reviewedBy: String(reviewerId || ""),
+  };
+}
+
+async function notifyPaymentApproval(io, booking) {
+  await createNotification(
+    {
+      userId: booking.userId,
+      title: "Payment approved",
+      message: `Your payment for ${booking.listingLabel || "the selected booking"} has been approved.`,
+      type: "booking_paid",
+      data: { bookingId: String(booking._id), bookingType: booking.bookingType, stage: "payment_approved" },
+    },
+    io
+  );
+
+  await createNotification(
+    {
+      userId: booking.ownerId,
+      title: "Paid booking ready",
+      message: `${booking.customerName} has completed payment for ${booking.listingLabel || "your listing"}. Review the booking and continue fulfillment.`,
+      type: "booking_request",
+      data: { bookingId: String(booking._id), bookingType: booking.bookingType, stage: "payment_approved" },
+    },
+    io
+  );
+}
+
+async function notifyPaymentDecline(io, booking, reason = "") {
+  await createNotification(
+    {
+      userId: booking.userId,
+      title: "Payment proof declined",
+      message: reason
+        ? `Your payment proof for ${booking.listingLabel || "the selected booking"} was declined: ${reason}`
+        : `Your payment proof for ${booking.listingLabel || "the selected booking"} was declined. Please submit a new payment proof.`,
+      type: "booking_declined",
+      data: { bookingId: String(booking._id), bookingType: booking.bookingType, stage: "payment_declined" },
+    },
+    io
+  );
+}
+
 exports.updateBooking = async (req, res, next) => {
   try {
     const update = pickAllowed(req.body || {}, BOOKING_FIELDS);
@@ -694,6 +839,107 @@ exports.updateBooking = async (req, res, next) => {
     await logAdminAction(req, "update", "booking", req.params.id, "Updated booking", update);
     return res.json({ success: true, data: { ...data, listingLabel: data.listingId?.hotelName || data.listingId?.vehicleType || "Listing" } });
   } catch (err) { next(err); }
+};
+
+exports.approvePayment = async (req, res, next) => {
+  try {
+    const io = req.app.get("io");
+    const reviewerId = String(req.user?.id || "");
+
+    if (isSupabaseStore()) {
+      const current = await supabaseBookings.getBookingById(req.params.id);
+      if (!current) return res.status(404).json({ success: false, message: "Payment record not found" });
+      const currentManualPayment = extractManualPayment(current);
+      if (!currentManualPayment) return res.status(400).json({ success: false, message: "This booking does not have a manual payment proof." });
+
+      if (current.paymentStatus !== "paid") {
+        await applyBookingInventoryApproval(current);
+      }
+
+      const reviewedManualPayment = buildReviewedManualPayment(currentManualPayment, reviewerId, "approved", req.body?.reason);
+      const updated = await supabaseBookings.updateBookingById(req.params.id, {
+        paymentStatus: "paid",
+        paymentId: currentManualPayment.transactionId || current.paymentId || "",
+        liveTracking: {
+          ...(current.liveTracking || {}),
+          manualPayment: reviewedManualPayment,
+        },
+      });
+
+      await notifyPaymentApproval(io, updated);
+      await emitPaymentQueueUpdate(io, "approved", updated);
+      await logAdminAction(req, "approve_payment", "payment", req.params.id, "Approved manual payment", { reason: req.body?.reason || "" });
+      return res.json({ success: true, data: mapPaymentReviewRow(updated) });
+    }
+
+    const current = await Booking.findById(req.params.id);
+    if (!current) return res.status(404).json({ success: false, message: "Payment record not found" });
+    if (!current.manualPayment?.method) return res.status(400).json({ success: false, message: "This booking does not have a manual payment proof." });
+
+    if (current.paymentStatus !== "paid") {
+      await applyBookingInventoryApproval(current);
+    }
+
+    current.paymentStatus = "paid";
+    current.paymentId = current.manualPayment.transactionId || current.paymentId || "";
+    current.manualPayment = buildReviewedManualPayment(current.manualPayment, reviewerId, "approved", req.body?.reason);
+    await current.save();
+
+    const updated = await Booking.findById(req.params.id).lean();
+    const normalized = { ...updated, listingLabel: updated.listingLabel || "Booking", manualPayment: updated.manualPayment };
+    await notifyPaymentApproval(io, normalized);
+    await emitPaymentQueueUpdate(io, "approved", normalized);
+    await logAdminAction(req, "approve_payment", "payment", req.params.id, "Approved manual payment", { reason: req.body?.reason || "" });
+    return res.json({ success: true, data: mapPaymentReviewRow(normalized) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.declinePayment = async (req, res, next) => {
+  try {
+    const io = req.app.get("io");
+    const reviewerId = String(req.user?.id || "");
+    const reviewReason = String(req.body?.reason || "").trim();
+
+    if (isSupabaseStore()) {
+      const current = await supabaseBookings.getBookingById(req.params.id);
+      if (!current) return res.status(404).json({ success: false, message: "Payment record not found" });
+      const currentManualPayment = extractManualPayment(current);
+      if (!currentManualPayment) return res.status(400).json({ success: false, message: "This booking does not have a manual payment proof." });
+
+      const reviewedManualPayment = buildReviewedManualPayment(currentManualPayment, reviewerId, "declined", reviewReason);
+      const updated = await supabaseBookings.updateBookingById(req.params.id, {
+        paymentStatus: "failed",
+        liveTracking: {
+          ...(current.liveTracking || {}),
+          manualPayment: reviewedManualPayment,
+        },
+      });
+
+      await notifyPaymentDecline(io, updated, reviewReason);
+      await emitPaymentQueueUpdate(io, "declined", updated);
+      await logAdminAction(req, "decline_payment", "payment", req.params.id, "Declined manual payment", { reason: reviewReason });
+      return res.json({ success: true, data: mapPaymentReviewRow(updated) });
+    }
+
+    const current = await Booking.findById(req.params.id);
+    if (!current) return res.status(404).json({ success: false, message: "Payment record not found" });
+    if (!current.manualPayment?.method) return res.status(400).json({ success: false, message: "This booking does not have a manual payment proof." });
+
+    current.paymentStatus = "failed";
+    current.manualPayment = buildReviewedManualPayment(current.manualPayment, reviewerId, "declined", reviewReason);
+    await current.save();
+
+    const updated = await Booking.findById(req.params.id).lean();
+    const normalized = { ...updated, listingLabel: updated.listingLabel || "Booking", manualPayment: updated.manualPayment };
+    await notifyPaymentDecline(io, normalized, reviewReason);
+    await emitPaymentQueueUpdate(io, "declined", normalized);
+    await logAdminAction(req, "decline_payment", "payment", req.params.id, "Declined manual payment", { reason: reviewReason });
+    return res.json({ success: true, data: mapPaymentReviewRow(normalized) });
+  } catch (err) {
+    next(err);
+  }
 };
 
 async function deleteAndLog(req, Model, id, targetType, summary, extraWork) {

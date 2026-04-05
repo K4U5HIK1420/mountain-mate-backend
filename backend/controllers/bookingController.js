@@ -31,6 +31,36 @@ function createManualPaymentPayload(body = {}) {
   };
 }
 
+function buildAdminPaymentEvent(booking) {
+  const manualPayment = booking?.manualPayment || booking?.liveTracking?.manualPayment || null;
+  const pricing = booking?.liveTracking?.pricing || null;
+  return {
+    bookingId: String(booking?._id || ""),
+    customerName: booking?.customerName || "Customer",
+    listingLabel: booking?.listingLabel || "Booking",
+    amount: Number(booking?.amount || pricing?.totalAmount || 0),
+    paymentStatus: booking?.paymentStatus || "pending",
+    submittedAt: manualPayment?.submittedAt || booking?.updatedAt || new Date().toISOString(),
+    transactionId: manualPayment?.transactionId || booking?.paymentId || "",
+    screenshotUrl: manualPayment?.screenshotUrl || "",
+  };
+}
+
+function resolveBookingPricing({ isHotel, listing, body = {} }) {
+  const quantity = isHotel
+    ? Math.max(1, Number(body.rooms || 1))
+    : Math.max(1, Number(body.guests || 1));
+  const unitPrice = Number(isHotel ? listing?.pricePerNight : listing?.pricePerSeat) || 0;
+  const clientAmount = Number(body.amount || 0);
+  const totalAmount = clientAmount > 0 ? clientAmount : unitPrice * quantity;
+
+  return {
+    quantity,
+    unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+    totalAmount: Number.isFinite(totalAmount) ? totalAmount : 0,
+  };
+}
+
 // Create Booking
 exports.createBooking = async (req, res, next) => {
     try {
@@ -55,23 +85,32 @@ exports.createBooking = async (req, res, next) => {
           ? listing.hotelName
           : `${listing.vehicleType || ""} ${listing.routeFrom || ""} - ${listing.routeTo || ""}`.trim();
 
-        const resolvedAmount = Number(
-          req.body.amount ||
-          (isHotel ? listing.pricePerNight : listing.pricePerSeat) ||
-          0
-        );
+        const pricing = resolveBookingPricing({ isHotel, listing, body: req.body });
 
         const bookingPayload = {
           ...req.body,
           listingId: String(req.body.listingId || ""),
-          amount: Number.isFinite(resolvedAmount) ? resolvedAmount : 0,
+          amount: pricing.totalAmount,
           userId: String(req.user?.id || req.user?._id || req.body.userId || ""),
           ownerId,
           listingLabel,
           liveTracking:
             req.body.bookingType === "Transport"
-              ? { status: "searching" }
-              : undefined,
+              ? {
+                  status: "searching",
+                  pricing: {
+                    quantity: pricing.quantity,
+                    unitPrice: pricing.unitPrice,
+                    totalAmount: pricing.totalAmount,
+                  },
+                }
+              : {
+                  pricing: {
+                    quantity: pricing.quantity,
+                    unitPrice: pricing.unitPrice,
+                    totalAmount: pricing.totalAmount,
+                  },
+                },
         };
 
         const booking =
@@ -471,6 +510,21 @@ exports.submitManualPaymentProof = async (req, res, next) => {
   } catch (err) {
     next(err);
   } finally {
+    if (req.app.get("io") && req.params.id) {
+      try {
+        const latestBooking = getDataStore() === "supabase"
+          ? await supabaseBookings.getBookingById(req.params.id)
+          : await Booking.findById(req.params.id).lean();
+        if (latestBooking) {
+          req.app.get("io").to("admin-payments").emit("payment:queue-updated", {
+            type: "submitted",
+            payment: buildAdminPaymentEvent(latestBooking),
+          });
+        }
+      } catch (_eventErr) {
+        // Payment submission should not fail because a live event could not be sent.
+      }
+    }
     if (req.file?.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }

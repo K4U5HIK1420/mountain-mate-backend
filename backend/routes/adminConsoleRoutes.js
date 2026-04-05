@@ -30,6 +30,10 @@ router.get("/bookings", controller.listBookings);
 router.patch("/bookings/:id", controller.updateBooking);
 router.delete("/bookings/:id", controller.deleteBooking);
 
+router.get("/payments", controller.listPayments);
+router.patch("/payments/:id/approve", controller.approvePayment);
+router.patch("/payments/:id/decline", controller.declinePayment);
+
 router.get("/trips", controller.listTrips);
 router.patch("/trips/:id", controller.updateTrip);
 router.delete("/trips/:id", controller.deleteTrip);

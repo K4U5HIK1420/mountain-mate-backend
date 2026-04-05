@@ -71,6 +71,10 @@ io.on("connection", (socket) => {
     socket.join("support-admin");
   });
 
+  socket.on("admin:join-payments", () => {
+    socket.join("admin-payments");
+  });
+
   socket.on("join:user", (userId) => {
     if (!userId) return;
     socket.join(`user:${String(userId)}`);
@@ -162,6 +166,10 @@ app.use(express.json());
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
+  skip: (req) =>
+    req.path === "/api/notifications" ||
+    req.path === "/api/notifications/" ||
+    req.path === "/api/notifications/read",
   message: {
     message: "Too many requests from this telemetry node, try again in 15 mins",
     status: 429,

@@ -18,10 +18,14 @@ function resolveBookingAmount(booking, listing) {
   const storedAmount = Number(booking?.amount || 0);
   if (isValidMoney(storedAmount)) return storedAmount;
 
+  const trackedAmount = Number(booking?.liveTracking?.pricing?.totalAmount || 0);
+  if (isValidMoney(trackedAmount)) return trackedAmount;
+
   const basePrice = Number(
-    booking?.bookingType === "Hotel"
+    booking?.liveTracking?.pricing?.unitPrice ||
+    (booking?.bookingType === "Hotel"
       ? listing?.pricePerNight
-      : listing?.pricePerSeat
+      : listing?.pricePerSeat)
   );
 
   if (!Number.isFinite(basePrice) || basePrice <= 0) return 0;

@@ -7,7 +7,6 @@ import { Button } from "../components/ui/Button";
 
 const MANUAL_UPI_ID = "anantkaushik2447-1@oksbi";
 const MANUAL_PAYEE_NAME = "Anant Kaushik (MountainMateAdmin)";
-const MANUAL_QR_IMAGE = "/manual-upi-qr.jpeg";
 
 export default function BookingConfirm() {
   const { id } = useParams();
@@ -20,6 +19,7 @@ export default function BookingConfirm() {
   const [note, setNote] = useState("");
   const [paymentProof, setPaymentProof] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [listingSnapshot, setListingSnapshot] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -55,6 +55,32 @@ export default function BookingConfirm() {
     };
   }, [id, location.state]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function hydrateListingFallback() {
+      if (!booking || resolveBookingAmount(booking) > 0 || !booking.listingId) {
+        if (active) setListingSnapshot(null);
+        return;
+      }
+
+      try {
+        const endpoint = booking.bookingType === "Hotel" ? "/hotels/all" : "/transport/all";
+        const res = await API.get(endpoint);
+        const rows = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+        const match = rows.find((item) => String(item?._id || item?.id || "") === String(booking.listingId));
+        if (active) setListingSnapshot(match || null);
+      } catch {
+        if (active) setListingSnapshot(null);
+      }
+    }
+
+    hydrateListingFallback();
+    return () => {
+      active = false;
+    };
+  }, [booking]);
+
   const copyUpiId = async () => {
     try {
       await navigator.clipboard.writeText(MANUAL_UPI_ID);
@@ -88,7 +114,14 @@ export default function BookingConfirm() {
     }
   };
 
-  const amount = resolveBookingAmount(booking);
+  const amount = resolveBookingAmount(booking, listingSnapshot);
+  const upiUrl = buildUpiPaymentUrl({
+    upiId: MANUAL_UPI_ID,
+    payeeName: MANUAL_PAYEE_NAME,
+    amount,
+    bookingId: booking?._id,
+  });
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(upiUrl)}`;
 
   return (
     <div className="min-h-screen pt-40 pb-24 px-6 text-white">
@@ -133,11 +166,11 @@ export default function BookingConfirm() {
                   <span>Status: <span className="text-white font-black uppercase">{booking.status}</span></span>
                   <span>Payment: <span className="text-white font-black uppercase">{booking.paymentStatus}</span></span>
                 </div>
-              </div>
+                </div>
 
               <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
                 <div className="rounded-[32px] border border-white/10 bg-white/5 p-5">
-                  <img src={MANUAL_QR_IMAGE} alt="Mountain Mate UPI QR" className="w-full rounded-[24px] border border-white/10 bg-white object-cover" />
+                  <img src={qrImageUrl} alt="Mountain Mate UPI QR" className="w-full rounded-[24px] border border-white/10 bg-white object-cover" />
                 </div>
 
                 <div className="space-y-5 rounded-[32px] border border-white/10 bg-white/5 p-6">
@@ -228,20 +261,41 @@ function InfoRow({ label, value }) {
   );
 }
 
-function resolveBookingAmount(booking) {
+function resolveBookingAmount(booking, listingSnapshot = null) {
   if (!booking) return 0;
 
   const storedAmount = Number(booking.amount || 0);
   if (storedAmount > 0) return storedAmount;
+
+  const trackedAmount = Number(booking?.liveTracking?.pricing?.totalAmount || 0);
+  if (trackedAmount > 0) return trackedAmount;
 
   const quantity = booking.bookingType === "Hotel"
     ? Math.max(1, Number(booking.rooms || 1))
     : Math.max(1, Number(booking.guests || 1));
 
   const basePrice = Number(
-    booking?.listingId?.pricePerNight || booking?.listingId?.pricePerSeat || 0
+    booking?.liveTracking?.pricing?.unitPrice ||
+    booking?.listingId?.pricePerNight ||
+    booking?.listingId?.pricePerSeat ||
+    listingSnapshot?.pricePerNight ||
+    listingSnapshot?.pricePerSeat ||
+    0
   );
 
   if (basePrice > 0) return basePrice * quantity;
   return 0;
+}
+
+function buildUpiPaymentUrl({ upiId, payeeName, amount, bookingId }) {
+  const params = new URLSearchParams({
+    pa: upiId,
+    pn: payeeName,
+    cu: "INR",
+  });
+
+  if (Number(amount) > 0) params.set("am", Number(amount).toFixed(2));
+  if (bookingId) params.set("tn", `Booking ${bookingId}`);
+
+  return `upi://pay?${params.toString()}`;
 }
