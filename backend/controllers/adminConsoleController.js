@@ -11,10 +11,12 @@ const mongoose = require("mongoose");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+const supabaseBookings = require("../services/supabaseBookingsStore");
+const { createNotification } = require("../services/notificationService");
 
 const HOTEL_FIELDS = ["hotelName", "location", "pricePerNight", "roomsAvailable", "contactNumber", "description", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
 const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", "routeTo", "fromCoords", "toCoords", "pricePerSeat", "seatsAvailable", "driverName", "contactNumber", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
-const BOOKING_FIELDS = ["customerName", "phoneNumber", "status", "paymentStatus", "date", "startDate", "endDate", "guests", "rooms", "amount", "currency"];
+const BOOKING_FIELDS = ["customerName", "phoneNumber", "status", "paymentStatus", "date", "startDate", "endDate", "guests", "rooms", "amount", "currency", "manualPayment"];
 const TRIP_FIELDS = ["title", "status", "itinerary"];
 const USER_META_FIELDS = ["email", "displayName", "avatarUrl", "wishlist", "referral"];
 const RAW_COLLECTIONS = { users: User, userMeta: UserMeta, hotels: Hotel, rides: Transport, bookings: Booking, trips: Trip, reviews: Review, audit: AdminAuditLog };
@@ -232,6 +234,26 @@ exports.listUserMetaInternal = async ({ q, page, pageSize, sortBy = "updatedAt",
 };
 
 exports.listBookingsInternal = async ({ q, page, pageSize, status, paymentStatus, sortBy = "createdAt", sortDir = "desc" }) => {
+  if (isSupabaseStore()) {
+    let rows = await supabaseBookings.listAllBookings();
+    const regex = buildSearchRegex(q);
+    if (regex) {
+      rows = rows.filter((item) =>
+        [item.customerName, item.phoneNumber, item.status, item.paymentStatus, item.listingLabel]
+          .some((value) => regex.test(String(value || "")))
+      );
+    }
+    if (paymentStatus) rows = rows.filter((item) => item.paymentStatus === paymentStatus);
+    if (status) rows = rows.filter((item) => item.status === status);
+    const direction = sortDir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      const av = a[sortBy] ?? "";
+      const bv = b[sortBy] ?? "";
+      return av > bv ? direction : av < bv ? -direction : 0;
+    });
+    const start = (page - 1) * pageSize;
+    return paginateRows(rows.slice(start, start + pageSize), rows.length, page, pageSize);
+  }
   if (!isMongoReady()) return paginateRows([], 0, page, pageSize);
   const regex = buildSearchRegex(q);
   const query = regex ? { $or: [{ customerName: regex }, { phoneNumber: regex }, { status: regex }, { paymentStatus: regex }] } : {};
@@ -545,11 +567,130 @@ exports.updateRide = async (req, res, next) => {
 };
 exports.updateTrip = async (req, res, next) => { try { const data = await updateAndLog(req, Trip, req.params.id, TRIP_FIELDS, "trip", "Updated trip"); if (!data) return res.status(404).json({ success: false, message: "Trip not found" }); return res.json({ success: true, data }); } catch (err) { next(err); } };
 
+async function applyBookingInventoryApproval(booking) {
+  if (!booking || booking.paymentStatus === "paid") return;
+
+  if (booking.bookingType === "Transport") {
+    const seatsRequested = Math.max(1, Number(booking.guests || 1));
+
+    if (isSupabaseStore()) {
+      const ride = await supabaseTransports.getRideById(String(booking.listingId));
+      if (!ride || Number(ride.seatsAvailable || 0) < seatsRequested) {
+        throw new Error("Selected ride is no longer available.");
+      }
+      await supabaseTransports.updateTransport({
+        ownerId: String(ride.owner || ""),
+        id: String(booking.listingId),
+        updateFields: { seatsAvailable: Number(ride.seatsAvailable) - seatsRequested },
+      });
+      return;
+    }
+
+    const ride = await Transport.findById(booking.listingId);
+    if (!ride || Number(ride.seatsAvailable || 0) < seatsRequested) {
+      throw new Error("Selected ride is no longer available.");
+    }
+    ride.seatsAvailable -= seatsRequested;
+    await ride.save();
+    return;
+  }
+
+  if (booking.bookingType === "Hotel") {
+    const roomsRequested = Math.max(1, Number(booking.rooms || 1));
+
+    if (isSupabaseStore()) {
+      const hotel = await supabaseHotels.getHotelById(String(booking.listingId));
+      if (!hotel || Number(hotel.roomsAvailable || 0) < roomsRequested) {
+        throw new Error("Selected stay is no longer available.");
+      }
+      await supabaseHotels.updateHotel({
+        ownerId: String(hotel.owner || ""),
+        id: String(booking.listingId),
+        updateData: { roomsAvailable: Number(hotel.roomsAvailable) - roomsRequested },
+      });
+      return;
+    }
+
+    const hotel = await Hotel.findById(booking.listingId);
+    if (!hotel || Number(hotel.roomsAvailable || 0) < roomsRequested) {
+      throw new Error("Selected stay is no longer available.");
+    }
+    hotel.roomsAvailable -= roomsRequested;
+    await hotel.save();
+  }
+}
+
 exports.updateBooking = async (req, res, next) => {
   try {
     const update = pickAllowed(req.body || {}, BOOKING_FIELDS);
-    const data = await Booking.findByIdAndUpdate(req.params.id, { $set: update }, { new: true }).populate("listingId").lean();
-    if (!data) return res.status(404).json({ success: false, message: "Booking not found" });
+
+    if (isSupabaseStore()) {
+      const current = await supabaseBookings.getBookingById(req.params.id);
+      if (!current) return res.status(404).json({ success: false, message: "Booking not found" });
+
+      if (update.paymentStatus === "paid" && current.paymentStatus !== "paid") {
+        await applyBookingInventoryApproval(current);
+      }
+
+      const mergedManualPayment = current.manualPayment || current.liveTracking?.manualPayment || null;
+      const data = await supabaseBookings.updateBookingById(req.params.id, {
+        ...update,
+        liveTracking: {
+          ...(current.liveTracking || {}),
+          ...(mergedManualPayment ? { manualPayment: mergedManualPayment } : {}),
+        },
+      });
+
+      if (update.paymentStatus === "paid" && current.paymentStatus !== "paid") {
+        await createNotification(
+          {
+            userId: current.userId,
+            title: "Payment approved",
+            message: `Your payment for ${current.listingLabel || "the selected booking"} has been approved.`,
+            type: "booking_paid",
+            data: { bookingId: String(current._id), bookingType: current.bookingType },
+          },
+          req.app.get("io")
+        );
+      }
+
+      await logAdminAction(req, "update", "booking", req.params.id, "Updated booking", update);
+      return res.json({ success: true, data });
+    }
+
+    const current = await Booking.findById(req.params.id);
+    if (!current) return res.status(404).json({ success: false, message: "Booking not found" });
+    const previousPaymentStatus = current.paymentStatus;
+
+    if (update.paymentStatus === "paid" && previousPaymentStatus !== "paid") {
+      await applyBookingInventoryApproval(current);
+    }
+
+    Object.assign(current, update);
+    if (update.paymentStatus === "paid") {
+      current.manualPayment = {
+        ...(current.manualPayment?.toObject?.() || current.manualPayment || {}),
+        reviewedAt: new Date(),
+        reviewedBy: String(req.user?.id || ""),
+      };
+    }
+
+    await current.save();
+    const data = await Booking.findById(req.params.id).populate("listingId").lean();
+
+    if (update.paymentStatus === "paid" && previousPaymentStatus !== "paid") {
+      await createNotification(
+        {
+          userId: current.userId,
+          title: "Payment approved",
+          message: `Your payment for ${current.listingLabel || "the selected booking"} has been approved.`,
+          type: "booking_paid",
+          data: { bookingId: String(current._id), bookingType: current.bookingType },
+        },
+        req.app.get("io")
+      );
+    }
+
     await logAdminAction(req, "update", "booking", req.params.id, "Updated booking", update);
     return res.json({ success: true, data: { ...data, listingLabel: data.listingId?.hotelName || data.listingId?.vehicleType || "Listing" } });
   } catch (err) { next(err); }

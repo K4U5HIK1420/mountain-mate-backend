@@ -58,6 +58,7 @@ async function updateWithSchemaFallback(supabase, table, id, payload) {
 
 function mapBookingRow(row) {
   if (!row) return null;
+  const manualPayment = row.manual_payment || row.live_tracking?.manualPayment || null;
   return {
     _id: row.id,
     userId: row.user_id || row.userId || null,
@@ -78,6 +79,7 @@ function mapBookingRow(row) {
     paymentId: row.payment_id || "",
     orderId: row.order_id || "",
     paymentStatus: row.payment_status || "pending",
+    manualPayment,
     liveTracking: row.live_tracking || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
@@ -140,6 +142,18 @@ async function getBookingById(id) {
   return mapBookingRow(data);
 }
 
+async function getBookingByOrderId(orderId) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return mapBookingRow(data);
+}
+
 async function getBookingByIdForUser(id, userId) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
@@ -175,6 +189,16 @@ async function listBookingsByOwnerId(ownerId) {
   return (data || []).map(mapBookingRow);
 }
 
+async function listAllBookings() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapBookingRow);
+}
+
 async function updateBookingById(id, patch) {
   const supabase = getSupabaseClient();
   const payload = buildUpdatePayload(patch);
@@ -189,9 +213,11 @@ async function updateBookingById(id, patch) {
 module.exports = {
   createBooking,
   getBookingById,
+  getBookingByOrderId,
   getBookingByIdForUser,
   listBookingsByUserId,
   listBookingsByOwnerId,
+  listAllBookings,
   updateBookingById,
   mapBookingRow,
 };

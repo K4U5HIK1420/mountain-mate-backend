@@ -1,25 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CheckCircle2, CreditCard, Loader2, ArrowRight, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, Copy, Loader2, Upload, XCircle } from "lucide-react";
 import API from "../utils/api";
 import { Button } from "../components/ui/Button";
 
-function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
+const MANUAL_UPI_ID = "anantkaushik2447-1@oksbi";
+const MANUAL_PAYEE_NAME = "Anant Kaushik (MountainMateAdmin)";
+const MANUAL_QR_IMAGE = "/manual-upi-qr.jpeg";
 
 export default function BookingConfirm() {
   const { id } = useParams();
@@ -28,6 +16,10 @@ export default function BookingConfirm() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [paying, setPaying] = useState(false);
+  const [transactionId, setTransactionId] = useState("");
+  const [note, setNote] = useState("");
+  const [paymentProof, setPaymentProof] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -63,68 +55,32 @@ export default function BookingConfirm() {
     };
   }, [id, location.state]);
 
-  const payNow = async () => {
-    if (!booking) return;
+  const copyUpiId = async () => {
+    try {
+      await navigator.clipboard.writeText(MANUAL_UPI_ID);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const submitManualPayment = async () => {
+    if (!booking || !paymentProof) return;
 
     setPaying(true);
     try {
-      const sdkReady = await loadRazorpayScript();
-      if (!sdkReady) {
-        navigate("/payment/failure", { replace: true });
-        return;
-      }
+      const formData = new FormData();
+      formData.append("paymentProof", paymentProof);
+      if (transactionId.trim()) formData.append("transactionId", transactionId.trim());
+      if (note.trim()) formData.append("note", note.trim());
 
-      const [keyRes, orderRes] = await Promise.all([
-        API.get("/payment/key"),
-        API.post("/payment/create-order", { bookingId: booking._id }),
-      ]);
-
-      const key = keyRes.data?.key;
-      const order = orderRes.data?.order;
-
-      if (!key || !order?.id) {
-        navigate("/payment/failure", { replace: true });
-        return;
-      }
-
-      const options = {
-        key,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "Mountain Mate",
-        description: `${booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"} payment`,
-        order_id: order.id,
-        prefill: {
-          name: orderRes.data?.customerName || "",
-          email: orderRes.data?.customerEmail || "",
-          contact: orderRes.data?.customerContact || "",
-        },
-        theme: { color: "#EA580C" },
-        handler: async (response) => {
-          try {
-            await API.post("/payment/verify", {
-              bookingId: booking._id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            navigate("/payment/success", { replace: true });
-          } catch {
-            navigate("/payment/failure", { replace: true });
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setPaying(false);
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", () => {
-        navigate("/payment/failure", { replace: true });
+      const res = await API.post(`/booking/${booking._id}/manual-payment`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      rzp.open();
+
+      setBooking(res.data?.data || booking);
+      navigate("/bookings", { replace: true });
     } catch {
       navigate("/payment/failure", { replace: true });
     } finally {
@@ -132,9 +88,11 @@ export default function BookingConfirm() {
     }
   };
 
+  const amount = resolveBookingAmount(booking);
+
   return (
     <div className="min-h-screen pt-40 pb-24 px-6 text-white">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl mx-auto">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto">
         <div className="bg-white/[0.03] border border-white/10 rounded-[46px] p-8 md:p-12 backdrop-blur-2xl shadow-2xl">
           <p className="text-orange-500 font-black tracking-[0.6em] text-[10px] uppercase italic">
             Booking Confirmation
@@ -161,16 +119,14 @@ export default function BookingConfirm() {
               <div className="bg-white/5 border border-white/10 rounded-[32px] p-6">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-white/35 font-black uppercase tracking-[0.3em] text-[10px]">
-                      Booking
-                    </p>
+                    <p className="text-white/35 font-black uppercase tracking-[0.3em] text-[10px]">Booking</p>
                     <p className="text-white font-black text-xl italic tracking-tight mt-2">
-                      {booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"}
+                      {booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-white/35 font-black uppercase tracking-[0.3em] text-[10px]">Amount</p>
-                    <p className="text-3xl font-black italic mt-2">Rs {booking.amount || booking.listingId?.pricePerNight || booking.listingId?.pricePerSeat}</p>
+                    <p className="text-3xl font-black italic mt-2">Rs {amount}</p>
                   </div>
                 </div>
                 <div className="mt-5 pt-5 border-t border-white/10 flex items-center justify-between text-white/55 text-sm">
@@ -179,13 +135,81 @@ export default function BookingConfirm() {
                 </div>
               </div>
 
-              <Button disabled={paying} onClick={payNow} size="lg" className="w-full">
-                {paying ? <Loader2 className="animate-spin" /> : <CreditCard size={18} />}
-                {paying ? "PROCESSING..." : "PAY NOW"} <ArrowRight size={16} />
-              </Button>
+              <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+                <div className="rounded-[32px] border border-white/10 bg-white/5 p-5">
+                  <img src={MANUAL_QR_IMAGE} alt="Mountain Mate UPI QR" className="w-full rounded-[24px] border border-white/10 bg-white object-cover" />
+                </div>
+
+                <div className="space-y-5 rounded-[32px] border border-white/10 bg-white/5 p-6">
+                  <div>
+                    <p className="text-orange-500 font-black tracking-[0.4em] text-[10px] uppercase italic">Manual UPI Payment</p>
+                    <h2 className="mt-3 text-2xl font-black italic uppercase tracking-tight">Scan, pay, then upload proof.</h2>
+                    <p className="mt-3 text-sm leading-7 text-white/55">
+                      Use Google Pay, PhonePe, Paytm, or any UPI app. Once you pay, upload the screenshot and optional UTR so admin can approve it.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <InfoRow label="Payee" value={MANUAL_PAYEE_NAME} />
+                    <InfoRow label="UPI ID" value={MANUAL_UPI_ID} />
+                    <InfoRow label="Amount" value={`Rs ${amount}`} />
+                    <InfoRow label="Review" value={booking.paymentStatus === "under_review" ? "Under admin review" : booking.paymentStatus} />
+                  </div>
+
+                  <Button type="button" variant="ghost" onClick={copyUpiId} className="w-full">
+                    <Copy size={16} /> {copied ? "UPI ID COPIED" : "COPY UPI ID"}
+                  </Button>
+
+                  {booking.paymentStatus === "under_review" || booking.paymentStatus === "paid" ? (
+                    <div className="rounded-[24px] border border-orange-500/20 bg-orange-500/10 px-5 py-4 text-sm leading-7 text-white/70">
+                      {booking.paymentStatus === "paid"
+                        ? "Payment has already been approved. The booking can now move through the normal confirmation flow."
+                        : "Your payment screenshot has already been submitted. Admin approval is pending."}
+                    </div>
+                  ) : (
+                    <>
+                      <label className="block text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
+                        Transaction / UTR ID
+                        <input
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                          placeholder="Optional but recommended"
+                          className="mt-3 w-full rounded-[24px] border border-white/10 bg-black/20 px-5 py-4 text-sm font-bold text-white outline-none"
+                        />
+                      </label>
+
+                      <label className="block text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
+                        Note
+                        <textarea
+                          value={note}
+                          onChange={(e) => setNote(e.target.value)}
+                          rows={3}
+                          placeholder="Any note for admin review"
+                          className="mt-3 w-full rounded-[24px] border border-white/10 bg-black/20 px-5 py-4 text-sm text-white outline-none resize-none"
+                        />
+                      </label>
+
+                      <label className="block text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
+                        Payment Screenshot
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                          className="mt-3 block w-full rounded-[24px] border border-white/10 bg-black/20 px-5 py-4 text-sm text-white outline-none file:mr-4 file:rounded-full file:border-0 file:bg-orange-500 file:px-4 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-[0.2em] file:text-white"
+                        />
+                      </label>
+
+                      <Button disabled={paying || !paymentProof} onClick={submitManualPayment} size="lg" className="w-full">
+                        {paying ? <Loader2 className="animate-spin" /> : <Upload size={18} />}
+                        {paying ? "SUBMITTING..." : "SUBMIT PAYMENT PROOF"} <ArrowRight size={16} />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
 
               <div className="flex items-center gap-3 text-white/30 text-[10px] font-black uppercase tracking-widest">
-                <CheckCircle2 size={16} className="text-orange-400" /> Secure payment powered by Razorpay.
+                <CheckCircle2 size={16} className="text-orange-400" /> Admin approves payment proof before final confirmation.
               </div>
             </div>
           )}
@@ -193,4 +217,31 @@ export default function BookingConfirm() {
       </motion.div>
     </div>
   );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="rounded-[20px] border border-white/10 bg-black/20 px-4 py-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">{label}</p>
+      <p className="mt-2 text-sm font-bold text-white break-all">{value}</p>
+    </div>
+  );
+}
+
+function resolveBookingAmount(booking) {
+  if (!booking) return 0;
+
+  const storedAmount = Number(booking.amount || 0);
+  if (storedAmount > 0) return storedAmount;
+
+  const quantity = booking.bookingType === "Hotel"
+    ? Math.max(1, Number(booking.rooms || 1))
+    : Math.max(1, Number(booking.guests || 1));
+
+  const basePrice = Number(
+    booking?.listingId?.pricePerNight || booking?.listingId?.pricePerSeat || 0
+  );
+
+  if (basePrice > 0) return basePrice * quantity;
+  return 0;
 }

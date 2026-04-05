@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Bell, Calendar, Car, CheckCircle2, Clock3, IndianRupee, Loader2, MapPin, Navigation, Phone, ShieldCheck, Star, XCircle } from "lucide-react";
 import API from "../utils/api";
@@ -260,15 +261,31 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
               </Button>
             </div>
           )}
-          {mode === "user" && (
-            <>
+          {mode === "user" && (            <>
               <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
-                {booking.status === "pending" && "Your request is paid and waiting for owner or driver approval."}
+                {booking.paymentStatus === "under_review" && "Your payment proof is under admin review."}
+                {booking.status === "pending" && booking.paymentStatus === "paid" && "Your request is paid and waiting for owner or driver approval."}
+                {booking.status === "pending" && booking.paymentStatus === "pending" && (
+                  <div>
+                    <p>Complete the payment step to move this booking forward.</p>
+                    <Button as={Link} to={`/booking/${booking._id}/confirm`} size="sm" className="mt-3">
+                      Complete Payment / Upload Proof
+                    </Button>
+                  </div>
+                )}
+                {booking.paymentStatus === "failed" && (
+                  <div>
+                    <p>Payment proof was rejected or payment failed. You can submit a new payment attempt.</p>
+                    <Button as={Link} to={`/booking/${booking._id}/confirm`} size="sm" className="mt-3">
+                      Retry Payment
+                    </Button>
+                  </div>
+                )}
                 {booking.status === "confirmed" && "Your booking has been approved. You are ready to proceed."}
                 {booking.status === "completed" && "This booking is completed. You can leave a rating if reviews are enabled for this trip."}
                 {booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
                 {booking.status === "cancelled" && "This booking was cancelled."}
-              </div>
+              </div>>
               {booking.hasReview && (
                 <div className="rounded-[22px] border border-green-500/20 bg-green-500/10 px-4 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-green-300">
                   Review submitted

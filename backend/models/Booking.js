@@ -45,8 +45,19 @@ const bookingSchema = new mongoose.Schema({
     },
     paymentStatus: {
         type: String,
-        enum: ["pending", "paid", "failed"],
+        enum: ["pending", "under_review", "paid", "failed"],
         default: "pending"
+    },
+    manualPayment: {
+        method: { type: String, default: "" },
+        payeeName: { type: String, default: "" },
+        upiId: { type: String, default: "" },
+        transactionId: { type: String, unique: true, default: "" },
+        screenshotUrl: { type: String, default: "" },
+        note: { type: String, default: "" },
+        submittedAt: { type: Date, default: null },
+        reviewedAt: { type: Date, default: null },
+        reviewedBy: { type: String, default: "" }
     },
     liveTracking: {
         status: {

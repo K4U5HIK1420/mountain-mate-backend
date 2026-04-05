@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../utils/supabase";
+import API from "../utils/api";
 import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 
@@ -67,21 +68,45 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const isPhone = /^\+?[1-9]\d{1,14}$/.test(formData.identifier.replace(/\s/g, ""));
-      
-      const { error } = await supabase.auth.signInWithOtp({
-        [isPhone ? 'phone' : 'email']: formData.identifier,
-        options: {
-          shouldCreateUser: true,
-          data: { full_name: formData.name },
-        },
+      const normalizedIdentifier = formData.identifier.trim();
+      const isPhone = /^\+?[1-9]\d{1,14}$/.test(normalizedIdentifier.replace(/\s/g, ""));
+
+      if (isPhone) {
+        const { error } = await supabase.auth.signInWithOtp({
+          phone: normalizedIdentifier,
+          options: {
+            shouldCreateUser: true,
+            data: { full_name: formData.name },
+          },
+        });
+
+        if (error) throw error;
+        setIsVerifying(true);
+        notify("Verification code dispatched.", "success");
+        return;
+      }
+
+      const { data } = await API.post("/user/register", {
+        name: formData.name.trim(),
+        email: normalizedIdentifier.toLowerCase(),
+        password: formData.password,
       });
 
-      if (error) throw error;
-      setIsVerifying(true);
-      notify("Verification code dispatched.", "success");
+      if (!data?.user) {
+        throw new Error(data?.message || "Unable to register user.");
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedIdentifier.toLowerCase(),
+        password: formData.password,
+      });
+
+      if (signInError) throw signInError;
+
+      notify("Identity Authenticated. Welcome.", "success");
+      navigate("/explore-stays");
     } catch (err) {
-      notify(err.message, "error");
+      notify(err?.response?.data?.message || err?.message || "Unable to register user.", "error");
     } finally {
       setLoading(false);
     }

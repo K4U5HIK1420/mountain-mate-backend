@@ -64,12 +64,22 @@ const Login = () => {
     setLoading(true);
     try {
       const isPhone = /^\+?[1-9]\d{1,14}$/.test(identifier.replace(/\s/g, ""));
-      const payload = isPhone
-        ? { phone: identifier, password }
-        : { email: identifier, password };
+      const normalizedIdentifier = identifier.trim();
 
-      const { error } = await supabase.auth.signInWithPassword(payload);
-      if (error) throw error;
+      if (isPhone) {
+        const { error } = await supabase.auth.signInWithPassword({
+          phone: normalizedIdentifier,
+          password,
+        });
+        if (error) throw error;
+      } else {
+        const normalizedEmail = normalizedIdentifier.toLowerCase();
+        const { error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+        if (error) throw error;
+      }
 
       notify("Uplink established. Welcome back.", "success");
       navigate(from, { replace: true });

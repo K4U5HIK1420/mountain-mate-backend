@@ -3,6 +3,7 @@ const validate = require("../middleware/validate");
 const auth = require("../middleware/authMiddleware");
 const anyAuth = require("../middleware/anyAuth");
 const optionalAuth = require("../middleware/optionalAuth");
+const upload = require("../middleware/upload");
 const express = require("express");
 const router = express.Router();
 const {
@@ -17,6 +18,7 @@ const {
   getRevenueStats,
   getStatusStats,
   cancelMyBooking,
+  submitManualPaymentProof,
 } = require("../controllers/bookingController");
 
 router.post(
@@ -43,5 +45,6 @@ router.get("/stats", getBookingStats);
 router.get("/revenue", getRevenueStats);
 router.get("/stats/status", getStatusStats);
 router.patch("/cancel/:id", anyAuth, cancelMyBooking);
+router.post("/:id/manual-payment", anyAuth, upload.single("paymentProof"), submitManualPaymentProof);
 
 module.exports = router;
