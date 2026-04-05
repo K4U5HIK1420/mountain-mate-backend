@@ -38,9 +38,6 @@ import { Container } from "../components/ui/Container";
 
 const motionEase = [0.22, 1, 0.36, 1];
 const locationSuggestions = ["Kedarnath", "Guptkashi", "Sonprayag", "Rudraprayag", "Joshimath", "Auli", "Badrinath"];
-const defaultMinPrice = 1000;
-const defaultMaxPrice = 5000;
-
 const amenityIcons = {
   wifi: <Wifi size={14} />,
   parking: <Car size={14} />,
@@ -111,8 +108,6 @@ export default function ExploreStays() {
     location: "",
     checkIn: getDatePlusDays(0),
     checkOut: getDatePlusDays(1),
-    minPrice: defaultMinPrice,
-    maxPrice: defaultMaxPrice,
     wifi: false,
     parking: false,
     mountainView: false,
@@ -169,8 +164,6 @@ export default function ExploreStays() {
       const response = await API.get("/hotel/search", {
         params: {
           location: filters.location.trim().toLowerCase(),
-          minPrice: filters.minPrice,
-          maxPrice: filters.maxPrice,
           checkInDate: filters.checkIn,
         },
       });
@@ -208,7 +201,6 @@ export default function ExploreStays() {
       const location = String(hotel.location || "").toLowerCase();
 
       if (filters.location && !location.includes(filters.location.toLowerCase())) return false;
-      if (price < filters.minPrice || price > filters.maxPrice) return false;
       if (filters.wifi && !amenities.includes("wifi")) return false;
       if (filters.parking && !amenities.includes("parking")) return false;
       if (filters.mountainView && !amenities.includes("mountainView")) return false;
@@ -228,30 +220,12 @@ export default function ExploreStays() {
     [filteredHotels]
   );
 
-  const handlePriceMin = (value) => {
-    const next = Number(value);
-    setFilters((prev) => ({
-      ...prev,
-      minPrice: Math.min(next, prev.maxPrice - 500),
-    }));
-  };
-
-  const handlePriceMax = (value) => {
-    const next = Number(value);
-    setFilters((prev) => ({
-      ...prev,
-      maxPrice: Math.max(next, prev.minPrice + 500),
-    }));
-  };
-
   const resetFilters = () => {
     setFilters((prev) => ({
       ...prev,
       location: "",
       checkIn: getDatePlusDays(0),
       checkOut: getDatePlusDays(1),
-      minPrice: defaultMinPrice,
-      maxPrice: defaultMaxPrice,
       wifi: false,
       parking: false,
       mountainView: false,
@@ -351,8 +325,6 @@ export default function ExploreStays() {
           setFilters={setFilters}
           showAdvanced={showAdvanced}
           setShowAdvanced={setShowAdvanced}
-          onPriceMin={handlePriceMin}
-          onPriceMax={handlePriceMax}
           onSearch={fetchHotels}
           onToggleMap={() => setShowMap((prev) => !prev)}
           showMap={showMap}
@@ -427,8 +399,6 @@ function SearchBar({
   setFilters,
   showAdvanced,
   setShowAdvanced,
-  onPriceMin,
-  onPriceMax,
   onSearch,
   onToggleMap,
   showMap,
@@ -436,7 +406,7 @@ function SearchBar({
 }) {
   return (
     <section className="sticky top-[92px] z-30 rounded-[28px] border border-white/10 bg-black/65 p-4 backdrop-blur-2xl md:p-5">
-      <div className="grid gap-3 xl:grid-cols-[1.1fr_0.8fr_0.85fr_auto]">
+      <div className="grid gap-3 xl:grid-cols-[1.2fr_0.95fr_auto]">
         <GlassField icon={<MapPin size={15} />} label="Location">
           <input
             value={filters.location}
@@ -470,17 +440,10 @@ function SearchBar({
           </div>
         </GlassField>
 
-        <GlassField icon={<SlidersHorizontal size={15} />} label={`Price: Rs ${filters.minPrice} - Rs ${filters.maxPrice}`}>
-          <div className="space-y-2">
-            <input type="range" min={500} max={12000} step={100} value={filters.minPrice} onChange={(e) => onPriceMin(e.target.value)} className="w-full accent-orange-400" />
-            <input type="range" min={500} max={12000} step={100} value={filters.maxPrice} onChange={(e) => onPriceMax(e.target.value)} className="w-full accent-orange-300" />
-          </div>
-        </GlassField>
-
         <Button
           size="lg"
           onClick={onSearch}
-          className="rounded-2xl px-6 text-[11px] tracking-[0.2em] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_18px_42px_rgba(249,115,22,0.4)]"
+          className="h-full min-h-[96px] rounded-2xl px-8 text-[11px] tracking-[0.24em] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_18px_42px_rgba(249,115,22,0.4)]"
         >
           {searching ? "Searching..." : "Search Stays"}
           <Search size={15} />
