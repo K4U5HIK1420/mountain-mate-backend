@@ -1,12 +1,35 @@
 const Booking = require("../models/Booking");
 const Hotel = require("../models/Hotel");
 const Transport = require("../models/Transport");
+const cloudinary = require("../config/cloudinary");
+const fs = require("fs");
 const { restoreBookingInventory } = require("../utils/bookingInventory");
 const { createNotification } = require("../services/notificationService");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
 const supabaseBookings = require("../services/supabaseBookingsStore");
+
+function uploadFileToCloudinary(file, folder) {
+  return cloudinary.uploader.upload(file.path, {
+    folder,
+    resource_type: "auto",
+  });
+}
+
+function createManualPaymentPayload(body = {}) {
+  return {
+    method: "upi_qr",
+    payeeName: "Anant Kaushik (MountainMateAdmin)",
+    upiId: "anantkaushik2447-1@oksbi",
+    transactionId: String(body.transactionId || "").trim(),
+    note: String(body.note || "").trim(),
+    screenshotUrl: String(body.screenshotUrl || ""),
+    submittedAt: new Date(),
+    reviewedAt: null,
+    reviewedBy: "",
+  };
+}
 
 // Create Booking
 exports.createBooking = async (req, res, next) => {
@@ -373,5 +396,83 @@ exports.cancelMyBooking = async (req, res, next) => {
     return res.json({ success: true, message: "Booking cancelled", data: booking });
   } catch (err) {
     next(err);
+  }
+};
+
+exports.submitManualPaymentProof = async (req, res, next) => {
+  try {
+    const actorId = String(req.user?.id || req.user?._id || "");
+    const isSupabase = getDataStore() === "supabase";
+    const booking = isSupabase
+      ? await supabaseBookings.getBookingById(req.params.id)
+      : await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    if (String(booking.userId || "") !== actorId) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    if (booking.paymentStatus === "paid") {
+      return res.status(400).json({ success: false, message: "Booking is already marked paid." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Payment screenshot is required." });
+    }
+
+    const uploaded = await uploadFileToCloudinary(req.file, "mountain_mate/payment_proofs");
+    const manualPayment = createManualPaymentPayload({
+      transactionId: req.body.transactionId,
+      note: req.body.note,
+      screenshotUrl: uploaded.secure_url,
+    });
+
+    let updatedBooking;
+    if (isSupabase) {
+      updatedBooking = await supabaseBookings.updateBookingById(String(booking._id), {
+        paymentStatus: "under_review",
+        paymentId: manualPayment.transactionId || booking.paymentId || "",
+        liveTracking: {
+          ...(booking.liveTracking || {}),
+          manualPayment,
+        },
+      });
+    } else {
+      booking.paymentStatus = "under_review";
+      booking.paymentId = manualPayment.transactionId || booking.paymentId || "";
+      booking.manualPayment = manualPayment;
+      await booking.save();
+      updatedBooking = booking;
+    }
+
+    try {
+      await createNotification(
+        {
+          userId: booking.userId,
+          title: "Payment proof submitted",
+          message: `Your payment proof for ${booking.listingLabel || "this booking"} is under admin review.`,
+          type: "system",
+          data: { bookingId: String(booking._id), bookingType: booking.bookingType, stage: "payment_under_review" },
+        },
+        req.app.get("io")
+      );
+    } catch (_notificationErr) {
+      // Keep the payment flow alive even if notifications fail.
+    }
+
+    return res.json({
+      success: true,
+      message: "Payment proof submitted. Admin review is pending.",
+      data: updatedBooking,
+    });
+  } catch (err) {
+    next(err);
+  } finally {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 };

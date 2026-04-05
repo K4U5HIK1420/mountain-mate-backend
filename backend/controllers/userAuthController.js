@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const { createResetToken, sha256 } = require("../utils/tokens");
 const crypto = require("crypto");
 const { resolveAppUser } = require("../utils/resolveAppUser");
+const { getDataStore } = require("../utils/dataStore");
+const { getSupabaseClient } = require("../utils/supabaseClient");
 
 function makeReferralCode() {
   // short, shareable, reasonably unique
@@ -33,6 +35,42 @@ function safeUser(u) {
 // Register User
 exports.registerUser = async (req, res) => {
   try {
+    if (getDataStore() === "supabase") {
+      const { name, email, password } = req.body;
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+
+      if (!name || !normalizedEmail || !password) {
+        return res.status(400).json({ success: false, message: "Name, email, and password are required" });
+      }
+
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: String(name).trim(),
+        },
+      });
+
+      if (error) {
+        const message = /Database error (creating|saving) new user/i.test(error.message || "")
+          ? "Supabase auth user creation is failing in the project database. Run supabase/auth_signup_fix.sql in the Supabase SQL Editor, then retry signup."
+          : error.message;
+        return res.status(400).json({ success: false, message });
+      }
+
+      return res.status(201).json({
+        success: true,
+        user: {
+          id: data.user?.id,
+          name: data.user?.user_metadata?.full_name || String(name).trim(),
+          email: data.user?.email || normalizedEmail,
+          role: data.user?.app_metadata?.role || "user",
+        },
+      });
+    }
+
 
     const { name, email, password, referralCode } = req.body;
 
@@ -79,6 +117,13 @@ exports.registerUser = async (req, res) => {
 // Login User
 exports.loginUser = async (req, res) => {
   try {
+    if (getDataStore() === "supabase") {
+      return res.status(400).json({
+        success: false,
+        message: "Use Supabase password login for this project.",
+      });
+    }
+
 
     const { email, password } = req.body;
 

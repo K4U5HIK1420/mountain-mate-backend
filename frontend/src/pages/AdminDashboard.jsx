@@ -406,7 +406,7 @@ export default function AdminDashboard() {
     if (rawMode || auditMode || selectedIds.length === 0) return [];
     if (section === "hotels") return [{ label: "Approve", action: "approve" }, { label: "Pending", action: "pending" }, { label: "Delete", action: "delete", danger: true }];
     if (section === "rides") return [{ label: "Approve", action: "approve" }, { label: "Reject", action: "reject", danger: true }, { label: "Pending", action: "pending" }, { label: "Delete", action: "delete", danger: true }];
-    if (section === "bookings") return [{ label: "Confirm", action: "set-status", payload: { status: "confirmed" } }, { label: "Cancel", action: "set-status", payload: { status: "cancelled" }, danger: true }, { label: "Paid", action: "set-payment", payload: { paymentStatus: "paid" } }, { label: "Delete", action: "delete", danger: true }];
+    if (section === "bookings") return [{ label: "Confirm", action: "set-status", payload: { status: "confirmed" } }, { label: "Cancel", action: "set-status", payload: { status: "cancelled" }, danger: true }, { label: "Mark Review", action: "set-payment", payload: { paymentStatus: "under_review" } }, { label: "Paid", action: "set-payment", payload: { paymentStatus: "paid" } }, { label: "Delete", action: "delete", danger: true }];
     if (section === "trips") return [{ label: "Mark Booked", action: "set-status", payload: { status: "booked" } }, { label: "Mark Draft", action: "set-status", payload: { status: "draft" } }, { label: "Delete", action: "delete", danger: true }];
     if (section === "reviews" || section === "userMeta") return [{ label: "Delete", action: "delete", danger: true }];
     return [];

@@ -110,9 +110,75 @@ create trigger set_profiles_updated_at
 before update on public.profiles
 for each row execute function public.set_updated_at();
 
+-- Keep a matching profile row in sync with Supabase Auth users.
+-- This is intentionally written to be compatible with common legacy trigger names
+-- such as `handle_new_user()` that older projects often still reference.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (user_id, display_name, role)
+  values (
+    new.id,
+    coalesce(
+      new.raw_user_meta_data->>'full_name',
+      new.raw_user_meta_data->>'display_name',
+      split_part(coalesce(new.email, ''), '@', 1),
+      'Explorer'
+    ),
+    coalesce(new.raw_app_meta_data->>'role', 'user')
+  )
+  on conflict (user_id) do update
+    set display_name = excluded.display_name,
+        role = coalesce(public.profiles.role, excluded.role),
+        updated_at = now();
+
+  return new;
+end;
+$$;
+
+create or replace function public.handle_auth_user_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (user_id, display_name, role)
+  values (
+    new.id,
+    coalesce(
+      new.raw_user_meta_data->>'full_name',
+      new.raw_user_meta_data->>'display_name',
+      split_part(coalesce(new.email, ''), '@', 1),
+      'Explorer'
+    ),
+    coalesce(new.raw_app_meta_data->>'role', 'user')
+  )
+  on conflict (user_id) do update
+    set display_name = excluded.display_name,
+        role = coalesce(public.profiles.role, excluded.role),
+        updated_at = now();
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
+
 -- Bookings (store legacy Mongo references too)
 create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),
+
+  user_id uuid,
+  owner_id uuid,
+  listing_label text default '',
 
   customer_name text not null,
   phone_number text not null,
@@ -123,20 +189,42 @@ create table if not exists public.bookings (
   listing_supabase_id uuid,
 
   date date not null,
+  start_date date,
+  end_date date,
+  guests integer not null default 1,
+  rooms integer not null default 1,
+  amount integer not null default 0,
+  currency text not null default 'INR',
   status text not null default 'pending' check (status in ('pending','confirmed','completed','cancelled')),
 
   payment_id text,
   order_id text,
   payment_status text not null default 'pending' check (payment_status in ('pending','paid','failed')),
+  live_tracking jsonb,
+  manual_payment jsonb,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+alter table public.bookings add column if not exists user_id uuid;
+alter table public.bookings add column if not exists owner_id uuid;
+alter table public.bookings add column if not exists listing_label text default '';
+alter table public.bookings add column if not exists start_date date;
+alter table public.bookings add column if not exists end_date date;
+alter table public.bookings add column if not exists guests integer not null default 1;
+alter table public.bookings add column if not exists rooms integer not null default 1;
+alter table public.bookings add column if not exists amount integer not null default 0;
+alter table public.bookings add column if not exists currency text not null default 'INR';
+alter table public.bookings add column if not exists live_tracking jsonb;
+alter table public.bookings add column if not exists manual_payment jsonb;
+
 create index if not exists bookings_status_idx on public.bookings(status);
 create index if not exists bookings_type_idx on public.bookings(booking_type);
 create index if not exists bookings_listing_mongo_idx on public.bookings(listing_mongo_id);
 create index if not exists bookings_listing_supabase_idx on public.bookings(listing_supabase_id);
+create index if not exists bookings_user_id_idx on public.bookings(user_id);
+create index if not exists bookings_owner_id_idx on public.bookings(owner_id);
 
 drop trigger if exists set_bookings_updated_at on public.bookings;
 create trigger set_bookings_updated_at

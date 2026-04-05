@@ -12,6 +12,16 @@ This repo is **full-stack**:
 In Supabase Dashboard → **SQL Editor**, run:
 - `supabase/schema.sql`
 
+If email or OTP signup fails with:
+- `Database error creating new user`
+- `Database error saving new user`
+
+run:
+- `supabase/auth_signup_fix.sql`
+
+If booking/payment pages show `Rs 0` or the booking total is missing, run:
+- `supabase/bookings_amount_fix.sql`
+
 This creates tables:
 - `hotels`, `transports`, `bookings`, `reviews`, `profiles`
 
