@@ -787,16 +787,7 @@ exports.updateBooking = async (req, res, next) => {
       });
 
       if (update.paymentStatus === "paid" && current.paymentStatus !== "paid") {
-        await createNotification(
-          {
-            userId: current.userId,
-            title: "Payment approved",
-            message: `Your payment for ${current.listingLabel || "the selected booking"} has been approved.`,
-            type: "booking_paid",
-            data: { bookingId: String(current._id), bookingType: current.bookingType },
-          },
-          req.app.get("io")
-        );
+        await notifyPaymentApproval(req.app.get("io"), data);
       }
 
       await logAdminAction(req, "update", "booking", req.params.id, "Updated booking", update);
@@ -824,16 +815,7 @@ exports.updateBooking = async (req, res, next) => {
     const data = await Booking.findById(req.params.id).populate("listingId").lean();
 
     if (update.paymentStatus === "paid" && previousPaymentStatus !== "paid") {
-      await createNotification(
-        {
-          userId: current.userId,
-          title: "Payment approved",
-          message: `Your payment for ${current.listingLabel || "the selected booking"} has been approved.`,
-          type: "booking_paid",
-          data: { bookingId: String(current._id), bookingType: current.bookingType },
-        },
-        req.app.get("io")
-      );
+      await notifyPaymentApproval(req.app.get("io"), { ...data, listingLabel: data.listingId?.hotelName || data.listingId?.vehicleType || current.listingLabel || "Listing" });
     }
 
     await logAdminAction(req, "update", "booking", req.params.id, "Updated booking", update);

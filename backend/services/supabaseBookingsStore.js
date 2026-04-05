@@ -90,27 +90,39 @@ function buildInsertPayload(data = {}) {
   const listingId = String(data.listingId || "");
   const payload = {
     customer_name: data.customerName || "",
+    customerName: data.customerName || "",
     phone_number: data.phoneNumber || "",
+    phoneNumber: data.phoneNumber || "",
     booking_type: data.bookingType || "",
+    bookingType: data.bookingType || "",
     date: toDateValue(data.date),
     status: data.status || "pending",
     payment_status: data.paymentStatus || "pending",
+    paymentStatus: data.paymentStatus || "pending",
     user_id: data.userId || null,
+    userId: data.userId || null,
     owner_id: data.ownerId || null,
+    ownerId: data.ownerId || null,
     listing_label: data.listingLabel || "",
+    listingLabel: data.listingLabel || "",
     start_date: toDateValue(data.startDate),
+    startDate: toDateValue(data.startDate),
     end_date: toDateValue(data.endDate),
+    endDate: toDateValue(data.endDate),
     guests: Number(data.guests || 1),
     rooms: Number(data.rooms || 1),
     amount: Number(data.amount || 0),
     currency: data.currency || "INR",
     live_tracking: data.liveTracking || null,
+    liveTracking: data.liveTracking || null,
   };
 
   if (isUuid(listingId)) {
     payload.listing_supabase_id = listingId;
+    payload.listingId = listingId;
   } else {
     payload.listing_mongo_id = listingId;
+    payload.listingId = listingId;
   }
 
   return payload;
@@ -119,10 +131,22 @@ function buildInsertPayload(data = {}) {
 function buildUpdatePayload(patch = {}) {
   const payload = {};
   if (patch.status !== undefined) payload.status = patch.status;
-  if (patch.paymentId !== undefined) payload.payment_id = patch.paymentId;
-  if (patch.orderId !== undefined) payload.order_id = patch.orderId;
-  if (patch.paymentStatus !== undefined) payload.payment_status = patch.paymentStatus;
-  if (patch.liveTracking !== undefined) payload.live_tracking = patch.liveTracking;
+  if (patch.paymentId !== undefined) {
+    payload.payment_id = patch.paymentId;
+    payload.paymentId = patch.paymentId;
+  }
+  if (patch.orderId !== undefined) {
+    payload.order_id = patch.orderId;
+    payload.orderId = patch.orderId;
+  }
+  if (patch.paymentStatus !== undefined) {
+    payload.payment_status = patch.paymentStatus;
+    payload.paymentStatus = patch.paymentStatus;
+  }
+  if (patch.liveTracking !== undefined) {
+    payload.live_tracking = patch.liveTracking;
+    payload.liveTracking = patch.liveTracking;
+  }
   if (patch.amount !== undefined) payload.amount = Number(patch.amount || 0);
   return payload;
 }
@@ -143,50 +167,24 @@ async function getBookingById(id) {
 }
 
 async function getBookingByOrderId(orderId) {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("order_id", orderId)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  return mapBookingRow(data);
+  const bookings = await listAllBookings();
+  return bookings.find((item) => String(item.orderId || "") === String(orderId || "")) || null;
 }
 
 async function getBookingByIdForUser(id, userId) {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  return mapBookingRow(data);
+  const booking = await getBookingById(id);
+  if (!booking) return null;
+  return String(booking.userId || "") === String(userId || "") ? booking : null;
 }
 
 async function listBookingsByUserId(userId) {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data || []).map(mapBookingRow);
+  const bookings = await listAllBookings();
+  return bookings.filter((item) => String(item.userId || "") === String(userId || ""));
 }
 
 async function listBookingsByOwnerId(ownerId) {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data || []).map(mapBookingRow);
+  const bookings = await listAllBookings();
+  return bookings.filter((item) => String(item.ownerId || "") === String(ownerId || ""));
 }
 
 async function listAllBookings() {

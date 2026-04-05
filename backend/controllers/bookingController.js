@@ -64,6 +64,11 @@ function resolveBookingPricing({ isHotel, listing, body = {} }) {
 // Create Booking
 exports.createBooking = async (req, res, next) => {
     try {
+        const actorId = String(req.user?.id || req.user?._id || "");
+        if (!actorId) {
+          return res.status(401).json({ success: false, message: "Login required to create a booking." });
+        }
+
         const isHotel = req.body.bookingType === "Hotel";
         let listing = null;
 
@@ -91,7 +96,7 @@ exports.createBooking = async (req, res, next) => {
           ...req.body,
           listingId: String(req.body.listingId || ""),
           amount: pricing.totalAmount,
-          userId: String(req.user?.id || req.user?._id || req.body.userId || ""),
+          userId: actorId,
           ownerId,
           listingLabel,
           liveTracking:

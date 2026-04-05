@@ -199,7 +199,7 @@ create table if not exists public.bookings (
 
   payment_id text,
   order_id text,
-  payment_status text not null default 'pending' check (payment_status in ('pending','paid','failed')),
+  payment_status text not null default 'pending' check (payment_status in ('pending','under_review','paid','failed')),
   live_tracking jsonb,
   manual_payment jsonb,
 

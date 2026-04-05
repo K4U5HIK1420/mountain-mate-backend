@@ -1,7 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Bell, Calendar, Car, CheckCircle2, Clock3, IndianRupee, Loader2, MapPin, Navigation, Phone, ShieldCheck, Star, XCircle } from "lucide-react";
+import {
+  Bell,
+  Calendar,
+  Car,
+  CheckCircle2,
+  Clock3,
+  IndianRupee,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  Phone,
+  ShieldCheck,
+  Star,
+  XCircle,
+} from "lucide-react";
 import API from "../utils/api";
 import socket from "../utils/socket";
 import { useAuth } from "../context/AuthContext";
@@ -121,7 +136,12 @@ export default function Bookings() {
   return (
     <div className="min-h-screen bg-[#040404] text-white">
       <Container className="px-6 pb-20 pt-10 sm:px-8 lg:px-12">
-        <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }} className="rounded-[40px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),radial-gradient(circle_at_top,rgba(249,115,22,0.15),transparent_38%),rgba(8,8,8,0.94)] p-6 shadow-[0_38px_100px_rgba(0,0,0,0.42)] md:p-10">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease }}
+          className="rounded-[40px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),radial-gradient(circle_at_top,rgba(249,115,22,0.15),transparent_38%),rgba(8,8,8,0.94)] p-6 shadow-[0_38px_100px_rgba(0,0,0,0.42)] md:p-10"
+        >
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.42em] text-orange-300">Booking Command</p>
@@ -151,7 +171,14 @@ export default function Bookings() {
           </div>
         ) : (
           <AnimatePresence mode="wait">
-            <motion.section key={activeTab} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 18 }} transition={{ duration: 0.35, ease }} className="mt-10 space-y-6">
+            <motion.section
+              key={activeTab}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 18 }}
+              transition={{ duration: 0.35, ease }}
+              className="mt-10 space-y-6"
+            >
               {activeTab === "user" && (
                 <BookingList
                   items={userBookings}
@@ -193,7 +220,20 @@ export default function Bookings() {
   );
 }
 
-function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, onTrack, emptyTitle, emptyText, reviewDrafts = {}, reviewingId = "", onReviewDraftChange, onSubmitReview }) {
+function BookingList({
+  items,
+  mode = "user",
+  updatingId,
+  onApprove,
+  onDecline,
+  onTrack,
+  emptyTitle,
+  emptyText,
+  reviewDrafts = {},
+  reviewingId = "",
+  onReviewDraftChange,
+  onSubmitReview,
+}) {
   if (!items.length) {
     return (
       <div className="rounded-[34px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center text-white/35">
@@ -209,7 +249,7 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
       key={booking._id}
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.45, delay: index * 0.04, ease }}
       className="rounded-[34px] border border-white/10 bg-[#090909] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.32)] md:p-8"
     >
       <div className="flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
@@ -219,8 +259,12 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.32em] text-orange-300">{isStayBooking(booking) ? "Stay Request" : "Ride Request"}</p>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-white/45">Ref {booking._id.slice(-6).toUpperCase()}</span>
+              <p className="text-[10px] font-black uppercase tracking-[0.32em] text-orange-300">
+                {isStayBooking(booking) ? "Stay Request" : "Ride Request"}
+              </p>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-white/45">
+                Ref {booking._id.slice(-6).toUpperCase()}
+              </span>
             </div>
             <h3 className="mt-3 text-2xl font-black uppercase italic tracking-tight text-white md:text-4xl">
               {booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"}
@@ -235,19 +279,24 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
               )}
               <MetaChip icon={<IndianRupee size={14} />} text={`${booking.amount || 0}`} />
               <MetaChip icon={<Clock3 size={14} />} text={`Payment ${booking.paymentStatus || "pending"}`} />
-              {mode === "partner" && <MetaChip icon={<Phone size={14} />} text={`${booking.customerName} · ${booking.phoneNumber}`} />}
+              {mode === "partner" && booking.phoneNumber && (
+                <MetaChip icon={<Phone size={14} />} text={`${booking.customerName || "Customer"} · ${booking.phoneNumber}`} />
+              )}
+              {mode === "user" && booking.counterpartyPhone && (
+                <MetaChip icon={<Phone size={14} />} text={`${booking.counterpartyName || "Host"} · ${booking.counterpartyPhone}`} />
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 md:min-w-[260px]">
+        <div className="flex flex-col gap-4 md:min-w-[320px]">
           <StatusPill status={booking.status} />
           {booking.bookingType === "Transport" && booking.status !== "declined" && booking.status !== "cancelled" && (
-              <Button
-                variant="ghost"
-                onClick={() => onTrack?.(booking, mode === "partner" ? "driver" : "rider")}
-                className="rounded-[20px] text-[10px] tracking-[0.26em]"
-              >
+            <Button
+              variant="ghost"
+              onClick={() => onTrack?.(booking, mode === "partner" ? "driver" : "rider")}
+              className="rounded-[20px] text-[10px] tracking-[0.26em]"
+            >
               <Navigation size={15} /> Live Track
             </Button>
           )}
@@ -256,12 +305,19 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
               <Button onClick={() => onApprove(booking._id)} disabled={updatingId === booking._id} className="rounded-[20px] text-[10px] tracking-[0.26em]">
                 {updatingId === booking._id ? <Loader2 size={15} className="animate-spin" /> : <><CheckCircle2 size={15} /> Confirm</>}
               </Button>
-              <Button variant="ghost" onClick={() => onDecline(booking._id)} disabled={updatingId === booking._id} className="rounded-[20px] border-red-500/20 text-[10px] tracking-[0.26em] text-red-300 hover:bg-red-500/10">
+              <Button
+                variant="ghost"
+                onClick={() => onDecline(booking._id)}
+                disabled={updatingId === booking._id}
+                className="rounded-[20px] border-red-500/20 text-[10px] tracking-[0.26em] text-red-300 hover:bg-red-500/10"
+              >
                 <XCircle size={15} /> Decline
               </Button>
             </div>
           )}
-          {mode === "user" && (            <>
+          <ContactActions booking={booking} mode={mode} />
+          {mode === "user" && (
+            <>
               <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
                 {booking.paymentStatus === "under_review" && "Your payment proof is under admin review."}
                 {booking.status === "pending" && booking.paymentStatus === "paid" && "Your request is paid and waiting for owner or driver approval."}
@@ -285,7 +341,7 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
                 {booking.status === "completed" && "This booking is completed. You can leave a rating if reviews are enabled for this trip."}
                 {booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
                 {booking.status === "cancelled" && "This booking was cancelled."}
-              </div>>
+              </div>
               {booking.hasReview && (
                 <div className="rounded-[22px] border border-green-500/20 bg-green-500/10 px-4 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-green-300">
                   Review submitted
@@ -306,6 +362,45 @@ function BookingList({ items, mode = "user", updatingId, onApprove, onDecline, o
       </div>
     </motion.article>
   ));
+}
+
+function ContactActions({ booking, mode }) {
+  const fallbackName = mode === "partner" ? booking.customerName || "Customer" : booking.counterpartyName || "Host";
+  const rawPhone = mode === "partner" ? booking.phoneNumber : booking.counterpartyPhone;
+  const phone = sanitizePhoneNumber(rawPhone);
+
+  if (!phone) return null;
+
+  const whatsappLabel = mode === "partner" ? "Text Customer" : "Text Host / Driver";
+  const callLabel = mode === "partner" ? "Call Customer" : "Call Host / Driver";
+  const listingLabel = booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || "your booking";
+  const refCode = booking._id?.slice(-6)?.toUpperCase() || "BOOKING";
+  const waMessage = encodeURIComponent(
+    `Hi ${fallbackName}, I am reaching out from Mountain Mate about ${listingLabel} (ref ${refCode}).`
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Button
+        as="a"
+        href={`https://wa.me/${phone}?text=${waMessage}`}
+        target="_blank"
+        rel="noreferrer"
+        variant="ghost"
+        className="rounded-[20px] text-[10px] tracking-[0.22em]"
+      >
+        <MessageCircle size={15} /> {whatsappLabel}
+      </Button>
+      <Button
+        as="a"
+        href={`tel:${phone}`}
+        variant="ghost"
+        className="rounded-[20px] text-[10px] tracking-[0.22em]"
+      >
+        <Phone size={15} /> {callLabel}
+      </Button>
+    </div>
+  );
 }
 
 function NotificationsPanel({ items }) {
@@ -344,7 +439,10 @@ function StatCard({ label, value }) {
 
 function TabButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} className={`rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[0.28em] transition-all ${active ? "bg-orange-500 text-white" : "border border-white/10 bg-white/5 text-white/55 hover:text-white"}`}>
+    <button
+      onClick={onClick}
+      className={`rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[0.28em] transition-all ${active ? "bg-orange-500 text-white" : "border border-white/10 bg-white/5 text-white/55 hover:text-white"}`}
+    >
       {children}
     </button>
   );
@@ -377,6 +475,12 @@ function StatusPill({ status }) {
 
 function isStayBooking(booking) {
   return booking.bookingType === "Hotel" || !!booking.listingId?.hotelName;
+}
+
+function sanitizePhoneNumber(value) {
+  return String(value || "")
+    .replace(/[^\d+]/g, "")
+    .replace(/^00/, "");
 }
 
 function ReviewComposer({ booking, draft, reviewing, onChange, onSubmit }) {

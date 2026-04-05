@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, CheckCircle2, Copy, Loader2, Upload, XCircle } from "lucide-react";
 import API from "../utils/api";
 import { Button } from "../components/ui/Button";
+import { useNotify } from "../context/NotificationContext";
 
 const MANUAL_UPI_ID = "anantkaushik2447-1@oksbi";
 const MANUAL_PAYEE_NAME = "Anant Kaushik (MountainMateAdmin)";
@@ -12,6 +13,7 @@ export default function BookingConfirm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { notify } = useNotify();
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [paying, setPaying] = useState(false);
@@ -65,10 +67,23 @@ export default function BookingConfirm() {
       }
 
       try {
-        const endpoint = booking.bookingType === "Hotel" ? "/hotels/all" : "/transport/all";
-        const res = await API.get(endpoint);
-        const rows = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
-        const match = rows.find((item) => String(item?._id || item?.id || "") === String(booking.listingId));
+        const endpoints = booking.bookingType === "Hotel"
+          ? ["/hotel/all", "/hotel/admin/all"]
+          : ["/transport/all", "/transport/admin/all"];
+
+        let match = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            const res = await API.get(endpoint);
+            const rows = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+            match = rows.find((item) => String(item?._id || item?.id || "") === String(booking.listingId));
+            if (match) break;
+          } catch {
+            // Try the next fallback endpoint.
+          }
+        }
+
         if (active) setListingSnapshot(match || null);
       } catch {
         if (active) setListingSnapshot(null);
@@ -107,8 +122,8 @@ export default function BookingConfirm() {
 
       setBooking(res.data?.data || booking);
       navigate("/bookings", { replace: true });
-    } catch {
-      navigate("/payment/failure", { replace: true });
+    } catch (error) {
+      notify(error?.response?.data?.message || "Payment proof upload failed. Please try again.", "error");
     } finally {
       setPaying(false);
     }
@@ -154,7 +169,7 @@ export default function BookingConfirm() {
                   <div>
                     <p className="text-white/35 font-black uppercase tracking-[0.3em] text-[10px]">Booking</p>
                     <p className="text-white font-black text-xl italic tracking-tight mt-2">
-                      {booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"}
+                      {booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || listingSnapshot?.hotelName || listingSnapshot?.vehicleType || "Booking"}
                     </p>
                   </div>
                   <div className="text-right">

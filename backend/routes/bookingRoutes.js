@@ -2,7 +2,6 @@ const { body } = require("express-validator");
 const validate = require("../middleware/validate");
 const auth = require("../middleware/authMiddleware");
 const anyAuth = require("../middleware/anyAuth");
-const optionalAuth = require("../middleware/optionalAuth");
 const upload = require("../middleware/upload");
 const express = require("express");
 const router = express.Router();
@@ -23,7 +22,7 @@ const {
 
 router.post(
   "/create",
-  optionalAuth,
+  anyAuth,
   [
     body("customerName").notEmpty().withMessage("Name required"),
     body("phoneNumber").isLength({ min: 10 }).withMessage("Invalid phone"),

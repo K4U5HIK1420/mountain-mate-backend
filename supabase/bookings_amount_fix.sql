@@ -13,6 +13,10 @@ alter table public.bookings add column if not exists currency text not null defa
 alter table public.bookings add column if not exists live_tracking jsonb;
 alter table public.bookings add column if not exists manual_payment jsonb;
 
+alter table public.bookings drop constraint if exists bookings_payment_status_check;
+alter table public.bookings
+  add constraint bookings_payment_status_check
+  check (payment_status in ('pending','under_review','paid','failed'));
+
 create index if not exists bookings_user_id_idx on public.bookings(user_id);
 create index if not exists bookings_owner_id_idx on public.bookings(owner_id);
-

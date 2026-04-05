@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Hotel = require("../models/Hotel");
@@ -10,6 +11,58 @@ const { getDataStore } = require("../utils/dataStore");
 const supabaseBookings = require("../services/supabaseBookingsStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+
+async function resolveListingContact(booking, isSupabase) {
+  if (!booking) return null;
+
+  try {
+    if (isSupabase) {
+      return booking.bookingType === "Hotel"
+        ? await supabaseHotels.getHotelById(String(booking.listingId || ""))
+        : await supabaseTransports.getRideById(String(booking.listingId || ""));
+    }
+
+    if (booking.listingId && typeof booking.listingId === "object") {
+      return booking.listingId;
+    }
+
+    const ListingModel = booking.bookingType === "Hotel" ? Hotel : Transport;
+    return await ListingModel.findById(booking.listingId).lean();
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function attachCounterpartyDetails(bookings = [], { viewerRole = "user", isSupabase = false } = {}) {
+  return Promise.all(
+    bookings.map(async (booking) => {
+      if (!booking) return booking;
+
+      if (viewerRole === "partner") {
+        return {
+          ...booking,
+          counterpartyName: booking.customerName || "Customer",
+          counterpartyPhone: booking.phoneNumber || "",
+          counterpartyRole: "customer",
+        };
+      }
+
+      const listing = await resolveListingContact(booking, isSupabase);
+      const isRide = booking.bookingType === "Transport";
+      const counterpartyPhone = String(listing?.contactNumber || "").trim();
+      const counterpartyName = isRide
+        ? String(listing?.driverName || "Driver").trim()
+        : String(listing?.hotelName || "Hotel host").trim();
+
+      return {
+        ...booking,
+        counterpartyName,
+        counterpartyPhone,
+        counterpartyRole: isRide ? "driver" : "host",
+      };
+    })
+  );
+}
 
 // --- 🏔️ PROFILE SETUP ---
 exports.setupProfile = async (req, res) => {
@@ -58,9 +111,16 @@ exports.getMyBookings = async (req, res) => {
           .lean();
 
     const bookingIds = data.map((item) => item._id);
-    const reviews = bookingIds.length
-      ? await Review.find({ bookingId: { $in: bookingIds } }).select("bookingId").lean()
-      : [];
+    const canReadMongoReviews = mongoose.connection.readyState === 1;
+    let reviews = [];
+
+    if (bookingIds.length && canReadMongoReviews) {
+      try {
+        reviews = await Review.find({ bookingId: { $in: bookingIds } }).select("bookingId").lean();
+      } catch (_reviewReadErr) {
+        reviews = [];
+      }
+    }
     const reviewedBookingIds = new Set(reviews.map((item) => String(item.bookingId)));
 
     const enriched = data.map((booking) => {
@@ -84,7 +144,12 @@ exports.getMyBookings = async (req, res) => {
       };
     });
 
-    res.json({ success: true, data: enriched || [] });
+    const withCounterparty = await attachCounterpartyDetails(enriched, {
+      viewerRole: "user",
+      isSupabase,
+    });
+
+    res.json({ success: true, data: withCounterparty || [] });
   } catch (err) { 
     res.status(500).json({ success: false, message: "Failed to fetch your expeditions" }); 
   }
@@ -94,15 +159,21 @@ exports.getMyBookings = async (req, res) => {
 exports.getPartnerIncomingBookings = async (req, res) => {
   try {
     const ownerId = String(req.user?.id || req.user?._id || "");
+    const isSupabase = getDataStore() === "supabase";
     const incoming =
-      getDataStore() === "supabase"
+      isSupabase
         ? await supabaseBookings.listBookingsByOwnerId(ownerId)
         : await Booking.find({ ownerId })
             .populate("listingId")
             .sort({ createdAt: -1 })
             .lean();
 
-    res.json({ success: true, data: incoming || [] });
+    const withCounterparty = await attachCounterpartyDetails(incoming || [], {
+      viewerRole: "partner",
+      isSupabase,
+    });
+
+    res.json({ success: true, data: withCounterparty || [] });
   } catch (err) {
     console.error("Partner Booking Error:", err);
     res.status(500).json({ success: false, message: "Failed to fetch incoming requests" });
