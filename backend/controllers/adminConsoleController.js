@@ -14,7 +14,7 @@ const supabaseTransports = require("../services/supabaseTransportsStore");
 const supabaseBookings = require("../services/supabaseBookingsStore");
 const { createNotification } = require("../services/notificationService");
 
-const HOTEL_FIELDS = ["hotelName", "location", "pricePerNight", "roomsAvailable", "contactNumber", "description", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
+const HOTEL_FIELDS = ["hotelName", "propertyType", "location", "landmark", "ownerName", "pricePerNight", "roomsAvailable", "guestsPerRoom", "availabilityStatus", "contactNumber", "description", "images", "amenities", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
 const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", "routeTo", "fromCoords", "toCoords", "pricePerSeat", "seatsAvailable", "driverName", "contactNumber", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
 const BOOKING_FIELDS = ["customerName", "phoneNumber", "status", "paymentStatus", "date", "startDate", "endDate", "guests", "rooms", "amount", "currency", "manualPayment"];
 const TRIP_FIELDS = ["title", "status", "itinerary"];
@@ -547,12 +547,18 @@ function buildHotelSupabasePatch(body = {}) {
   const update = pickAllowed(body, HOTEL_FIELDS);
   const patch = {};
   if (update.hotelName !== undefined) patch.hotel_name = update.hotelName;
+  if (update.propertyType !== undefined) patch.property_type = update.propertyType;
   if (update.location !== undefined) patch.location = update.location;
+  if (update.landmark !== undefined) patch.landmark = update.landmark;
+  if (update.ownerName !== undefined) patch.owner_name = update.ownerName;
   if (update.pricePerNight !== undefined) patch.price_per_night = Number(update.pricePerNight);
   if (update.roomsAvailable !== undefined) patch.rooms_available = Number(update.roomsAvailable);
+  if (update.guestsPerRoom !== undefined) patch.guests_per_room = Number(update.guestsPerRoom);
+  if (update.availabilityStatus !== undefined) patch.availability_status = update.availabilityStatus;
   if (update.contactNumber !== undefined) patch.contact_number = update.contactNumber;
   if (update.description !== undefined) patch.description = update.description;
   if (update.images !== undefined) patch.images = update.images;
+  if (update.amenities !== undefined) patch.amenities = update.amenities;
   if (update.complianceDetails !== undefined) patch.compliance_details = update.complianceDetails;
   if (update.verificationDocuments !== undefined) patch.verification_documents = update.verificationDocuments;
   if (update.owner !== undefined) patch.owner_id = update.owner;

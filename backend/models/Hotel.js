@@ -5,9 +5,21 @@ const hotelSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    propertyType: {
+        type: String,
+        default: "Hotel"
+    },
     location: {
         type: String,
         required: true
+    },
+    landmark: {
+        type: String,
+        default: ""
+    },
+    ownerName: {
+        type: String,
+        default: ""
     },
     pricePerNight: {
         type: Number,
@@ -16,6 +28,14 @@ const hotelSchema = new mongoose.Schema({
     roomsAvailable: {
         type: Number,
         required: true
+    },
+    guestsPerRoom: {
+        type: Number,
+        default: 2
+    },
+    availabilityStatus: {
+        type: String,
+        default: "Available now"
     },
     contactNumber: {
         type: String,

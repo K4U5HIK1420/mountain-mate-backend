@@ -231,12 +231,22 @@ function HotelDetailsPanel({ selected, patchSelected }) {
   const contact = pick(selected?.contactNumber, selected?.contact_number);
 
   const amenities = (() => {
-    if (Array.isArray(selected?.amenities)) return selected.amenities;
-    try {
-      return JSON.parse(selected?.amenities || "[]");
-    } catch {
-      return [];
+    const rawAmenities = selected?.amenities ?? selected?.amenities_json ?? [];
+    if (Array.isArray(rawAmenities)) return rawAmenities.filter(Boolean);
+    if (rawAmenities && typeof rawAmenities === "object") return Object.values(rawAmenities).filter(Boolean);
+    if (typeof rawAmenities === "string") {
+      try {
+        const parsed = JSON.parse(rawAmenities || "[]");
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+        if (parsed && typeof parsed === "object") return Object.values(parsed).filter(Boolean);
+      } catch {
+        return rawAmenities
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
     }
+    return [];
   })();
 
   return (
@@ -265,6 +275,7 @@ function HotelDetailsPanel({ selected, patchSelected }) {
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Property Name<input value={selected.hotelName || ""} onChange={(e) => setField("hotelName", e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none" /></label>
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Property Type<input value={propertyType || ""} onChange={(e) => setField("propertyType", e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none" /></label>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Owner / Manager Name<input value={pick(selected?.ownerName, selected?.owner_name) || ""} onChange={(e) => setField("ownerName", e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none" /></label>
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Location<input value={selected.location || ""} onChange={(e) => setField("location", e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none" /></label>
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Landmark<input value={landmark || ""} onChange={(e) => setField("landmark", e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none" /></label>
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Price / Night<input type="number" value={selected.pricePerNight || 0} onChange={(e) => setField("pricePerNight", Number(e.target.value) || 0)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none" /></label>

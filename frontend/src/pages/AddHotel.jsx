@@ -45,7 +45,9 @@ const hotelDocumentFields = [
   { key: "ownerAadhaarDoc", label: "Aadhaar Copy" },
   { key: "ownerPanDoc", label: "PAN Copy" },
   { key: "propertyRegistrationDoc", label: "Property Registration / Lease" },
+  { key: "tradeLicenseDoc", label: "Trade License" },
   { key: "gstCertificateDoc", label: "GST Certificate" },
+  { key: "fireSafetyDoc", label: "Fire Safety Certificate" },
 ];
 const requiredDocumentKeys = ["ownerAadhaarDoc", "ownerPanDoc"];
 
@@ -81,6 +83,9 @@ const createEmptyForm = () => ({
   ownerAadhaarNumber: "",
   ownerPanNumber: "",
   gstNumber: "",
+  registrationNumber: "",
+  tradeLicenseNumber: "",
+  fireSafetyCertificateNumber: "",
   bankAccountHolder: "",
   bankAccountNumber: "",
   ifscCode: "",
@@ -433,6 +438,9 @@ const AddHotel = () => {
                     <TextField label="Aadhaar Number" name="ownerAadhaarNumber" value={formData.ownerAadhaarNumber} onChange={updateField} placeholder="XXXX XXXX XXXX" icon={FileBadge2} error={errors.ownerAadhaarNumber} required />
                     <TextField label="PAN Number" name="ownerPanNumber" value={formData.ownerPanNumber} onChange={updateField} placeholder="ABCDE1234F" icon={FileBadge2} error={errors.ownerPanNumber} required />
                     <TextField label="GST Number" name="gstNumber" value={formData.gstNumber} onChange={updateField} placeholder="22AAAAA0000A1Z5" icon={Banknote} />
+                    <TextField label="Registration Number" name="registrationNumber" value={formData.registrationNumber} onChange={updateField} placeholder="Hotel / property registration no" icon={FileBadge2} />
+                    <TextField label="Trade License Number" name="tradeLicenseNumber" value={formData.tradeLicenseNumber} onChange={updateField} placeholder="Trade license no" icon={FileBadge2} />
+                    <TextField label="Fire Safety Certificate No" name="fireSafetyCertificateNumber" value={formData.fireSafetyCertificateNumber} onChange={updateField} placeholder="Fire safety certificate no" icon={FileBadge2} />
                     <TextField label="Bank Account Holder" name="bankAccountHolder" value={formData.bankAccountHolder} onChange={updateField} placeholder="Name as per bank" icon={BadgeCheck} error={errors.bankAccountHolder} required />
                     <TextField label="Bank Account Number" name="bankAccountNumber" value={formData.bankAccountNumber} onChange={updateField} placeholder="XXXXXXXXXXXX" icon={Banknote} error={errors.bankAccountNumber} required />
                     <TextField label="IFSC Code" name="ifscCode" value={formData.ifscCode} onChange={updateField} placeholder="SBIN0001234" icon={Banknote} error={errors.ifscCode} required />

@@ -166,10 +166,10 @@ app.use(express.json());
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
-  skip: (req) =>
-    req.path === "/api/notifications" ||
-    req.path === "/api/notifications/" ||
-    req.path === "/api/notifications/read",
+  skip: (req) => {
+    const path = String(req.path || "").replace(/\/+$/, "") || "/";
+    return path === "/notifications" || path === "/notifications/read";
+  },
   message: {
     message: "Too many requests from this telemetry node, try again in 15 mins",
     status: 429,

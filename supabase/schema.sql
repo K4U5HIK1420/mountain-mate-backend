@@ -10,9 +10,14 @@ create table if not exists public.hotels (
   owner_id uuid not null, -- Supabase auth.users.id
 
   hotel_name text not null,
+  property_type text default 'Hotel',
   location text not null,
+  landmark text default '',
+  owner_name text default '',
   price_per_night integer not null,
   rooms_available integer not null,
+  guests_per_room integer not null default 2,
+  availability_status text default 'Available now',
   contact_number text not null,
   description text default '',
   distance text default '0',
@@ -28,6 +33,11 @@ create table if not exists public.hotels (
 
 alter table public.hotels add column if not exists compliance_details jsonb default '{}'::jsonb;
 alter table public.hotels add column if not exists verification_documents jsonb default '{}'::jsonb;
+alter table public.hotels add column if not exists property_type text default 'Hotel';
+alter table public.hotels add column if not exists landmark text default '';
+alter table public.hotels add column if not exists owner_name text default '';
+alter table public.hotels add column if not exists guests_per_room integer not null default 2;
+alter table public.hotels add column if not exists availability_status text default 'Available now';
 
 create index if not exists hotels_owner_id_idx on public.hotels(owner_id);
 create index if not exists hotels_location_idx on public.hotels(location);

@@ -80,9 +80,14 @@ exports.addHotel = async (req, res, next) => {
 
     const hotel = new Hotel({
       hotelName: req.body.hotelName,
+      propertyType: req.body.propertyType || "Hotel",
       location: req.body.location,
+      landmark: req.body.landmark || "",
+      ownerName: req.body.ownerName || "",
       pricePerNight: Number(req.body.pricePerNight),
       roomsAvailable: Number(req.body.roomsAvailable) || 10,
+      guestsPerRoom: Number(req.body.guestsPerRoom) || 2,
+      availabilityStatus: req.body.availabilityStatus || "Available now",
       contactNumber: req.body.contactNumber || "9999999999",
       description: req.body.description || "",
       distance: req.body.distance || "0",

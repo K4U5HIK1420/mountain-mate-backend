@@ -53,9 +53,14 @@ function mapHotelRow(row) {
   return {
     _id: row.id, // keep frontend compatibility
     hotelName: row.hotel_name,
+    propertyType: row.property_type || row.propertyType || "Hotel",
     location: row.location,
+    landmark: row.landmark || "",
+    ownerName: row.owner_name || row.ownerName || "",
     pricePerNight: row.price_per_night,
     roomsAvailable: row.rooms_available,
+    guestsPerRoom: row.guests_per_room || row.guestsPerRoom || 2,
+    availabilityStatus: row.availability_status || row.availabilityStatus || "Available now",
     contactNumber: row.contact_number,
     description: row.description,
     distance: row.distance,
@@ -77,9 +82,14 @@ async function addHotel({ ownerId, payload }) {
   const insert = {
     owner_id: ownerId,
     hotel_name: payload.hotelName,
+    property_type: payload.propertyType || "Hotel",
     location: payload.location,
+    landmark: payload.landmark || "",
+    owner_name: payload.ownerName || "",
     price_per_night: Number(payload.pricePerNight),
     rooms_available: Number(payload.roomsAvailable) || 10,
+    guests_per_room: Number(payload.guestsPerRoom) || 2,
+    availability_status: payload.availabilityStatus || "Available now",
     contact_number: payload.contactNumber || "9999999999",
     description: payload.description || "",
     distance: payload.distance || "0",
@@ -132,12 +142,17 @@ async function updateHotel({ ownerId, id, updateData }) {
   }
 
   const patch = {};
+  if (safe.propertyType !== undefined) patch.property_type = safe.propertyType;
   if (safe.location !== undefined) patch.location = safe.location;
+  if (safe.landmark !== undefined) patch.landmark = safe.landmark;
+  if (safe.ownerName !== undefined) patch.owner_name = safe.ownerName;
   if (safe.contactNumber !== undefined) patch.contact_number = safe.contactNumber;
   if (safe.description !== undefined) patch.description = safe.description;
   if (safe.distance !== undefined) patch.distance = safe.distance;
   if (safe.pricePerNight !== undefined) patch.price_per_night = Number(safe.pricePerNight);
   if (safe.roomsAvailable !== undefined) patch.rooms_available = Number(safe.roomsAvailable);
+  if (safe.guestsPerRoom !== undefined) patch.guests_per_room = Number(safe.guestsPerRoom);
+  if (safe.availabilityStatus !== undefined) patch.availability_status = safe.availabilityStatus;
   if (safe.images !== undefined) patch.images = safe.images;
   if (safe.amenities !== undefined) {
     patch.amenities = Array.isArray(safe.amenities)
