@@ -320,8 +320,7 @@ exports.getTransports = async (req, res) => {
     }
 
     const filters = {
-      status: "approved",
-      isVerified: true,
+      status: { $in: ["approved", "pending"] },
       seatsAvailable: { $gt: 0 },
     };
 
@@ -352,8 +351,7 @@ exports.searchTransport = async (req, res, next) => {
     const filters = {
       routeFrom: { $regex: from, $options: "i" },
       routeTo: { $regex: to, $options: "i" },
-      status: "approved",
-      isVerified: true,
+      status: { $in: ["approved", "pending"] },
       seatsAvailable: { $gt: 0 },
     };
 

@@ -9,5 +9,6 @@ router.get("/conversations/:id", optionalAuth, controller.getConversation);
 
 router.get("/admin/conversations", supportAdminAuth, controller.listAdminConversations);
 router.post("/admin/conversations/:id/reply", supportAdminAuth, controller.replyAsAdmin);
+router.delete("/admin/conversations/:id/messages/:messageId", supportAdminAuth, controller.deleteMessageAsAdmin);
 
 module.exports = router;

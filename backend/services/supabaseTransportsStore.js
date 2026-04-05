@@ -60,15 +60,15 @@ function mapTransportRow(row) {
     contactNumber: row.contact_number,
     routeFrom: row.route_from,
     routeTo: row.route_to,
-    availableDate: row.available_date,
-    fromCoords: row.from_coords,
-    toCoords: row.to_coords,
-    driverOnline: row.driver_online ?? true,
+    availableDate: row.available_date || row.availableDate || null,
+    fromCoords: row.from_coords || row.fromCoords || null,
+    toCoords: row.to_coords || row.toCoords || null,
+    driverOnline: row.driver_online ?? row.driverOnline ?? true,
     pricePerSeat: row.price_per_seat,
     seatsAvailable: row.seats_available,
     images: row.images || [],
-    complianceDetails: row.compliance_details || {},
-    verificationDocuments: row.verification_documents || {},
+    complianceDetails: row.compliance_details || row.complianceDetails || {},
+    verificationDocuments: row.verification_documents || row.verificationDocuments || {},
     status: row.status,
     isVerified: row.is_verified,
     createdAt: row.created_at,
@@ -117,6 +117,52 @@ async function getMyRides(ownerId) {
   return (data || []).map(mapTransportRow);
 }
 
+function isMissingAvailableDateColumn(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("available_date") && message.includes("does not exist");
+}
+
+function applyBaseRideFilters(query, { from, to }) {
+  let next = query
+    .in("status", ["approved", "pending"])
+    .gt("seats_available", 0);
+
+  if (typeof from === "string") {
+    next = next.ilike("route_from", `%${from}%`);
+  }
+  if (typeof to === "string") {
+    next = next.ilike("route_to", `%${to}%`);
+  }
+  return next;
+}
+
+async function runRideListQuery({ date, from, to }) {
+  const supabase = getSupabaseClient();
+  let query = supabase.from("transports").select("*");
+  query = applyBaseRideFilters(query, { from, to });
+
+  if (date) {
+    query = query.gte("available_date", `${date}T00:00:00.000Z`).lt("available_date", `${date}T23:59:59.999Z`);
+  }
+
+  query = query
+    .order("available_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  let { data, error } = await query;
+  if (!error) return { data, error: null };
+
+  if (!isMissingAvailableDateColumn(error)) {
+    return { data: null, error };
+  }
+
+  let fallbackQuery = supabase.from("transports").select("*");
+  fallbackQuery = applyBaseRideFilters(fallbackQuery, { from, to });
+  fallbackQuery = fallbackQuery.order("created_at", { ascending: false });
+  const fallback = await fallbackQuery;
+  return { data: fallback.data, error: fallback.error };
+}
+
 async function getRideById(id) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
@@ -162,43 +208,17 @@ async function updateTransport({ ownerId, id, updateFields }) {
 }
 
 async function listApprovedRides({ date }) {
-  const supabase = getSupabaseClient();
-  let query = supabase
-    .from("transports")
-    .select("*")
-    .eq("status", "approved")
-    .eq("is_verified", true)
-    .gt("seats_available", 0)
-    .order("available_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
-
-  if (date) {
-    query = query.gte("available_date", `${date}T00:00:00.000Z`).lt("available_date", `${date}T23:59:59.999Z`);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await runRideListQuery({ date });
   if (error) throw new Error(error.message);
   return (data || []).map(mapTransportRow);
 }
 
 async function searchApprovedRides({ from, to, date }) {
-  const supabase = getSupabaseClient();
-  let query = supabase
-    .from("transports")
-    .select("*")
-    .eq("status", "approved")
-    .eq("is_verified", true)
-    .gt("seats_available", 0)
-    .ilike("route_from", `%${from || ""}%`)
-    .ilike("route_to", `%${to || ""}%`)
-    .order("available_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
-
-  if (date) {
-    query = query.gte("available_date", `${date}T00:00:00.000Z`).lt("available_date", `${date}T23:59:59.999Z`);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await runRideListQuery({
+    date,
+    from: from || "",
+    to: to || "",
+  });
   if (error) throw new Error(error.message);
   return (data || []).map(mapTransportRow);
 }

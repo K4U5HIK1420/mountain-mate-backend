@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { LifeBuoy, Loader2, Lock, MessageSquare, Send, ShieldAlert, Sparkles } from "lucide-react";
+import { LifeBuoy, Loader2, Lock, MessageSquare, Send, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import API from "../utils/api";
 import socket from "../utils/socket";
@@ -40,6 +40,7 @@ export default function AdminSupport() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState("");
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [reply, setReply] = useState("");
@@ -140,6 +141,30 @@ export default function AdminSupport() {
       notify("Reply could not be sent", "error");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!selectedConversation || !messageId) return;
+    const shouldDelete = window.confirm("Delete this message permanently?");
+    if (!shouldDelete) return;
+
+    setDeletingMessageId(messageId);
+    try {
+      const res = await API.delete(
+        `/support/admin/conversations/${selectedConversation.id}/messages/${encodeURIComponent(messageId)}`
+      );
+      const updated = normalizeConversation(res.data?.data);
+      setConversations((prev) =>
+        prev
+          .map((item) => (item.id === updated.id ? updated : item))
+          .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
+      );
+      notify("Message deleted", "success");
+    } catch (_error) {
+      notify("Message could not be deleted", "error");
+    } finally {
+      setDeletingMessageId("");
     }
   };
 
@@ -304,11 +329,22 @@ export default function AdminSupport() {
                           : "border border-white/10 bg-white/5 text-white";
 
                     return (
-                      <div key={`${message.sender}-${message.createdAt || index}`} className="flex">
+                      <div key={message.id || `${message.sender}-${message.createdAt || index}`} className="flex">
                         <div className={`max-w-[85%] rounded-[24px] px-5 py-4 shadow-lg ${tone}`}>
-                          <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.26em] opacity-70">
-                            <span>{senderLabel}</span>
-                            <span>{formatTime(message.createdAt)}</span>
+                          <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.26em] opacity-70">
+                            <div className="flex items-center gap-3">
+                              <span>{senderLabel}</span>
+                              <span>{formatTime(message.createdAt)}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              disabled={deletingMessageId === message.id || !message.id}
+                              className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/20 px-2 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/75 transition hover:border-red-400/45 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {deletingMessageId === message.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                              Delete
+                            </button>
                           </div>
                           <p className="mt-3 text-sm leading-7">{message.text}</p>
                         </div>

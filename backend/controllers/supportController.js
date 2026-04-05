@@ -1,9 +1,26 @@
 const supportStore = require("../services/supportConversationsStore");
 
+function resolveMessageId(message, index) {
+  return (
+    String(message?.id || "").trim() ||
+    `${message?.sender || "message"}-${message?.createdAt || "unknown"}-${index}`
+  );
+}
+
+function buildMessage(sender, text) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    sender,
+    text,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function serializeConversation(conversation) {
   const normalizedMessages = (conversation.messages || [])
     .filter((message) => message.sender === "user" || message.sender === "admin")
-    .map((message) => ({
+    .map((message, index) => ({
+      id: resolveMessageId(message, index),
       sender: message.sender,
       text: message.text,
       createdAt: message.createdAt,
@@ -24,7 +41,8 @@ function serializeConversation(conversation) {
 }
 
 function normalizeMessages(messages = []) {
-  return (Array.isArray(messages) ? messages : []).map((message) => ({
+  return (Array.isArray(messages) ? messages : []).map((message, index) => ({
+    id: resolveMessageId(message, index),
     sender: message.sender,
     text: message.text,
     createdAt: message.createdAt || new Date().toISOString(),
@@ -56,7 +74,7 @@ exports.chat = async (req, res, next) => {
     }
 
     const nextMessages = normalizeMessages(conversation.messages);
-    nextMessages.push({ sender: "user", text: message, createdAt: new Date().toISOString() });
+    nextMessages.push(buildMessage("user", message));
 
     conversation.messages = nextMessages;
     conversation.lastUserMessage = message;
@@ -113,10 +131,45 @@ exports.replyAsAdmin = async (req, res, next) => {
     }
 
     const nextMessages = normalizeMessages(conversation.messages);
-    nextMessages.push({ sender: "admin", text: message, createdAt: new Date().toISOString() });
+    nextMessages.push(buildMessage("admin", message));
     conversation.messages = nextMessages;
     conversation.lastAdminMessage = message;
     conversation.status = req.body?.status === "resolved" ? "resolved" : "open";
+    conversation = await supportStore.saveConversation(conversation);
+
+    const payload = serializeConversation(conversation);
+    const io = req.app.get("io");
+    io?.to("support-admin").emit("support:queue-updated", payload);
+    io?.to(`support:${conversation.id}`).emit("support:conversation-updated", payload);
+
+    return res.json({ success: true, data: payload });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteMessageAsAdmin = async (req, res, next) => {
+  try {
+    const messageId = String(req.params.messageId || "").trim();
+    if (!messageId) {
+      return res.status(400).json({ success: false, message: "Message id is required." });
+    }
+
+    let conversation = await supportStore.getConversationById(req.params.id);
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: "Conversation not found." });
+    }
+
+    const currentMessages = normalizeMessages(conversation.messages);
+    const nextMessages = currentMessages.filter((message, index) => resolveMessageId(message, index) !== messageId);
+
+    if (nextMessages.length === currentMessages.length) {
+      return res.status(404).json({ success: false, message: "Message not found." });
+    }
+
+    conversation.messages = nextMessages;
+    conversation.lastUserMessage = [...nextMessages].reverse().find((message) => message.sender === "user")?.text || "";
+    conversation.lastAdminMessage = [...nextMessages].reverse().find((message) => message.sender === "admin")?.text || "";
     conversation = await supportStore.saveConversation(conversation);
 
     const payload = serializeConversation(conversation);
