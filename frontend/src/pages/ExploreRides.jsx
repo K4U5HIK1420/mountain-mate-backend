@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import socket from "../utils/socket";
 import API from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
@@ -67,8 +67,11 @@ const ExploreRides = () => {
 
   useEffect(() => {
     document.body.style.overflow = selectedRide ? "hidden" : "";
+    if (selectedRide) document.body.classList.add("mm-modal-open");
+    else document.body.classList.remove("mm-modal-open");
     return () => {
       document.body.style.overflow = "";
+      document.body.classList.remove("mm-modal-open");
     };
   }, [selectedRide]);
 
@@ -454,9 +457,9 @@ const RideModal = ({
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[10050] p-4 md:p-8"
+    className="fixed inset-0 z-[2147483000] p-4 pt-28 md:p-8 md:pt-32"
   >
-    <button onClick={onClose} className="absolute inset-0 h-full w-full bg-black/88 backdrop-blur-2xl" aria-label="Close ride modal" />
+    <button onClick={onClose} className="absolute inset-0 h-full w-full bg-black/95 backdrop-blur-2xl" aria-label="Close ride modal" />
 
     <motion.div
       initial={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -672,3 +675,10 @@ function FormField({ label, children }) {
 }
 
 export default ExploreRides;
+
+
+
+
+
+
+

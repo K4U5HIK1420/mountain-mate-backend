@@ -43,7 +43,21 @@ router.post(
 router.get("/my-hotels", supabaseAuth, getMyHotels);
 
 // ✅ Inventory update karne ke liye (Rooms/Price change)
-router.patch("/update/:id", supabaseAuth, updateHotel);
+router.patch(
+  "/update/:id",
+  supabaseAuth,
+  upload.fields([
+    { name: "images", maxCount: 10 },
+    { name: "ownerPhoto", maxCount: 1 },
+    { name: "ownerAadhaarDoc", maxCount: 1 },
+    { name: "ownerPanDoc", maxCount: 1 },
+    { name: "propertyRegistrationDoc", maxCount: 1 },
+    { name: "tradeLicenseDoc", maxCount: 1 },
+    { name: "gstCertificateDoc", maxCount: 1 },
+    { name: "fireSafetyDoc", maxCount: 1 },
+  ]),
+  updateHotel
+);
 
 // Image delete karne ke liye
 router.delete("/delete-image", supabaseAuth, deleteHotelImage);

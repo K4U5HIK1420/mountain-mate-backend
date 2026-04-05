@@ -151,6 +151,7 @@ async function updateTransport({ ownerId, id, updateFields }) {
   if (safe.availableDate !== undefined) patch.available_date = safe.availableDate || null;
   if (safe.pricePerSeat !== undefined) patch.price_per_seat = Number(safe.pricePerSeat);
   if (safe.seatsAvailable !== undefined) patch.seats_available = Number(safe.seatsAvailable);
+  if (safe.images !== undefined) patch.images = safe.images;
   if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
   if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
 

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   --deep-black: #050505;
@@ -405,4 +405,22 @@ html:not(.dark) [class*="to-black"] {
   --tw-gradient-from: rgba(255, 248, 241, 0.96) var(--tw-gradient-from-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
   --tw-gradient-to: rgba(239, 227, 215, 0.85) var(--tw-gradient-to-position) !important;
+}
+
+/* Keep dropdown menus dark across admin and partner panels */
+select {
+  color-scheme: dark;
+}
+
+select,
+select option,
+select optgroup {
+  background-color: #0b0b0b;
+  color: #f5f5f5;
+}
+
+/* Hide top floating navbar while fullscreen modals are open */
+body.mm-modal-open nav.fixed.top-0 {
+  opacity: 0;
+  pointer-events: none;
 }

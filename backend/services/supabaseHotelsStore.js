@@ -138,6 +138,14 @@ async function updateHotel({ ownerId, id, updateData }) {
   if (safe.distance !== undefined) patch.distance = safe.distance;
   if (safe.pricePerNight !== undefined) patch.price_per_night = Number(safe.pricePerNight);
   if (safe.roomsAvailable !== undefined) patch.rooms_available = Number(safe.roomsAvailable);
+  if (safe.images !== undefined) patch.images = safe.images;
+  if (safe.amenities !== undefined) {
+    patch.amenities = Array.isArray(safe.amenities)
+      ? safe.amenities
+      : typeof safe.amenities === "string"
+        ? JSON.parse(safe.amenities || "[]")
+        : [];
+  }
   if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
   if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
 

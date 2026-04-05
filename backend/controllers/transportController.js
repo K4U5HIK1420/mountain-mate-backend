@@ -46,8 +46,34 @@ function uploadFileToCloudinary(file, folder) {
   });
 }
 
+function validateMandatoryRideCreate(body = {}, files = {}) {
+  const requiredTextFields = [
+    "vehicleModel",
+    "plateNumber",
+    "driverName",
+    "contactNumber",
+    "driverLicenseNumber",
+    "driverAadhaarNumber",
+    "routeFrom",
+    "routeTo",
+  ];
+
+  const missing = requiredTextFields.filter((key) => !String(body[key] || "").trim());
+  const aadhaarFile = files?.driverAadhaarDoc?.[0];
+  if (!aadhaarFile) missing.push("driverAadhaarDoc");
+
+  return missing;
+}
+
 exports.addTransport = async (req, res) => {
   try {
+    const missingFields = validateMandatoryRideCreate(req.body, req.files);
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `Missing mandatory fields: ${missingFields.join(", ")}`,
+      });
+    }
+
     const imageUrls = [];
     const verificationDocuments = {};
     const imageFiles = req.files?.images || [];
@@ -146,11 +172,61 @@ exports.getMyRides = async (req, res) => {
 
 exports.updateTransport = async (req, res) => {
   try {
+    const uploadedImageFiles = req.files?.images || [];
+    const uploadedDocFiles = {};
+    for (const field of TRANSPORT_DOC_FIELDS) {
+      const file = req.files?.[field]?.[0];
+      if (file) uploadedDocFiles[field] = file;
+    }
+
+    const hasUploadedFiles = uploadedImageFiles.length > 0 || Object.keys(uploadedDocFiles).length > 0;
+
     if (getDataStore() === "supabase") {
+      const existing = await supabaseTransports.getRideById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Ride not found" });
+      if (String(existing.owner || "") !== String(req.user.id || "")) {
+        return res.status(403).json({ message: "Not authorized to update this ride" });
+      }
+
+      const nextComplianceDetails = {
+        ...(existing.complianceDetails || {}),
+      };
+      const incomingCompliance = buildTransportComplianceDetails(req.body);
+      Object.entries(incomingCompliance).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          nextComplianceDetails[key] = value;
+        }
+      });
+
+      const nextVerificationDocuments = {
+        ...(existing.verificationDocuments || {}),
+      };
+      for (const field of Object.keys(uploadedDocFiles)) {
+        const result = await uploadFileToCloudinary(uploadedDocFiles[field], "mountain_mate/transport_verification");
+        nextVerificationDocuments[field] = result.secure_url;
+        if (fs.existsSync(uploadedDocFiles[field].path)) fs.unlinkSync(uploadedDocFiles[field].path);
+      }
+
+      let nextImages = Array.isArray(existing.images) ? [...existing.images] : [];
+      for (const file of uploadedImageFiles) {
+        const result = await uploadFileToCloudinary(file, "mountain_mate/transports");
+        nextImages.push(result.secure_url);
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+
+      const mergedUpdateFields = {
+        ...req.body,
+        complianceDetails: nextComplianceDetails,
+        verificationDocuments: nextVerificationDocuments,
+      };
+      if (hasUploadedFiles) {
+        mergedUpdateFields.images = nextImages;
+      }
+
       const updated = await supabaseTransports.updateTransport({
         ownerId: req.user.id,
         id: req.params.id,
-        updateFields: req.body,
+        updateFields: mergedUpdateFields,
       });
 
       return res.json({
@@ -160,7 +236,48 @@ exports.updateTransport = async (req, res) => {
       });
     }
 
-    const updatedRide = await Transport.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+    const existingRide = await Transport.findById(req.params.id);
+    if (!existingRide) return res.status(404).json({ message: "Ride not found" });
+    if (String(existingRide.owner || "") !== String(req.user.id || "")) {
+      return res.status(403).json({ message: "Not authorized to update this ride" });
+    }
+
+    const nextComplianceDetails = {
+      ...(existingRide.complianceDetails || {}),
+    };
+    const incomingCompliance = buildTransportComplianceDetails(req.body);
+    Object.entries(incomingCompliance).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        nextComplianceDetails[key] = value;
+      }
+    });
+
+    const nextVerificationDocuments = {
+      ...(existingRide.verificationDocuments || {}),
+    };
+    for (const field of Object.keys(uploadedDocFiles)) {
+      const result = await uploadFileToCloudinary(uploadedDocFiles[field], "mountain_mate/transport_verification");
+      nextVerificationDocuments[field] = result.secure_url;
+      if (fs.existsSync(uploadedDocFiles[field].path)) fs.unlinkSync(uploadedDocFiles[field].path);
+    }
+
+    let nextImages = Array.isArray(existingRide.images) ? [...existingRide.images] : [];
+    for (const file of uploadedImageFiles) {
+      const result = await uploadFileToCloudinary(file, "mountain_mate/transports");
+      nextImages.push(result.secure_url);
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    }
+
+    const updatePayload = {
+      ...req.body,
+      complianceDetails: nextComplianceDetails,
+      verificationDocuments: nextVerificationDocuments,
+    };
+    if (hasUploadedFiles) {
+      updatePayload.images = nextImages;
+    }
+
+    const updatedRide = await Transport.findByIdAndUpdate(req.params.id, { $set: updatePayload }, { new: true });
 
     res.json({
       success: true,
@@ -168,6 +285,11 @@ exports.updateTransport = async (req, res) => {
       data: updatedRide,
     });
   } catch (error) {
+    if (req.files) {
+      Object.values(req.files).flat().forEach((file) => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      });
+    }
     res.status(500).json({ message: "Update failed" });
   }
 };

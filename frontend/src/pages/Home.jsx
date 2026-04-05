@@ -1,18 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import {
   Activity,
   ArrowRight,
+  BadgeCheck,
   BellRing,
+  CarFront,
   Clock,
   CloudRain,
   Compass,
   Eye,
   HeartPulse,
+  Hotel,
+  MapPin,
   Mountain,
   Navigation2,
+  Search,
   ShieldCheck,
   Sparkles,
+  Star,
   Sunrise,
   Sunset,
   Thermometer,
@@ -126,12 +132,83 @@ const rotatingReasons = [
   },
 ];
 
+const searchSuggestions = [
+  "Kedarnath",
+  "Badrinath",
+  "Rishikesh",
+  "Haridwar",
+  "Auli",
+  "Chopta",
+  "Valley of Flowers",
+  "Mussoorie",
+  "Nainital",
+  "Gangotri",
+  "Yamunotri",
+];
+
+const searchModes = [
+  { key: "stays", label: "Stay", icon: Hotel, route: "/explore-stays" },
+  { key: "rides", label: "Ride", icon: CarFront, route: "/explore-rides" },
+  { key: "planner", label: "Full Plan", icon: Compass, route: "/planner" },
+];
+
+const trustBadges = [
+  { value: "4.8/5", label: "Average Traveler Rating" },
+  { value: "12k+", label: "Trips Planned" },
+  { value: "450+", label: "Verified Partners" },
+  { value: "24x7", label: "Mountain Support Desk" },
+];
+
+const testimonials = [
+  {
+    name: "Aastha Verma",
+    trip: "Haridwar to Kedarnath",
+    quote: "Planning used to be chaotic. With Mountain Mate, stay and ride confirmation came together in one flow.",
+    rating: 5,
+  },
+  {
+    name: "Rohan Negi",
+    trip: "Rishikesh weekend trail",
+    quote: "The route, weather signal, and local booking clarity saved us a lot of last-minute stress.",
+    rating: 5,
+  },
+  {
+    name: "Pooja Sharma",
+    trip: "Family circuit plan",
+    quote: "Perfect for non-technical travelers. Simple search, clear support, and trusted options for parents.",
+    rating: 5,
+  },
+];
+
 export default function Home() {
   const navigate = useNavigate();
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 700], [0, 180]);
   const hazeY = useTransform(scrollY, [0, 700], [0, -90]);
   const [tickerItems, setTickerItems] = useState(defaultTickerItems);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSearchMode, setActiveSearchMode] = useState(searchModes[0].key);
+
+  const filteredSuggestions = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) return searchSuggestions.slice(0, 6);
+    return searchSuggestions
+      .filter((item) => item.toLowerCase().includes(normalized))
+      .slice(0, 6);
+  }, [searchQuery]);
+
+  const activeMode = searchModes.find((mode) => mode.key === activeSearchMode) || searchModes[0];
+
+  const handleSearchSubmit = () => {
+    const target = activeMode.route;
+    const query = searchQuery.trim();
+    if (!query) {
+      navigate(target);
+      return;
+    }
+    navigate(`${target}?q=${encodeURIComponent(query)}`);
+  };
 
   useEffect(() => {
     let active = true;
@@ -226,43 +303,122 @@ export default function Home() {
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-balance text-5xl font-black uppercase italic tracking-[-0.06em] text-white sm:text-7xl lg:text-[10rem] lg:leading-[0.82]">
-              From Booking
+              Reach The Hills
               <br />
               <span className="bg-gradient-to-r from-white via-amber-200 to-orange-500 bg-clip-text text-transparent">
-                To Basecamp.
+                Without The Chaos.
               </span>
             </motion.h1>
 
+            <motion.p variants={fadeUp} className="mt-6 max-w-3xl text-base font-medium leading-8 text-white/75 md:text-lg">
+              Plan verified stays, trusted rides, and your complete Uttarakhand trip in minutes from one premium dashboard.
+            </motion.p>
+
+            <motion.div variants={fadeUp} className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button
+                size="lg"
+                onClick={() => navigate("/planner")}
+                className="rounded-full px-8 text-[11px] tracking-[0.28em] shadow-[0_14px_35px_rgba(249,115,22,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_45px_rgba(249,115,22,0.45)]"
+              >
+                Start Planning Now <ArrowRight size={16} />
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                onClick={() => navigate("/explore-stays")}
+                className="rounded-full border-white/20 px-8 text-[11px] tracking-[0.26em] transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-300/40"
+              >
+                View Trusted Options
+              </Button>
+            </motion.div>
+
             <motion.div variants={fadeUp} className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
               <p className="max-w-2xl border-l border-orange-500/30 pl-6 text-base font-medium leading-8 text-white/68 md:text-lg">
-                Mountain Mate helps travelers book verified stays, reliable rides, and smoother mountain journeys in one place. Built for Uttarakhand, it turns scattered planning into a cleaner, safer, and more dependable travel experience.
+                Trusted by pilgrims, families, and explorers, Mountain Mate reduces planning stress with cleaner booking flow, route clarity, and dependable local inventory.
               </p>
               <RotatingReasonCard />
             </motion.div>
 
             <motion.div variants={fadeUp} className="mt-10 cinematic-surface spotlight-border rounded-[34px] p-3 md:rounded-[42px] md:p-4">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_auto]">
-                <div className="rounded-[28px] border border-white/8 bg-white/6 px-6 py-5 backdrop-blur-xl">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)_auto]">
+                <div className="relative rounded-[28px] border border-white/8 bg-white/6 px-6 py-5 backdrop-blur-xl">
                   <div className="mb-3 flex items-center gap-3 text-orange-400">
                     <Navigation2 size={18} className="rotate-45" />
-                    <span className="text-[9px] font-black uppercase tracking-[0.35em] text-white/45">Where To</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.35em] text-white/45">Search Destination</span>
                   </div>
-                  <input
-                    placeholder="SEARCH YOUR NEXT ROUTE..."
-                    className="w-full bg-transparent text-sm font-black uppercase tracking-[0.25em] text-white outline-none placeholder:text-white/24 md:text-base"
-                  />
+                  <div className="flex items-center gap-3">
+                    <Search size={16} className="text-white/40" />
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => window.setTimeout(() => setShowSuggestions(false), 100)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSearchSubmit();
+                      }}
+                      placeholder="Try Kedarnath, Badrinath, Auli..."
+                      className="w-full bg-transparent text-sm font-bold tracking-[0.08em] text-white outline-none placeholder:text-white/24 md:text-base"
+                    />
+                  </div>
+                  {showSuggestions && filteredSuggestions.length ? (
+                    <div className="absolute left-5 right-5 top-[calc(100%-0.35rem)] z-40 overflow-hidden rounded-2xl border border-white/12 bg-[#0c0c0c]/95 shadow-[0_25px_55px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                      {filteredSuggestions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            setSearchQuery(item);
+                            setShowSuggestions(false);
+                          }}
+                          className="flex w-full items-center gap-3 border-b border-white/6 px-4 py-3 text-left text-sm text-white/80 transition-colors last:border-b-0 hover:bg-white/5"
+                        >
+                          <MapPin size={14} className="text-orange-300/85" />
+                          <span>{item}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="rounded-[28px] border border-white/8 bg-white/6 px-6 py-5 backdrop-blur-xl">
+
+                <div className="rounded-[28px] border border-white/8 bg-white/6 px-5 py-5 backdrop-blur-xl">
                   <div className="mb-3 flex items-center gap-3 text-amber-300">
                     <BellRing size={18} />
                     <span className="text-[9px] font-black uppercase tracking-[0.35em] text-white/45">Travel Need</span>
                   </div>
-                  <p className="text-sm font-black uppercase tracking-[0.25em] text-white/78 md:text-base">Stay, Ride, Or Full Planning</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {searchModes.map((mode) => {
+                      const Icon = mode.icon;
+                      const isActive = mode.key === activeSearchMode;
+                      return (
+                        <button
+                          key={mode.key}
+                          type="button"
+                          onClick={() => setActiveSearchMode(mode.key)}
+                          className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition-all ${isActive ? "border-orange-300/45 bg-orange-500/22 text-orange-100" : "border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:text-white/80"}`}
+                        >
+                          <span className="mb-1 flex justify-center">
+                            <Icon size={13} />
+                          </span>
+                          {mode.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <Button size="lg" onClick={() => navigate("/explore-stays")} className="min-h-full rounded-[28px] px-8 text-[11px] tracking-[0.3em]">
-                  Start Your Journey <ArrowRight size={16} />
+
+                <Button
+                  size="lg"
+                  onClick={handleSearchSubmit}
+                  className="min-h-full rounded-[28px] px-8 text-[11px] tracking-[0.3em] transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  {activeMode.label === "Full Plan" ? "Build My Plan" : `Explore ${activeMode.label}`} <ArrowRight size={16} />
                 </Button>
               </div>
+              <p className="mt-3 px-2 text-xs text-white/48">Popular now: Kedarnath, Badrinath, Joshimath, Valley of Flowers</p>
             </motion.div>
 
             <motion.div variants={fadeUp} className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-black/25 backdrop-blur-2xl">
@@ -415,6 +571,63 @@ export default function Home() {
         </Container>
       </section>
 
+      <section className="relative z-10 px-4 py-20 md:py-28">
+        <Container>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
+            className="cinematic-surface spotlight-border rounded-[38px] p-6 md:p-10"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Trusted By Travelers</p>
+                <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.04em] text-white md:text-6xl">
+                  Social proof that feels
+                  <span className="ml-3 text-white/25">earned.</span>
+                </h2>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200">
+                <BadgeCheck size={14} />
+                Verified Mountain Partners
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {trustBadges.map((item) => (
+                <StatCard key={item.label} value={item.value} label={item.label} />
+              ))}
+            </div>
+
+            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+              {testimonials.map((item, index) => (
+                <motion.article
+                  key={item.name}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.7, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ y: -5 }}
+                  className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_14px_40px_rgba(0,0,0,0.24)]"
+                >
+                  <div className="flex items-center gap-1 text-amber-300">
+                    {Array.from({ length: item.rating }).map((_, starIndex) => (
+                      <Star key={`${item.name}-${starIndex}`} size={14} className="fill-amber-300" />
+                    ))}
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-white/70">"{item.quote}"</p>
+                  <div className="mt-5 border-t border-white/10 pt-4">
+                    <p className="text-sm font-black uppercase tracking-[0.12em] text-white">{item.name}</p>
+                    <p className="mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">{item.trip}</p>
+                  </div>
+                </motion.article>
+              ))}
+            </div>
+          </motion.div>
+        </Container>
+      </section>
+
       <section className="relative z-10 overflow-hidden px-4 py-28 text-center md:py-40">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.16),transparent_28%)]" />
         <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-orange-500/10">
@@ -429,27 +642,28 @@ export default function Home() {
           >
             <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Final Call</p>
             <h2 className="mt-6 text-5xl font-black uppercase italic tracking-[-0.06em] text-white md:text-8xl lg:text-[10rem] lg:leading-[0.84]">
-              Plan
+              Book
               <br />
-              <span className="bg-gradient-to-b from-amber-200 via-orange-400 to-orange-700 bg-clip-text text-transparent">Together.</span>
+              <span className="bg-gradient-to-b from-amber-200 via-orange-400 to-orange-700 bg-clip-text text-transparent">Confidently.</span>
             </h2>
             <p className="mx-auto mt-8 max-w-2xl text-base leading-8 text-white/62 md:text-lg">
-              Generic travel platforms can help you search. Mountain Mate is built to help you actually move, book, and arrive with more confidence.
+              Skip random calls and scattered tabs. Start with verified options and finish your Uttarakhand trip planning in one smooth flow.
             </p>
             <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
               <Button as="button" size="lg" variant="neutral" onClick={() => navigate("/explore-stays")} className="rounded-full px-10">
-                Explore Stays <ArrowRight size={16} />
+                Find Verified Stays <ArrowRight size={16} />
               </Button>
               <Button as="button" size="lg" onClick={() => navigate("/explore-rides")} className="rounded-full px-10">
-                Explore Rides <ArrowRight size={16} />
+                Book Trusted Rides <ArrowRight size={16} />
               </Button>
               <Button as="button" size="lg" variant="ghost" onClick={() => navigate("/planner")} className="rounded-full px-10">
-                Plan My Trip
+                Build Full Plan
               </Button>
             </div>
           </motion.div>
         </Container>
       </section>
+
     </div>
   );
 }

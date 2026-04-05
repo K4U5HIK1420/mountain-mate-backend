@@ -1,283 +1,382 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, Mail, MapPin, Heart, Package, 
-  Settings, LogOut, Camera, ChevronRight, Clock, 
-  Gift, Copy, Map as MapIcon, ShieldCheck, TrendingUp, Sparkles, Briefcase, ExternalLink
-} from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import API from '../utils/api';
-import { useNavigate } from 'react-router-dom';
-import { useNotify } from '../context/NotificationContext';
+import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowRight,
+  Compass,
+  Home,
+  LifeBuoy,
+  LogOut,
+  Map,
+  Mountain,
+  Package,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  UserCog,
+  Car,
+  Hotel,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import API from "../utils/api";
+import { useAuth } from "../context/AuthContext";
+import { useNotify } from "../context/NotificationContext";
+import { Button } from "../components/ui/Button";
+import { Container } from "../components/ui/Container";
 
-const Profile = () => {
+const sidebarItems = [
+  { id: "bookings", label: "Recent Activity", icon: Package },
+  { id: "trips", label: "Tactical Maps", icon: Map },
+  { id: "settings", label: "Identity Config", icon: UserCog },
+];
+
+const secondaryCards = [
+  { id: "bookings", title: "Reservations", metricKey: "active", subtitle: "Active Logs" },
+  { id: "trips", title: "Planner", metricKey: "trips", subtitle: "Saved Trips" },
+  { id: "settings", title: "Identity", metricKey: "level", subtitle: "Config Ready" },
+];
+
+const bottomNav = [
+  { label: "Home", to: "/", icon: Home },
+  { label: "Stays", to: "/explore-stays", icon: Hotel },
+  { label: "Rides", to: "/explore-rides", icon: Car },
+  { label: "Admin Console", to: "/admin-mate", icon: ShieldCheck },
+  { label: "Support", to: "/support", icon: LifeBuoy },
+];
+
+function useCountUp(target, duration = 850) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const numericTarget = Number(target || 0);
+    if (!Number.isFinite(numericTarget)) {
+      setCount(0);
+      return;
+    }
+
+    const start = performance.now();
+    let frame = null;
+
+    const tick = (time) => {
+      const progress = Math.min(1, (time - start) / duration);
+      setCount(Math.round(numericTarget * progress));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [target, duration]);
+
+  return count;
+}
+
+export default function Profile() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { notify } = useNotify();
-  const [activeTab, setActiveTab] = useState('bookings');
+
+  const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
-  const [wishlist, setWishlist] = useState([]);
   const [savedTrips, setSavedTrips] = useState([]);
-  const [referralData, setReferralData] = useState({ credits: 0, referralCount: 0 });
-  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchProfileData = async () => {
       try {
-        const [bookingRes, tripsRes, wishlistRes, referralRes] = await Promise.all([
-          API.get('/user/bookings').catch(() => ({ data: { data: [] } })),
-          API.get('/trips').catch(() => ({ data: { data: [] } })),
-          API.get('/user/wishlist/items').catch(() => ({ data: { data: [] } })),
-          API.get('/user/referral').catch(() => ({ data: { data: null } }))
+        const [bookingRes, tripsRes] = await Promise.all([
+          API.get("/user/bookings").catch(() => ({ data: { data: [] } })),
+          API.get("/trips").catch(() => ({ data: { data: [] } })),
         ]);
-        setBookings(bookingRes.data.data || []);
+
+        setBookings(bookingRes.data?.data || []);
         setSavedTrips(tripsRes.data?.data || []);
-        setWishlist(wishlistRes.data?.data || []);
-        setReferralData(referralRes.data?.data || { credits: 0, referralCount: 0 });
-      } catch (error) { console.error("Profile Sync Failed"); }
+      } catch {
+        notify("Profile sync failed", "error");
+      }
     };
-    if (user) fetchData();
-  }, [user]);
+
+    if (user) fetchProfileData();
+  }, [notify, user]);
+
+  const stats = useMemo(
+    () => ({
+      completed: bookings.length,
+      planned: savedTrips.length,
+      active: bookings.filter((item) => !["cancelled", "completed"].includes(String(item.status || "").toLowerCase())).length,
+      level: Math.max(1, bookings.length + savedTrips.length),
+    }),
+    [bookings, savedTrips.length]
+  );
+
+  const name = String(user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Traveler").toUpperCase();
+
+  const completedCount = useCountUp(stats.completed);
+  const plannedCount = useCountUp(stats.planned);
+  const activeCount = useCountUp(stats.active);
+  const levelCount = useCountUp(stats.level);
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
+    navigate("/login");
   };
 
-  if (!user) return (
-    <div className="h-screen flex items-center justify-center bg-black">
-      <p className="text-orange-500 font-black animate-pulse uppercase tracking-[0.5em]">Identity Required...</p>
-    </div>
-  );
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black">
+        <p className="animate-pulse text-[11px] font-black uppercase tracking-[0.35em] text-orange-400">
+          Identity Required
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-4 md:px-8 font-sans relative overflow-hidden">
-      
-      {/* --- CINEMATIC BACKGROUND --- */}
-      <div className="fixed top-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none z-0" />
-      <div className="fixed bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-orange-600/10 blur-[150px] rounded-full pointer-events-none z-0" />
+    <div className="min-h-screen bg-[#050505] pb-28 pt-28 text-white md:pt-32">
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute left-[4%] top-6 h-[22rem] w-[22rem] rounded-full bg-orange-500/14 blur-[130px]" />
+        <div className="absolute bottom-[-8rem] right-[5%] h-[24rem] w-[24rem] rounded-full bg-orange-400/10 blur-[130px]" />
+      </div>
 
-      <div className="max-w-6xl mx-auto relative z-10">
-        
-        {/* --- THE CORE IDENTITY --- */}
-        <div className="flex flex-col items-center mb-16">
-          <div 
-            className="relative group cursor-pointer"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="absolute -inset-6 bg-gradient-to-tr from-blue-500 via-purple-500 to-orange-500 rounded-full opacity-10 blur-2xl group-hover:opacity-30 transition-opacity"
-            />
-            
-            <div className="relative w-40 h-40 md:w-48 md:h-48 rounded-full p-[2px] bg-gradient-to-b from-white/20 to-transparent backdrop-blur-3xl overflow-hidden shadow-2xl border border-white/5">
-              <div className="w-full h-full rounded-full bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
-                <div className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-br from-white to-white/20">
-                  {user.email?.charAt(0).toUpperCase()}
+      <Container className="relative z-10">
+        <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),rgba(6,6,6,0.94)] p-5 backdrop-blur-2xl md:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                className="relative"
+              >
+                <motion.div
+                  animate={{ opacity: [0.25, 0.5, 0.25] }}
+                  transition={{ duration: 2.6, repeat: Infinity }}
+                  className="absolute -inset-2 rounded-full bg-orange-500/30 blur-2xl"
+                />
+                <div className="relative h-28 w-28 rounded-full border border-orange-400/40 bg-black/45 p-1 shadow-[0_0_35px_rgba(249,115,22,0.35)]">
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0d0d0d] text-4xl font-black italic text-orange-200">
+                    {user.email?.charAt(0)?.toUpperCase() || "M"}
+                  </div>
+                </div>
+              </motion.div>
+
+              <div>
+                <h1 className="text-center text-3xl font-black uppercase italic tracking-[-0.03em] text-white sm:text-left md:text-5xl">
+                  {name}
+                </h1>
+                <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-orange-200">
+                  <Sparkles size={12} />
+                  Verified Expeditionary Elite
                 </div>
               </div>
             </div>
 
-            <div className="absolute -bottom-2 right-4 bg-orange-600 p-3 rounded-2xl shadow-2xl border-4 border-[#050505]">
-               <ShieldCheck size={20} className="text-white" />
-            </div>
+            <motion.button
+              whileHover={{ y: -2 }}
+              onClick={() => navigate("/bookings")}
+              className="group rounded-2xl border border-orange-400/30 bg-gradient-to-r from-[#ff6a00] to-[#ff8c00] px-6 py-4 text-left shadow-[0_16px_45px_rgba(249,115,22,0.35)] transition-all"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-black/75">Open Command Center</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-black uppercase tracking-tight text-white">
+                My Active Reservations
+                <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+              </p>
+              <p className="mt-1 text-[11px] text-white/85">
+                Manage your upcoming stays, rides & tactical logs
+              </p>
+            </motion.button>
           </div>
+        </section>
 
-          <div className="text-center mt-8 space-y-2">
-             <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
-                {user.user_metadata?.full_name || user.email?.split('@')[0]}
-             </h1>
-             <p className="text-orange-500 text-[9px] font-black tracking-[0.5em] uppercase italic flex items-center justify-center gap-2">
-               <Sparkles size={12}/> Verified Expeditionary Elite
-             </p>
-          </div>
-        </div>
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard icon={Star} label="Completed Missions" value={completedCount} />
+          <StatCard icon={Compass} label="Planned Paths" value={plannedCount} />
+          <StatCard icon={Package} label="Active Reservations" value={activeCount} />
+          <StatCard icon={ShieldCheck} label="Explorer Level" value={levelCount} />
+        </section>
 
-        {/* 🆕 THE CENTRAL COMMAND (MY BOOKINGS CARD) */}
-        <motion.div 
-          whileHover={{ y: -5, borderColor: 'rgba(249, 115, 22, 0.4)' }}
-          onClick={() => navigate('/bookings')}
-          className="mb-16 p-8 md:p-10 rounded-[50px] bg-gradient-to-br from-orange-600/[0.08] to-transparent border border-white/10 backdrop-blur-3xl relative overflow-hidden group cursor-pointer shadow-2xl"
-        >
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-            <div className="flex gap-8 items-center">
-              <div className="p-5 bg-orange-600 rounded-[30px] text-white shadow-[0_15px_40px_rgba(234,88,12,0.3)] group-hover:rotate-12 transition-transform duration-500">
-                <Briefcase size={28} />
-              </div>
-              <div className="text-center md:text-left">
-                <h3 className="text-2xl md:text-3xl font-black uppercase italic text-white tracking-tighter">My Active Reservations</h3>
-                <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] mt-2">Manage your upcoming stays, rides & tactical logs</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 bg-white/5 px-8 py-4 rounded-full border border-white/10 group-hover:border-orange-500/50 transition-all">
-              <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">Open Command Center</span>
-              <ChevronRight className="text-orange-500 group-hover:translate-x-2 transition-transform" size={18} />
-            </div>
-          </div>
-          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-orange-600/10 blur-[60px] rounded-full pointer-events-none" />
-        </motion.div>
-
-        {/* --- STATS DASHBOARD --- */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
-          <StatCard label="Completed missions" val={bookings.length} />
-          <StatCard label="Planned paths" val={savedTrips.length} />
-          <StatCard label="Vaulted items" val={wishlist.length} />
-          <StatCard label="Referral Credits" val={`Rs ${referralData.credits || 0}`} />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
-          <ProfileShortcut title="Planner" meta={`${savedTrips.length} saved`} onClick={() => setActiveTab('trips')} />
-          <ProfileShortcut title="Wishlist" meta={`${wishlist.length} items`} onClick={() => setActiveTab('wishlist')} />
-          <ProfileShortcut title="Referrals" meta={`${referralData.referralCount || 0} joined`} onClick={() => setActiveTab('referrals')} />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* NAVIGATION TABS */}
-          <div className="lg:col-span-3 space-y-3">
-            {[
-              { id: 'bookings', label: 'Recent Activity', icon: <Package size={18}/> },
-              { id: 'trips', label: 'Tactical Maps', icon: <MapIcon size={18}/> },
-              { id: 'wishlist', label: 'Secured Vault', icon: <Heart size={18}/> },
-              { id: 'referrals', label: 'Referral Hub', icon: <Gift size={18}/> },
-              { id: 'settings', label: 'Identity Config', icon: <Settings size={18}/> }
-            ].map(tab => (
+        <section className="mt-6 grid gap-4 md:grid-cols-3">
+          {secondaryCards.map((item) => {
+            const count =
+              item.metricKey === "active"
+                ? stats.active
+                : item.metricKey === "trips"
+                ? stats.planned
+                : stats.level;
+            return (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-5 px-8 py-5 rounded-[25px] font-black text-[9px] uppercase tracking-widest transition-all border ${
-                  activeTab === tab.id ? 'bg-orange-600 border-orange-500 text-white shadow-xl italic' : 'bg-white/5 border-transparent text-white/30 hover:bg-white/10 hover:text-white'
-                }`}
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className="rounded-2xl border border-white/12 bg-white/5 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-orange-400/35 hover:shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
               >
-                {tab.icon} {tab.label}
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">{item.title}</p>
+                <p className="mt-2 text-3xl font-black italic text-white">{count}</p>
+                <p className="mt-1 text-xs text-white/55">{item.subtitle}</p>
+                <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">Open in Profile</p>
               </button>
-            ))}
-            <button onClick={handleLogout} className="w-full flex items-center gap-5 px-8 py-5 rounded-[25px] font-black text-[9px] uppercase tracking-widest text-red-500 bg-red-500/5 mt-8 border border-red-500/10 hover:bg-red-500 hover:text-white transition-all">
-              <LogOut size={18}/> Terminate Session
-            </button>
-          </div>
+            );
+          })}
+        </section>
 
-          {/* DYNAMIC CONTENT AREA */}
-          <div className="lg:col-span-9 bg-white/[0.02] border border-white/5 rounded-[50px] p-8 md:p-12 backdrop-blur-xl">
+        <section className="mt-6 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="rounded-[24px] border border-white/10 bg-black/35 p-4 backdrop-blur-xl">
+            <div className="space-y-2">
+              {sidebarItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] transition-all ${
+                      active
+                        ? "border-orange-400/40 bg-orange-500/15 text-orange-100 shadow-[0_10px_25px_rgba(249,115,22,0.2)]"
+                        : "border-transparent bg-white/5 text-white/55 hover:border-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon size={15} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="mt-6 flex w-full items-center gap-3 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-red-200 transition hover:bg-red-500/20"
+            >
+              <LogOut size={15} />
+              Terminate Session
+            </button>
+          </aside>
+
+          <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)),rgba(8,8,8,0.9)] p-5 backdrop-blur-xl md:p-7">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.22 }}
               >
-                {activeTab === 'bookings' && (
-                  bookings.length === 0 ? <EmptyState title="No bookings yet" /> : bookings.slice(0, 3).map(b => <BookingCard key={b._id} booking={b} />)
-                )}
-
-                {activeTab === 'trips' && (
-                  savedTrips.length === 0 ? <EmptyState title="No saved trips yet" /> : savedTrips.map((t, i) => (
-                    <div key={i} onClick={() => navigate('/planner')} className="bg-white/5 border border-white/10 p-8 rounded-[35px] flex justify-between items-center group hover:bg-white/[0.08] transition-all cursor-pointer">
-                       <div className="space-y-2">
-                         <div className="flex items-center gap-2 text-orange-500 font-black text-[8px] uppercase tracking-widest italic"><Clock size={12}/> Draft Log</div>
-                         <h4 className="text-xl font-black italic uppercase tracking-tighter">{t.title}</h4>
-                       </div>
-                       <ChevronRight className="text-white/20 group-hover:text-orange-500 transition-colors" />
+                {activeTab === "bookings" && (
+                  bookings.length === 0 ? (
+                    <ReservationEmpty onStart={() => navigate("/planner")} />
+                  ) : (
+                    <div className="space-y-3">
+                      {bookings.slice(0, 5).map((booking) => (
+                        <BookingCard key={booking._id} booking={booking} />
+                      ))}
                     </div>
-                  ))
+                  )
                 )}
 
-                {activeTab === 'wishlist' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {wishlist.length === 0 ? <EmptyState title="No wishlist items yet" /> : wishlist.map(w => <WishCard key={w._id || w.item?._id} item={w} />)}
-                  </div>
-                )}
-
-                {activeTab === 'referrals' && (
-                  <div className="space-y-6">
-                    <div onClick={() => navigate('/referral')} className="bg-white/5 border border-white/10 p-8 rounded-[35px] flex justify-between items-center group hover:bg-white/[0.08] transition-all cursor-pointer">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-orange-500 font-black text-[8px] uppercase tracking-widest italic"><Gift size={12}/> Referral Overview</div>
-                        <h4 className="text-xl font-black italic uppercase tracking-tighter">Invite friends and track credits</h4>
-                        <p className="text-sm text-white/45">Recruits: {referralData.referralCount || 0} | Credits: Rs {referralData.credits || 0}</p>
-                      </div>
-                      <ExternalLink className="text-white/20 group-hover:text-orange-500 transition-colors" />
+                {activeTab === "trips" && (
+                  savedTrips.length === 0 ? (
+                    <GenericEmpty title="No tactical maps saved yet." />
+                  ) : (
+                    <div className="space-y-3">
+                      {savedTrips.map((trip, index) => (
+                        <button
+                          key={`${trip._id || "trip"}-${index}`}
+                          onClick={() => navigate("/planner")}
+                          className="w-full rounded-xl border border-white/12 bg-white/5 p-4 text-left transition hover:border-orange-400/35"
+                        >
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">Saved Plan</p>
+                          <p className="mt-1 text-lg font-black uppercase italic text-white">{trip.title || "Untitled plan"}</p>
+                        </button>
+                      ))}
                     </div>
-                  </div>
+                  )
                 )}
 
-                {activeTab === 'settings' && (
-                  <div className="space-y-10">
-                    <h3 className="text-lg font-black italic uppercase tracking-widest border-l-4 border-orange-600 pl-4 leading-none text-white">Security Credentials</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                       <InputGroup label="Identity Name" val={user.user_metadata?.full_name} />
-                       <InputGroup label="Uplink Frequency (Email)" val={user.email} />
-                    </div>
+                {activeTab === "settings" && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <IdentityCard label="Identity Name" value={user.user_metadata?.full_name || "Not available"} />
+                    <IdentityCard label="Email" value={user.email || "Not available"} />
                   </div>
                 )}
               </motion.div>
             </AnimatePresence>
           </div>
+        </section>
+      </Container>
+
+      <div className="fixed bottom-3 left-0 z-30 w-full px-3">
+        <div className="mx-auto grid max-w-4xl grid-cols-5 gap-2 rounded-2xl border border-white/12 bg-black/70 p-2 backdrop-blur-2xl">
+          {bottomNav.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                onClick={() => navigate(item.to)}
+                className="flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/55 transition-all hover:bg-white/8 hover:text-orange-300"
+              >
+                <Icon size={14} />
+                <span className="text-[9px]">{item.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
   );
-};
+}
 
-// --- ELITE SUB-COMPONENTS ---
+function StatCard({ icon: Icon, label, value }) {
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      className="rounded-2xl border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),rgba(8,8,8,0.9)] p-4 shadow-[0_16px_35px_rgba(0,0,0,0.26)]"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">{label}</p>
+        <Icon size={14} className="text-orange-300" />
+      </div>
+      <p className="mt-3 text-3xl font-black italic tracking-tight text-white">{value}</p>
+    </motion.div>
+  );
+}
 
-const StatCard = ({ label, val }) => (
-  <div className="bg-white/5 border border-white/10 p-6 rounded-[30px] text-center backdrop-blur-xl hover:border-orange-500/30 transition-all group">
-    <p className="text-[7px] font-black text-white/20 uppercase tracking-[0.4em] mb-2 group-hover:text-orange-500 transition-colors">{label}</p>
-    <p className="text-2xl md:text-3xl font-black italic text-white tracking-tighter">{val}</p>
-  </div>
-);
-
-const ProfileShortcut = ({ title, meta, onClick }) => (
-  <button
-    onClick={onClick}
-    className="rounded-[30px] border border-white/10 bg-white/5 px-6 py-6 text-left transition-all hover:border-orange-500/30 hover:bg-white/[0.08]"
-  >
-    <p className="text-[8px] font-black uppercase tracking-[0.35em] text-white/25">{title}</p>
-    <p className="mt-3 text-2xl font-black italic tracking-tight text-white">{meta}</p>
-    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-orange-400">Open in profile</p>
-  </button>
-);
-
-const BookingCard = ({ booking }) => (
-  <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-[35px] flex flex-col md:flex-row gap-6 items-center hover:border-orange-500/20 transition-all">
-    <div className="w-16 h-16 rounded-2xl bg-orange-600/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
-      <ShieldCheck size={24} />
+function ReservationEmpty({ onStart }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-8 text-center">
+      <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-orange-400/30 bg-orange-500/10">
+        <Mountain size={30} className="text-orange-300" />
+      </div>
+      <h3 className="text-xl font-black uppercase italic tracking-tight text-white">No journeys yet. Start planning your first adventure.</h3>
+      <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-white/58">
+        Build your route, reserve stays, and sync rides in one command flow.
+      </p>
+      <Button type="button" size="sm" onClick={onStart} className="mt-6 rounded-xl px-5 py-3 tracking-[0.16em]">
+        Start Planning
+      </Button>
     </div>
-    <div className="flex-1 text-center md:text-left">
-      <div className="text-[8px] font-black text-green-500 uppercase tracking-widest mb-1">{booking.status || 'Active'}</div>
-      <h4 className="text-xl font-black italic uppercase tracking-tighter">{booking.listingLabel || booking.hotelId?.hotelName || booking.customerName || 'Booking'}</h4>
+  );
+}
+
+function GenericEmpty({ title }) {
+  return (
+    <div className="rounded-xl border border-dashed border-white/12 bg-white/5 p-6 text-center">
+      <p className="text-sm text-white/55">{title}</p>
     </div>
-    <div className="text-right">
-       <p className="text-xl font-black italic text-white">Rs {booking.totalPrice || '---'}</p>
+  );
+}
+
+function BookingCard({ booking }) {
+  return (
+    <div className="rounded-xl border border-white/12 bg-white/5 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">{booking.status || "Active"}</p>
+      <p className="mt-1 text-lg font-black uppercase italic text-white">
+        {booking.listingLabel || booking.hotelId?.hotelName || booking.customerName || "Reservation"}
+      </p>
+      <p className="mt-1 text-sm text-white/55">Total: Rs {booking.totalPrice || "---"}</p>
     </div>
-  </div>
-);
+  );
+}
 
-const WishCard = ({ item }) => (
-  <div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden group relative">
-    <div className="h-40 relative">
-       <img src={item.item?.images?.[0] || item.images?.[0]} className="w-full h-full object-cover opacity-50 group-hover:scale-110 transition-transform duration-700" alt={item.item?.hotelName || item.hotelName || item.item?.vehicleType || "wishlist item"} />
-       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
-       <div className="absolute bottom-4 left-6">
-         <h4 className="text-lg font-black italic uppercase tracking-tighter">{item.item?.hotelName || item.hotelName || item.item?.vehicleType || item.itemType || "Saved item"}</h4>
-       </div>
+function IdentityCard({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/12 bg-white/5 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <p className="mt-2 text-sm text-white/80">{value}</p>
     </div>
-  </div>
-);
-
-const InputGroup = ({ label, val }) => (
-  <div className="space-y-3">
-    <p className="text-[8px] font-black text-white/30 uppercase tracking-[0.4em] ml-2">{label}</p>
-    <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold text-white/50 italic">{val || 'Not available'}</div>
-  </div>
-);
-
-const EmptyState = ({ title }) => (
-  <div className="py-20 text-center border border-dashed border-white/10 rounded-[40px] bg-white/[0.01]">
-    <Sparkles size={32} className="text-white/5 mx-auto mb-4" />
-    <h4 className="text-sm font-black italic uppercase text-white/20 tracking-[0.3em]">{title}</h4>
-  </div>
-);
-
-export default Profile;
+  );
+}

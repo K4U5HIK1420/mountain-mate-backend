@@ -38,10 +38,26 @@ router.post(
   addTransport
 );
 router.get("/my-rides", supabaseAuth, getMyRides);
-router.patch("/update/:id", supabaseAuth, updateTransport); // ✅ Line 21 fixed
+router.patch(
+  "/update/:id",
+  supabaseAuth,
+  upload.fields([
+    { name: "images", maxCount: 5 },
+    { name: "driverPhoto", maxCount: 1 },
+    { name: "driverLicenseDoc", maxCount: 1 },
+    { name: "driverAadhaarDoc", maxCount: 1 },
+    { name: "vehicleRcDoc", maxCount: 1 },
+    { name: "vehicleInsuranceDoc", maxCount: 1 },
+    { name: "vehiclePermitDoc", maxCount: 1 },
+    { name: "pollutionCertificateDoc", maxCount: 1 },
+    { name: "fitnessCertificateDoc", maxCount: 1 },
+  ]),
+  updateTransport
+); // ride can be updated later with files too
 
 // ADMIN
 router.get("/admin/all", supabaseAuth, requireRole("admin"), getAllRidesForAdmin);
 router.patch("/verify", supabaseAuth, requireRole("admin"), verifyTransport);
 
 module.exports = router;
+

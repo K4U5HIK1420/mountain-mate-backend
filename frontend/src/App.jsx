@@ -71,8 +71,6 @@ const RegisterPartner = React.lazy(() => import("./pages/RegisterPartner"));
 const Recommendations = React.lazy(() => import("./pages/Recommendations"));
 const Planner = React.lazy(() => import("./pages/Planner"));
 const Profile = React.lazy(() => import("./pages/Profile"));
-const Referral = React.lazy(() => import("./pages/Referral"));
-const Wishlist = React.lazy(() => import("./pages/Wishlist"));
 const SupportChat = React.lazy(() => import("./pages/SupportChat"));
 const BookingConfirm = React.lazy(() => import("./pages/BookingConfirm"));
 const PaymentResult = React.lazy(() => import("./pages/PaymentResult"));
@@ -204,8 +202,9 @@ const Navbar = () => {
     () => [
       { to: "/explore-stays", label: "STAYS" },
       { to: "/explore-rides", label: "RIDES" },
+      ...(token ? [{ to: "/bookings", label: "RESERVATIONS" }] : []),
     ],
-    []
+    [token]
   );
 
   return (
@@ -445,8 +444,6 @@ function App() {
                 <Route path="/recommendations" element={<Recommendations />} />
                 <Route path="/planner" element={<Planner />} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/referral" element={<Referral />} />
-                <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/support" element={<SupportChat />} />
                 <Route path="/booking/:id/confirm" element={<BookingConfirm />} />
                 <Route path="/payment/success" element={<PaymentResult ok={true} />} />

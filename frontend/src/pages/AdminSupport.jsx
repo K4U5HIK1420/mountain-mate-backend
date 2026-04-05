@@ -43,7 +43,7 @@ export default function AdminSupport() {
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [reply, setReply] = useState("");
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const loadConversations = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
@@ -73,10 +73,6 @@ export default function AdminSupport() {
       }
     }
   }, [notify]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedId, conversations]);
 
   useEffect(() => {
     loadConversations();
@@ -111,6 +107,12 @@ export default function AdminSupport() {
     () => conversations.find((item) => item.id === selectedId) || null,
     [conversations, selectedId]
   );
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [selectedId, selectedConversation?.messages?.length]);
 
   const pendingCount = useMemo(
     () => conversations.filter((item) => item.status === "queued").length,
@@ -290,7 +292,7 @@ export default function AdminSupport() {
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+                <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
                   {selectedConversation.messages.map((message, index) => {
                     const senderLabel =
                       message.sender === "user" ? "Explorer" : message.sender === "admin" ? "Admin" : "Support";
@@ -313,7 +315,6 @@ export default function AdminSupport() {
                       </div>
                     );
                   })}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="border-t border-white/10 px-6 py-5">
