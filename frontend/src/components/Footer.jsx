@@ -94,9 +94,9 @@ export default function Footer() {
             <div className="sm:col-span-2 lg:col-span-1">
               <Link to="/" className="inline-flex items-center gap-3">
                 <img
-                  src="/mountain-mate-mark.svg"
+                  src="/mountain-mate-badge.png"
                   alt="Mountain Mate"
-                  className="h-11 w-11 rounded-xl border border-white/10 shadow-[0_14px_30px_rgba(249,115,22,0.28)]"
+                  className="h-11 w-11 rounded-full border border-white/10 bg-white object-cover shadow-[0_14px_30px_rgba(249,115,22,0.28)]"
                 />
                 <span className="text-xl font-black uppercase italic tracking-tight text-white">Mountain Mate</span>
               </Link>

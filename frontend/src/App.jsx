@@ -193,7 +193,8 @@ const Navbar = () => {
       setUnreadCount(0);
       try {
         await API.patch("/notifications/read");
-      } catch {
+      } catch (_err) {
+        // Non-blocking: keep the drawer usable even if the mark-read call fails.
       }
     }
   };
@@ -217,9 +218,9 @@ const Navbar = () => {
         <div className="flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-3 group">
             <img
-              src="/mountain-mate-mark.svg"
+              src="/mountain-mate-badge.png"
               alt="Mountain Mate logo"
-              className="h-12 w-12 rounded-2xl shadow-xl transition-transform duration-500 group-hover:rotate-6"
+              className="h-12 w-12 rounded-full bg-white object-cover shadow-xl transition-transform duration-500 group-hover:rotate-6"
             />
             <div className="flex flex-col text-left">
               <h1 className="font-black tracking-tighter text-lg uppercase italic leading-none text-white sm:text-xl">Mountain Mate</h1>
