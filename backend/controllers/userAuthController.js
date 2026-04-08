@@ -47,7 +47,7 @@ exports.registerUser = async (req, res) => {
       const { data, error } = await supabase.auth.admin.createUser({
         email: normalizedEmail,
         password,
-        email_confirm: true,
+        email_confirm: false,
         user_metadata: {
           full_name: String(name).trim(),
         },

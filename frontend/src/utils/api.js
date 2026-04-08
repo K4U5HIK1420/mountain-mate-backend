@@ -1,8 +1,27 @@
 import axios from "axios";
 import { getSupabaseAccessToken } from "./supabase";
 
-const baseURL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api";
+const resolveApiBaseUrl = () => {
+  const raw = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000/api";
+
+  try {
+    const url = new URL(raw);
+    const isLocalhost = ["localhost", "127.0.0.1"].includes(url.hostname);
+    const currentHost = window.location.hostname;
+    const currentIsLocalNetwork = /^(\d{1,3}\.){3}\d{1,3}$/.test(currentHost);
+
+    if (isLocalhost && currentIsLocalNetwork) {
+      url.hostname = currentHost;
+      return url.toString().replace(/\/$/, "");
+    }
+  } catch (_err) {
+    // fallback to raw value
+  }
+
+  return raw;
+};
+
+const baseURL = resolveApiBaseUrl();
 
 const API = axios.create({
   baseURL,

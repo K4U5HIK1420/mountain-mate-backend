@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../utils/supabase";
-import API from "../utils/api";
 import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 import { hasMinLength, isValidEmail, normalizeEmail } from "../utils/validation";
@@ -24,9 +23,14 @@ export default function Register() {
   const handleGoogleJoin = async () => {
     try {
       setLoading(true);
+      if (!supabase) {
+        throw new Error("Authentication service is not configured.");
+      }
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", "/explore-stays");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/explore-stays` },
+        options: { redirectTo: callbackUrl.toString() },
       });
       if (error) throw error;
     } catch (err) {
@@ -52,27 +56,38 @@ export default function Register() {
         throw new Error("Password must be at least 8 characters.");
       }
 
-      const { data } = await API.post("/user/register", {
-        name: formData.name.trim(),
-        email: normalizedEmail,
-        password: formData.password,
-      });
-
-      if (!data?.user) {
-        throw new Error(data?.message || "Unable to register user.");
+      if (!supabase) {
+        throw new Error("Authentication service is not configured.");
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", "/explore-stays");
+
+      const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name.trim(),
+          },
+          emailRedirectTo: callbackUrl.toString(),
+        },
       });
+      if (error) throw error;
 
-      if (signInError) throw signInError;
+      if (data?.session) {
+        notify("Registration successful. Welcome.", "success");
+        navigate("/explore-stays");
+        return;
+      }
 
-      notify("Identity authenticated. Welcome.", "success");
-      navigate("/explore-stays");
+      notify("Verification OTP sent. Check inbox and verify to continue.", "success");
+      navigate(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
     } catch (err) {
-      notify(err?.response?.data?.message || err?.message || "Unable to register user.", "error");
+      notify(
+        err?.message || "Unable to register user.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -143,7 +158,7 @@ export default function Register() {
             </Field>
 
             <Button disabled={loading} className="h-14 w-full rounded-[20px] bg-orange-600 text-[10px] tracking-[0.3em] shadow-xl shadow-orange-600/10 hover:bg-orange-500" size="lg">
-              {loading ? <Loader2 className="animate-spin" /> : <><ArrowRight size={16} /> Initialize Uplink</>}
+              {loading ? <Loader2 className="animate-spin" /> : <><ArrowRight size={16} /> Sign Up</>}
             </Button>
           </form>
 
@@ -155,6 +170,7 @@ export default function Register() {
             </div>
 
             <button
+              type="button"
               onClick={handleGoogleJoin}
               disabled={loading}
               className="group flex h-14 w-full items-center justify-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] transition-all hover:bg-white/5 active:scale-95"

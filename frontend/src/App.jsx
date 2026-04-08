@@ -60,6 +60,19 @@ const RefreshRedirect = () => {
   const location = useLocation();
 
   useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    const hashParams = new URLSearchParams(hash);
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasOAuthPayload =
+      !!searchParams.get("code") ||
+      !!hashParams.get("access_token") ||
+      !!hashParams.get("refresh_token") ||
+      !!hashParams.get("type");
+
+    if (location.pathname === "/auth/callback" || hasOAuthPayload) {
+      return;
+    }
+
     const navEntries = window.performance?.getEntriesByType?.("navigation") || [];
     const navType = navEntries[0]?.type;
     const legacyNavType = window.performance?.navigation?.type;
@@ -136,7 +149,9 @@ const AdminBookings = React.lazy(() => import("./pages/AdminBookingsPanel"));
 const AdminSupport = React.lazy(() => import("./pages/AdminSupport"));
 const Login = React.lazy(() => import("./pages/Login"));
 const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
+const AuthCallback = React.lazy(() => import("./pages/AuthCallback"));
 const Register = React.lazy(() => import("./pages/Register"));
+const VerifyEmail = React.lazy(() => import("./pages/VerifyEmail"));
 const RegisterPartner = React.lazy(() => import("./pages/RegisterPartner"));
 const Recommendations = React.lazy(() => import("./pages/Recommendations"));
 const Planner = React.lazy(() => import("./pages/Planner"));
@@ -273,7 +288,7 @@ const Navbar = () => {
     () => [
       { to: "/explore-stays", label: "STAYS" },
       { to: "/explore-rides", label: "RIDES" },
-      ...(token ? [{ to: "/bookings", label: "RESERVATIONS" }] : []),
+      ...(token ? [{ to: "/bookings", label: "MY BOOKINGS" }] : []),
     ],
     [token]
   );
@@ -509,8 +524,10 @@ function App() {
             <Route path="/admin-bookings" element={<AdminBookings />} />
             <Route path="/admin-support" element={<AdminSupport />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/register-partner" element={<RegisterPartner />} />
             <Route path="/recommendations" element={<Recommendations />} />
             <Route path="/planner" element={<Planner />} />

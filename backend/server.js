@@ -44,7 +44,19 @@ const parseAllowedOrigins = () => {
     "http://127.0.0.1:5174",
   ];
 
-  return [...new Set([...defaults, ...configured])];
+  // Allow local network frontend hosts (phone testing) for common Vite ports.
+  const localNetworkOrigins = [];
+  const localPorts = [5173, 5174, 4173, 4174];
+  for (let i = 1; i <= 255; i += 1) {
+    for (const port of localPorts) {
+      localNetworkOrigins.push(`http://192.168.0.${i}:${port}`);
+      localNetworkOrigins.push(`http://192.168.1.${i}:${port}`);
+      localNetworkOrigins.push(`http://10.0.0.${i}:${port}`);
+      localNetworkOrigins.push(`http://10.0.1.${i}:${port}`);
+    }
+  }
+
+  return [...new Set([...defaults, ...localNetworkOrigins, ...configured])];
 };
 
 const allowedOrigins = parseAllowedOrigins();

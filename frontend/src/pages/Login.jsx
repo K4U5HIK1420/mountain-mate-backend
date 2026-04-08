@@ -21,9 +21,14 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
+      if (!supabase) {
+        throw new Error("Authentication service is not configured.");
+      }
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", from);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin + from },
+        options: { redirectTo: callbackUrl.toString() },
       });
       if (error) throw error;
     } catch (err) {
@@ -151,7 +156,7 @@ const Login = () => {
               className="h-14 w-full rounded-[20px] bg-orange-600 text-[10px] tracking-[0.3em] shadow-xl shadow-orange-600/10 hover:bg-orange-500"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
-              Establish Uplink
+              Login
             </Button>
           </form>
 
@@ -163,6 +168,7 @@ const Login = () => {
             </div>
 
             <button
+              type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
               className="group flex h-14 w-full items-center justify-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] transition-all hover:bg-white/5 active:scale-95"

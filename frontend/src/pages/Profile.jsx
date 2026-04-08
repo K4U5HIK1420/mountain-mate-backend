@@ -297,7 +297,7 @@ export default function Profile() {
               className="mt-6 flex w-full items-center gap-3 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-red-200 transition hover:bg-red-500/20"
             >
               <LogOut size={15} />
-              Terminate Session
+              Logout
             </button>
           </aside>
 
