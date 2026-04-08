@@ -35,6 +35,19 @@ import {
   Wifi,
   X,
 } from "lucide-react";
+import { getBrowserLocation } from "../utils/location";
+import {
+  cleanValue,
+  digitsOnly,
+  isValidAadhaar,
+  isValidBankAccount,
+  isValidIfsc,
+  isValidPan,
+  isValidPhone,
+  normalizeIfsc,
+  normalizePan,
+  normalizePhone,
+} from "../utils/validation";
 
 const FORM_STORAGE_KEY = "mountainMate.propertyOnboarding.v3";
 const zoneOptions = ["Guptkashi", "Sonprayag", "Phata", "Rudraprayag", "Ukhimath", "Kedarnath Base"];
@@ -159,7 +172,13 @@ const AddHotel = () => {
   const progressPercent = ((stepIndex + 1) / stepTitles.length) * 100;
 
   const updateField = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let nextValue = value;
+    if (name === "contactNumber") nextValue = normalizePhone(value);
+    if (name === "ownerPanNumber") nextValue = normalizePan(value);
+    if (name === "ifscCode") nextValue = normalizeIfsc(value);
+    if (name === "ownerAadhaarNumber") nextValue = digitsOnly(value).slice(0, 12);
+    if (name === "bankAccountNumber") nextValue = digitsOnly(value).slice(0, 18);
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
@@ -176,7 +195,7 @@ const AddHotel = () => {
       if (!String(formData[field] || "").trim()) nextErrors[field] = "This field is required.";
     });
 
-    if ((targetStep === 0 || targetStep === 1) && formData.contactNumber && !/^\+?[0-9\s-]{10,15}$/.test(formData.contactNumber.trim())) {
+    if ((targetStep === 0 || targetStep === 1) && formData.contactNumber && !isValidPhone(formData.contactNumber)) {
       nextErrors.contactNumber = "Enter a valid phone number.";
     }
 
@@ -187,6 +206,18 @@ const AddHotel = () => {
     if (targetStep === 2 && !hasMandatoryFacilities) nextErrors.facilities = "Select at least one facility.";
 
     if (targetStep === 3) {
+      if (cleanValue(formData.ownerAadhaarNumber) && !isValidAadhaar(formData.ownerAadhaarNumber)) {
+        nextErrors.ownerAadhaarNumber = "Enter a valid 12-digit Aadhaar number.";
+      }
+      if (cleanValue(formData.ownerPanNumber) && !isValidPan(formData.ownerPanNumber)) {
+        nextErrors.ownerPanNumber = "Enter a valid PAN number.";
+      }
+      if (cleanValue(formData.ifscCode) && !isValidIfsc(formData.ifscCode)) {
+        nextErrors.ifscCode = "Enter a valid IFSC code.";
+      }
+      if (cleanValue(formData.bankAccountNumber) && !isValidBankAccount(formData.bankAccountNumber)) {
+        nextErrors.bankAccountNumber = "Enter a valid bank account number.";
+      }
       requiredDocumentKeys.forEach((key) => {
         if (!documents[key]) nextErrors[key] = "This document is required.";
       });
@@ -257,14 +288,9 @@ const AddHotel = () => {
   };
 
   const tryAutoFillLocation = () => {
-    if (!navigator.geolocation) {
-      notify("Location auto-fill is not supported on this browser.", "error");
-      return;
-    }
-
     setDetectingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
+    getBrowserLocation({ timeout: 12000 })
+      .then(async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         const coordText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 
@@ -283,13 +309,11 @@ const AddHotel = () => {
         } finally {
           setDetectingLocation(false);
         }
-      },
-      () => {
+      })
+      .catch(() => {
         notify("Location permission denied. Please allow location access.", "error");
         setDetectingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
+      });
   };
 
   const clearDraftAfterSubmit = () => {
@@ -309,6 +333,30 @@ const AddHotel = () => {
   };
 
   const submitProperty = async () => {
+    const validationErrors = stepTitles.reduce((acc, _title, index) => {
+      const requiredFields = requiredStepFieldMap[index] || [];
+      requiredFields.forEach((field) => {
+        if (!cleanValue(formData[field])) acc[field] = "This field is required.";
+      });
+      return acc;
+    }, {});
+
+    if (cleanValue(formData.contactNumber) && !isValidPhone(formData.contactNumber)) {
+      validationErrors.contactNumber = "Enter a valid phone number.";
+    }
+    if (cleanValue(formData.ownerAadhaarNumber) && !isValidAadhaar(formData.ownerAadhaarNumber)) {
+      validationErrors.ownerAadhaarNumber = "Enter a valid 12-digit Aadhaar number.";
+    }
+    if (cleanValue(formData.ownerPanNumber) && !isValidPan(formData.ownerPanNumber)) {
+      validationErrors.ownerPanNumber = "Enter a valid PAN number.";
+    }
+    if (cleanValue(formData.ifscCode) && !isValidIfsc(formData.ifscCode)) {
+      validationErrors.ifscCode = "Enter a valid IFSC code.";
+    }
+    if (cleanValue(formData.bankAccountNumber) && !isValidBankAccount(formData.bankAccountNumber)) {
+      validationErrors.bankAccountNumber = "Enter a valid bank account number.";
+    }
+
     if (!requiredCompletion) {
       const firstIncompleteStep = getFirstIncompleteStep();
       setStepIndex(firstIncompleteStep);
@@ -317,10 +365,28 @@ const AddHotel = () => {
       notify("Please complete all mandatory steps before publish.", "error");
       return;
     }
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      if (validationErrors.contactNumber) setStepIndex(0);
+      else if (validationErrors.ownerAadhaarNumber || validationErrors.ownerPanNumber || validationErrors.ifscCode || validationErrors.bankAccountNumber) {
+        setStepIndex(3);
+        setUploadingDocsOpen(true);
+      }
+      notify("Please fix the highlighted details before publish.", "error");
+      return;
+    }
 
     setLoading(true);
     const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => data.append(key, value));
+    const sanitizedFormData = {
+      ...formData,
+      contactNumber: normalizePhone(formData.contactNumber),
+      ownerAadhaarNumber: digitsOnly(formData.ownerAadhaarNumber),
+      ownerPanNumber: normalizePan(formData.ownerPanNumber),
+      ifscCode: normalizeIfsc(formData.ifscCode),
+      bankAccountNumber: digitsOnly(formData.bankAccountNumber),
+    };
+    Object.entries(sanitizedFormData).forEach(([key, value]) => data.append(key, value));
     data.append("amenities", JSON.stringify(Object.keys(facilities).filter((key) => facilities[key])));
 
     Object.entries(documents).forEach(([key, file]) => {

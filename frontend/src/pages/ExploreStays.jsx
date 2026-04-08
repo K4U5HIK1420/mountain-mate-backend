@@ -8,11 +8,9 @@ import {
   Calendar,
   Car,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Coffee,
-  Filter,
   MapPin,
   Mountain,
   Search,
@@ -29,12 +27,12 @@ import {
   Wind,
   Zap,
 } from "lucide-react";
-import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
 import { StaysGridSkeleton } from "../components/Skeletons";
 import { useNotify } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
+import { cleanValue, isValidPhone, normalizePhone } from "../utils/validation";
 
 const motionEase = [0.22, 1, 0.36, 1];
 const locationSuggestions = ["Kedarnath", "Guptkashi", "Sonprayag", "Rudraprayag", "Joshimath", "Auli", "Badrinath"];
@@ -47,14 +45,6 @@ const amenityIcons = {
   powerBackup: <Zap size={14} />,
   pool: <Waves size={14} />,
 };
-
-const mapStyles = [
-  { elementType: "geometry", stylers: [{ color: "#1d2b3a" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#8ea2bb" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#2f3b4a" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#7a5c43" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#10263d" }] },
-];
 
 const getDatePlusDays = (days) => {
   const date = new Date();
@@ -90,16 +80,11 @@ export default function ExploreStays() {
   const { notify } = useNotify();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-  });
 
   const [hotels, setHotels] = useState([]);
   const [ratingMap, setRatingMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showMap, setShowMap] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [sort, setSort] = useState("rating");
@@ -108,15 +93,12 @@ export default function ExploreStays() {
     location: "",
     checkIn: getDatePlusDays(0),
     checkOut: getDatePlusDays(1),
-    wifi: false,
-    parking: false,
-    mountainView: false,
-    familyStay: false,
-    highRatedOnly: false,
-    budgetOnly: false,
-    mountainOnly: false,
-    minRating: 0,
-  });
+      wifi: false,
+      parking: false,
+      mountainView: false,
+      familyStay: false,
+      minRating: 0,
+    });
 
   const [bookingForm, setBookingForm] = useState({
     name: "",
@@ -205,20 +187,12 @@ export default function ExploreStays() {
       if (filters.parking && !amenities.includes("parking")) return false;
       if (filters.mountainView && !amenities.includes("mountainView")) return false;
       if (filters.familyStay && !amenities.some((a) => a === "roomService" || a === "powerBackup")) return false;
-      if (filters.highRatedOnly && rating < 4.2) return false;
       if (filters.minRating > 0 && rating < filters.minRating) return false;
-      if (filters.budgetOnly && price > 3000) return false;
-      if (filters.mountainOnly && !location.includes("mountain") && !amenities.includes("mountainView")) return false;
       return true;
     });
 
     return sortHotels(list, sort, ratingMap);
   }, [filters, hotels, ratingMap, sort]);
-
-  const mapHotels = useMemo(
-    () => filteredHotels.map((hotel) => ({ ...hotel, coords: extractCoords(hotel) })).filter((h) => h.coords),
-    [filteredHotels]
-  );
 
   const resetFilters = () => {
     setFilters((prev) => ({
@@ -230,9 +204,6 @@ export default function ExploreStays() {
       parking: false,
       mountainView: false,
       familyStay: false,
-      highRatedOnly: false,
-      budgetOnly: false,
-      mountainOnly: false,
       minRating: 0,
     }));
     setSort("rating");
@@ -258,7 +229,7 @@ export default function ExploreStays() {
       navigate("/login", { state: { from: { pathname: "/explore-stays" } } });
       return;
     }
-    if (!bookingForm.name.trim() || bookingForm.phone.trim().length < 10 || !bookingForm.checkIn) {
+    if (!cleanValue(bookingForm.name) || !isValidPhone(bookingForm.phone) || !bookingForm.checkIn) {
       notify("Add your name, phone, and check-in date.", "error");
       return;
     }
@@ -268,7 +239,7 @@ export default function ExploreStays() {
       const amount = Number(selectedHotel.pricePerNight || 0) * Number(bookingForm.rooms || 1);
       const res = await API.post("/booking/create", {
         customerName: bookingForm.name.trim(),
-        phoneNumber: bookingForm.phone.trim(),
+        phoneNumber: normalizePhone(bookingForm.phone),
         bookingType: "Hotel",
         listingId: selectedHotel._id,
         date: bookingForm.checkIn,
@@ -306,8 +277,8 @@ export default function ExploreStays() {
                 Prime Estates
               </div>
               <h1 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-7xl">
-                BOOK STAYS
-                <span className="ml-2 bg-gradient-to-r from-[#ff7a18] to-[#ffb347] bg-clip-text text-transparent">PREMIUM</span>
+                BOOK
+                <span className="block">PREMIUM STAYS</span>
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62 md:text-base">
                 Search verified mountain stays with cleaner defaults, faster filters, and cinematic booking cards.
@@ -323,11 +294,7 @@ export default function ExploreStays() {
         <SearchBar
           filters={filters}
           setFilters={setFilters}
-          showAdvanced={showAdvanced}
-          setShowAdvanced={setShowAdvanced}
           onSearch={fetchHotels}
-          onToggleMap={() => setShowMap((prev) => !prev)}
-          showMap={showMap}
           searching={isSearching}
         />
 
@@ -338,7 +305,7 @@ export default function ExploreStays() {
         ) : filteredHotels.length === 0 ? (
           <EmptyState onReset={resetFilters} />
         ) : (
-          <div className={`mt-5 grid gap-4 ${showMap ? "xl:grid-cols-[minmax(0,1fr)_430px]" : ""}`}>
+          <div className="mt-5">
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredHotels.map((hotel, index) => (
                 <StayCard
@@ -350,24 +317,6 @@ export default function ExploreStays() {
                 />
               ))}
             </div>
-            {showMap ? (
-              <div className="sticky top-32 h-[620px] overflow-hidden rounded-[28px] border border-white/10 bg-black/30">
-                {isLoaded ? (
-                  <GoogleMap
-                    mapContainerStyle={{ width: "100%", height: "100%" }}
-                    center={mapHotels[0]?.coords || { lat: 30.3165, lng: 78.0322 }}
-                    zoom={8}
-                    options={{ styles: mapStyles, disableDefaultUI: true }}
-                  >
-                    {mapHotels.map((item) => (
-                      <Marker key={item._id} position={item.coords} title={item.hotelName} />
-                    ))}
-                  </GoogleMap>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-white/60">Loading map...</div>
-                )}
-              </div>
-            ) : null}
           </div>
         )}
       </Container>
@@ -397,11 +346,7 @@ export default function ExploreStays() {
 function SearchBar({
   filters,
   setFilters,
-  showAdvanced,
-  setShowAdvanced,
   onSearch,
-  onToggleMap,
-  showMap,
   searching,
 }) {
   return (
@@ -449,58 +394,14 @@ function SearchBar({
           <Search size={15} />
         </Button>
       </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((prev) => !prev)}
-          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/75 transition hover:border-orange-300/35 hover:text-orange-200"
-        >
-          <Filter size={13} />
-          Advanced Filters
-          <ChevronDown size={13} className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
-        </button>
-        <button
-          type="button"
-          onClick={onToggleMap}
-          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/75 transition hover:border-orange-300/35 hover:text-orange-200"
-        >
-          <MapPin size={13} />
-          {showMap ? "Hide Map" : "Show Map"}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {showAdvanced ? (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="mt-3 grid gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 sm:grid-cols-2 xl:grid-cols-4">
-              <ToggleFilter label="WiFi" checked={filters.wifi} onChange={(v) => setFilters((p) => ({ ...p, wifi: v }))} />
-              <ToggleFilter label="Parking" checked={filters.parking} onChange={(v) => setFilters((p) => ({ ...p, parking: v }))} />
-              <ToggleFilter label="Mountain View" checked={filters.mountainView} onChange={(v) => setFilters((p) => ({ ...p, mountainView: v }))} />
-              <ToggleFilter label="Family Stay" checked={filters.familyStay} onChange={(v) => setFilters((p) => ({ ...p, familyStay: v }))} />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </section>
   );
 }
 
 function SortFilterBar({ filters, setFilters, sort, setSort }) {
-  const chips = [
-    { key: "highRatedOnly", label: "High Rated Stays" },
-    { key: "budgetOnly", label: "Budget Stays" },
-    { key: "mountainOnly", label: "Mountain View" },
-  ];
-
   return (
     <section className="mt-5 rounded-[22px] border border-white/10 bg-black/30 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/5 px-3 py-2">
           <SlidersHorizontal size={14} className="text-orange-300" />
           <select
@@ -524,22 +425,6 @@ function SortFilterBar({ filters, setFilters, sort, setSort }) {
             <option value={4}>4.0+ / 5</option>
             <option value={4.5}>4.5+ / 5</option>
           </select>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {chips.map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => setFilters((prev) => ({ ...prev, [chip.key]: !prev[chip.key] }))}
-              className={`rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition ${
-                filters[chip.key]
-                  ? "border-orange-400/40 bg-orange-500/20 text-orange-100"
-                  : "border-white/12 bg-white/5 text-white/60 hover:text-white"
-              }`}
-            >
-              {chip.label}
-            </button>
-          ))}
         </div>
       </div>
     </section>
@@ -622,7 +507,7 @@ function StayDetailsModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2147483000] p-4 pt-28 md:p-8 md:pt-32"
+      className="fixed inset-0 z-[2147483000] overflow-y-auto p-3 pt-24 sm:p-4 sm:pt-28 md:p-8 md:pt-32"
     >
       <button onClick={onClose} className="absolute inset-0 h-full w-full bg-black/95 backdrop-blur-2xl" />
       <motion.div
@@ -630,9 +515,9 @@ function StayDetailsModal({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.985 }}
         transition={{ duration: 0.35, ease: motionEase }}
-        className="relative mx-auto flex h-full max-h-[92vh] w-full max-w-[1280px] overflow-hidden rounded-[34px] border border-white/10 bg-[#070707] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
+        className="relative mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-[1280px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707] sm:rounded-[34px] lg:min-h-0 lg:max-h-[92vh] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
       >
-        <div className="relative min-h-[320px] overflow-hidden border-b border-white/8 lg:border-b-0 lg:border-r">
+        <div className="relative min-h-[300px] overflow-hidden border-b border-white/8 lg:border-b-0 lg:border-r">
           <img src={hotel.images?.[currentImgIndex]} alt={hotel.hotelName} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.76))]" />
           <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
@@ -659,7 +544,7 @@ function StayDetailsModal({
           </div>
         </div>
 
-        <div className="flex items-center overflow-y-auto p-4 md:p-6">
+        <div className="flex items-start overflow-y-auto p-4 md:p-6">
           <div className="w-full rounded-[30px] border border-white/15 bg-[linear-gradient(150deg,rgba(255,255,255,0.09),rgba(255,255,255,0.02)),rgba(8,8,8,0.88)] p-5 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -766,20 +651,6 @@ function GlassField({ icon, label, children }) {
       </div>
       {children}
     </div>
-  );
-}
-
-function ToggleFilter({ label, checked, onChange }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`rounded-xl border px-3 py-2 text-[11px] transition ${
-        checked ? "border-orange-400/40 bg-orange-500/20 text-orange-100" : "border-white/12 bg-black/30 text-white/65"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

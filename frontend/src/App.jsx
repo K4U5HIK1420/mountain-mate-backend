@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Menu, X, PlusCircle, Car, LayoutGrid, ChevronDown, Shield, Bell } from "lucide-react";
+import { Menu, X, PlusCircle, Car, LayoutGrid, ChevronDown, Shield, Bell } from "lucide-react";
 
 import API from "./utils/api";
 import { useNotify } from "./context/NotificationContext";
@@ -11,13 +11,43 @@ import socket from "./utils/socket";
 
 import Notification from "./components/Notification";
 import AnimatedBackground from "./components/AnimatedBackground";
-import ParticlesCanvas from "./components/ParticlesCanvas";
 import Footer from "./components/Footer";
 import LiveChatSupport from "./components/LiveChatSupport";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AIAdvisor from "./components/Features/AIAdvisor";
 
 import "leaflet/dist/leaflet.css";
+
+const MAINTENANCE_MODE = false;
+
+const maintenanceLines = ["Website under maintenance"];
+
+const MaintenancePage = () => {
+  const [visibleText, setVisibleText] = useState("");
+
+  useEffect(() => {
+    const fullText = maintenanceLines[0];
+    let index = 0;
+    const intervalId = window.setInterval(() => {
+      index += 1;
+      setVisibleText(fullText.slice(0, index));
+      if (index >= fullText.length) {
+        window.clearInterval(intervalId);
+      }
+    }, 55);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+      <div className="font-['Georgia'] text-center text-3xl italic tracking-[0.08em] text-white/90 sm:text-5xl">
+        {visibleText}
+        <span className="ml-1 inline-block h-[1em] w-[1px] animate-pulse bg-white/70 align-middle" />
+      </div>
+    </div>
+  );
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
@@ -53,6 +83,46 @@ const ScrollToTop = () => {
   return null;
 };
 
+const AppLayout = ({ children }) => {
+  const location = useLocation();
+  const isHomePage = location.pathname === "/";
+
+  return (
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#050505] font-sans text-white">
+      <AnimatedBackground />
+      <RefreshRedirect />
+      <Navbar />
+      <main className={`relative z-10 flex-1 ${isHomePage ? "pt-0" : "pt-32"}`}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-black"><p className="text-[10px] font-black uppercase tracking-widest text-orange-500 italic animate-pulse">Syncing Command...</p></div>}>
+          {children}
+        </Suspense>
+      </main>
+      <Footer />
+      <LiveChatSupport />
+      <Notification notification={Notification} />
+      <div className="pointer-events-none fixed bottom-0 h-32 w-full bg-gradient-to-t from-black via-black/70 to-transparent opacity-60" />
+    </div>
+  );
+};
+
+const GA_MEASUREMENT_ID = "G-HQQHDKVTYQ";
+
+const AnalyticsTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window.gtag !== "function") return;
+
+    window.gtag("config", GA_MEASUREMENT_ID, {
+      page_path: `${location.pathname}${location.search}${location.hash}`,
+      page_title: document.title,
+      page_location: window.location.href,
+    });
+  }, [location.pathname, location.search, location.hash]);
+
+  return null;
+};
+
 const Home = React.lazy(() => import("./pages/Home"));
 const ExploreStays = React.lazy(() => import("./pages/ExploreStays"));
 const ExploreRides = React.lazy(() => import("./pages/ExploreRides"));
@@ -78,7 +148,7 @@ const PaymentResult = React.lazy(() => import("./pages/PaymentResult"));
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, role, signOut } = useAuth();
+  const { user, role } = useAuth();
   const { notify } = useNotify();
   const token = !!user;
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
@@ -208,6 +278,9 @@ const Navbar = () => {
     [token]
   );
 
+  const navAvatar = user?.user_metadata?.avatar_url || user?.avatarUrl || "";
+  const navInitial = user?.email?.charAt(0)?.toUpperCase() || "M";
+
   return (
     <nav className="fixed top-0 w-full z-[9999] px-3 py-3 sm:px-6 lg:px-10 pointer-events-none">
       <motion.div
@@ -222,10 +295,6 @@ const Navbar = () => {
               alt="Mountain Mate logo"
               className="h-12 w-12 rounded-full bg-white object-cover shadow-xl transition-transform duration-500 group-hover:rotate-6"
             />
-            <div className="flex flex-col text-left">
-              <h1 className="font-black tracking-tighter text-lg uppercase italic leading-none text-white sm:text-xl">Mountain Mate</h1>
-              <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.3em] text-orange-500">Uttarakhand</span>
-            </div>
           </Link>
 
           <div className="hidden xl:flex flex-1 items-center justify-center gap-10">
@@ -336,7 +405,7 @@ const Navbar = () => {
                         initial={{ opacity: 0, y: 10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                        className="absolute right-0 top-[120%] z-[99999] w-[340px] rounded-[28px] border border-white/10 bg-[#0a0a0a]/95 p-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-[60px]"
+                        className="fixed left-3 right-3 top-[5.5rem] z-[99999] rounded-[28px] border border-white/10 bg-[#0a0a0a]/95 p-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-[60px] sm:absolute sm:left-auto sm:right-0 sm:top-[120%] sm:w-[340px]"
                       >
                         <div className="mb-3 flex items-center justify-between px-2">
                           <p className="text-[9px] font-black uppercase tracking-[0.3em] text-orange-300">Booking Alerts</p>
@@ -359,9 +428,14 @@ const Navbar = () => {
                   </AnimatePresence>
                 </div>
                 <Link to="/profile" className="h-10 w-10 rounded-full bg-gradient-to-tr from-orange-500 via-amber-400 to-white p-[2.5px] shadow-2xl transition-transform hover:scale-110">
-                  <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0a0a0a] text-[12px] font-black uppercase italic text-orange-500">{user.email?.charAt(0)}</div>
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0a0a0a] text-[12px] font-black uppercase italic text-orange-500">
+                    {navAvatar ? (
+                      <img src={navAvatar} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      navInitial
+                    )}
+                  </div>
                 </Link>
-                <button onClick={() => { signOut(); navigate("/login"); }} className="text-white/20 transition-colors hover:text-red-500"><LogOut size={18} /></button>
               </div>
             ) : (
               <Link to="/login" className="rounded-full bg-orange-600 px-7 py-3 text-[10px] font-black tracking-widest text-white italic shadow-lg transition-all hover:bg-orange-500 active:scale-95">LOGIN</Link>
@@ -412,51 +486,41 @@ const Navbar = () => {
 
 function App() {
   const { notification } = useNotify();
+  if (MAINTENANCE_MODE) return <MaintenancePage />;
   if (!hasSupabaseEnv) return <div className="flex min-h-screen items-center justify-center bg-black text-[10px] font-black uppercase tracking-[0.5em] text-orange-500 italic animate-pulse">Establishing Uplink...</div>;
 
   return (
     <Router>
       <ErrorBoundary>
         <ScrollToTop />
-        <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#050505] font-sans text-white">
-          <AnimatedBackground />
-          <ParticlesCanvas />
-          <RefreshRedirect />
-          <Navbar />
-          <main className="relative z-10 flex-1 pt-32">
-            <Suspense fallback={<div className="flex h-screen items-center justify-center bg-black"><p className="text-[10px] font-black uppercase tracking-widest text-orange-500 italic animate-pulse">Syncing Command...</p></div>}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/explore-stays" element={<ExploreStays />} />
-                <Route path="/explore-rides" element={<ExploreRides />} />
-                <Route path="/ai-advisor" element={<AIAdvisor />} />
-                <Route path="/add-hotel" element={<ProtectedRoute><AddHotel /></ProtectedRoute>} />
-                <Route path="/add-transport" element={<ProtectedRoute><AddTransport /></ProtectedRoute>} />
-                <Route path="/bookings" element={<ProtectedRoute><Bookings /></ProtectedRoute>} />
-                <Route path="/manage-stays" element={<ProtectedRoute><ManageStays /></ProtectedRoute>} />
-                <Route path="/manage-rides" element={<ProtectedRoute><ManageRides /></ProtectedRoute>} />
-                <Route path="/admin-mate" element={<AdminDashboard />} />
-                <Route path="/admin-bookings" element={<AdminBookings />} />
-                <Route path="/admin-support" element={<AdminSupport />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/register-partner" element={<RegisterPartner />} />
-                <Route path="/recommendations" element={<Recommendations />} />
-                <Route path="/planner" element={<Planner />} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/support" element={<SupportChat />} />
-                <Route path="/booking/:id/confirm" element={<BookingConfirm />} />
-                <Route path="/payment/success" element={<PaymentResult ok={true} />} />
-                <Route path="/payment/failure" element={<PaymentResult ok={false} />} />
-              </Routes>
-            </Suspense>
-          </main>
-          <Footer />
-          <LiveChatSupport />
-          <Notification notification={notification} />
-          <div className="pointer-events-none fixed bottom-0 h-32 w-full bg-gradient-to-t from-black via-black/70 to-transparent opacity-60" />
-        </div>
+        <AnalyticsTracker />
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/explore-stays" element={<ExploreStays />} />
+            <Route path="/explore-rides" element={<ExploreRides />} />
+            <Route path="/ai-advisor" element={<AIAdvisor />} />
+            <Route path="/add-hotel" element={<ProtectedRoute><AddHotel /></ProtectedRoute>} />
+            <Route path="/add-transport" element={<ProtectedRoute><AddTransport /></ProtectedRoute>} />
+            <Route path="/bookings" element={<ProtectedRoute><Bookings /></ProtectedRoute>} />
+            <Route path="/manage-stays" element={<ProtectedRoute><ManageStays /></ProtectedRoute>} />
+            <Route path="/manage-rides" element={<ProtectedRoute><ManageRides /></ProtectedRoute>} />
+            <Route path="/admin-mate" element={<AdminDashboard />} />
+            <Route path="/admin-bookings" element={<AdminBookings />} />
+            <Route path="/admin-support" element={<AdminSupport />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/register-partner" element={<RegisterPartner />} />
+            <Route path="/recommendations" element={<Recommendations />} />
+            <Route path="/planner" element={<Planner />} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/support" element={<SupportChat />} />
+            <Route path="/booking/:id/confirm" element={<BookingConfirm />} />
+            <Route path="/payment/success" element={<PaymentResult ok={true} />} />
+            <Route path="/payment/failure" element={<PaymentResult ok={false} />} />
+          </Routes>
+        </AppLayout>
       </ErrorBoundary>
     </Router>
   );

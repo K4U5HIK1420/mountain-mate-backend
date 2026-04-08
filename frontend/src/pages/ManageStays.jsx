@@ -17,6 +17,18 @@ import {
 import { useNotify } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import API from "../utils/api";
+import {
+  cleanValue,
+  digitsOnly,
+  isValidAadhaar,
+  isValidBankAccount,
+  isValidIfsc,
+  isValidPan,
+  isValidPhone,
+  normalizeIfsc,
+  normalizePan,
+  normalizePhone,
+} from "../utils/validation";
 
 const hotelDocumentFields = [
   { key: "ownerPhoto", label: "Hotel Owner Photo" },
@@ -114,7 +126,13 @@ const ManageStays = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData((prev) => ({ ...prev, [name]: value }));
+    let nextValue = value;
+    if (name === "contactNumber") nextValue = normalizePhone(value);
+    if (name === "ownerPanNumber") nextValue = normalizePan(value);
+    if (name === "ifscCode") nextValue = normalizeIfsc(value);
+    if (name === "ownerAadhaarNumber") nextValue = digitsOnly(value).slice(0, 12);
+    if (name === "bankAccountNumber") nextValue = digitsOnly(value).slice(0, 18);
+    setEditFormData((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const handleAmenityToggle = (amenity) => {
@@ -133,11 +151,38 @@ const ManageStays = () => {
 
   const handleFullUpdate = async (e) => {
     e.preventDefault();
+    if (cleanValue(editFormData.contactNumber) && !isValidPhone(editFormData.contactNumber)) {
+      notify("Enter a valid property contact number.", "error");
+      return;
+    }
+    if (cleanValue(editFormData.ownerAadhaarNumber) && !isValidAadhaar(editFormData.ownerAadhaarNumber)) {
+      notify("Enter a valid 12-digit Aadhaar number.", "error");
+      return;
+    }
+    if (cleanValue(editFormData.ownerPanNumber) && !isValidPan(editFormData.ownerPanNumber)) {
+      notify("Enter a valid PAN number.", "error");
+      return;
+    }
+    if (cleanValue(editFormData.ifscCode) && !isValidIfsc(editFormData.ifscCode)) {
+      notify("Enter a valid IFSC code.", "error");
+      return;
+    }
+    if (cleanValue(editFormData.bankAccountNumber) && !isValidBankAccount(editFormData.bankAccountNumber)) {
+      notify("Enter a valid bank account number.", "error");
+      return;
+    }
     setUpdating(true);
 
     try {
       const data = new FormData();
-      const payload = { ...editFormData };
+      const payload = {
+        ...editFormData,
+        contactNumber: normalizePhone(editFormData.contactNumber),
+        ownerAadhaarNumber: digitsOnly(editFormData.ownerAadhaarNumber),
+        ownerPanNumber: normalizePan(editFormData.ownerPanNumber),
+        ifscCode: normalizeIfsc(editFormData.ifscCode),
+        bankAccountNumber: digitsOnly(editFormData.bankAccountNumber),
+      };
 
       const textKeys = [
         "propertyType",
@@ -240,17 +285,17 @@ const ManageStays = () => {
               <motion.div
                 key={hotel._id}
                 whileHover={{ y: -10, scale: 1.01 }}
-                className="bg-white/[0.02] border border-white/5 p-10 rounded-[60px] backdrop-blur-3xl shadow-3xl group relative overflow-hidden transition-all duration-700 hover:border-orange-500/30"
+                className="bg-white/[0.02] border border-white/5 p-6 sm:p-8 lg:p-10 rounded-[36px] sm:rounded-[44px] lg:rounded-[60px] backdrop-blur-3xl shadow-3xl group relative overflow-hidden transition-all duration-700 hover:border-orange-500/30"
               >
                 <div className="absolute top-0 right-0 w-40 h-40 bg-orange-600/10 blur-[100px] group-hover:bg-orange-600/20 transition-all" />
 
-                <div className="flex justify-between items-start mb-12">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center text-orange-500 border border-white/10 group-hover:bg-orange-600 group-hover:text-white transition-all shadow-2xl duration-500">
+                <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 lg:mb-12">
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-white/10 bg-white/5 text-orange-500 shadow-2xl transition-all duration-500 group-hover:bg-orange-600 group-hover:text-white sm:h-16 sm:w-16">
                       <Hotel size={28} />
                     </div>
                     <div>
-                      <h3 className="text-3xl font-black text-white uppercase italic leading-none group-hover:text-orange-500 transition-colors">{hotel.hotelName}</h3>
+                      <h3 className="text-2xl font-black text-white uppercase italic leading-none transition-colors group-hover:text-orange-500 sm:text-3xl">{hotel.hotelName}</h3>
                       <p className="text-white/20 text-[9px] font-black tracking-widest uppercase mt-3 italic flex items-center gap-2">
                         <MapPin size={10} className="text-orange-500" /> {hotel.location}
                       </p>
@@ -263,24 +308,24 @@ const ManageStays = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 mb-10">
-                  <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[40px] flex flex-col items-center justify-center text-center">
+                <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:mb-10">
+                  <div className="flex flex-col items-center justify-center rounded-[28px] border border-white/5 bg-white/[0.03] p-6 text-center sm:rounded-[40px] sm:p-8">
                     <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-5">Current Inventory</p>
-                    <div className="flex items-center gap-8">
-                      <button onClick={() => handleQuickRoomUpdate(hotel._id, hotel.roomsAvailable, -1)} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-red-600 hover:text-white transition-all active:scale-90 border border-white/10"><Minus size={16} /></button>
-                      <span className="text-5xl font-black text-white italic drop-shadow-2xl">{hotel.roomsAvailable}</span>
-                      <button onClick={() => handleQuickRoomUpdate(hotel._id, hotel.roomsAvailable, 1)} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-green-600 hover:text-white transition-all active:scale-90 border border-white/10"><Plus size={16} /></button>
+                    <div className="flex items-center gap-4 sm:gap-8">
+                      <button onClick={() => handleQuickRoomUpdate(hotel._id, hotel.roomsAvailable, -1)} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/40 transition-all hover:bg-red-600 hover:text-white active:scale-90"><Minus size={16} /></button>
+                      <span className="text-4xl font-black italic text-white drop-shadow-2xl sm:text-5xl">{hotel.roomsAvailable}</span>
+                      <button onClick={() => handleQuickRoomUpdate(hotel._id, hotel.roomsAvailable, 1)} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/40 transition-all hover:bg-green-600 hover:text-white active:scale-90"><Plus size={16} /></button>
                     </div>
                   </div>
 
-                  <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[40px] flex flex-col items-center justify-center text-center">
+                  <div className="flex flex-col items-center justify-center rounded-[28px] border border-white/5 bg-white/[0.03] p-6 text-center sm:rounded-[40px] sm:p-8">
                     <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-5">Base Rate</p>
-                    <div className="flex items-center gap-2"><IndianRupee size={22} className="text-orange-500" /><span className="text-5xl font-black text-white italic leading-none tracking-tighter">{hotel.pricePerNight}</span></div>
+                    <div className="flex items-center gap-2"><IndianRupee size={22} className="text-orange-500" /><span className="text-4xl font-black italic leading-none tracking-tighter text-white sm:text-5xl">{hotel.pricePerNight}</span></div>
                   </div>
                 </div>
 
-                <button onClick={() => openEditModal(hotel)} className="w-full bg-white/[0.02] border border-white/5 py-7 rounded-[35px] font-black text-[10px] uppercase tracking-[0.5em] transition-all flex items-center justify-center gap-4 hover:bg-orange-600 hover:text-white shadow-2xl">
-                  <Edit3 size={18} /> Modify Asset Specs
+                <button onClick={() => openEditModal(hotel)} className="flex w-full items-center justify-center gap-4 rounded-[28px] border border-white/5 bg-white/[0.02] px-5 py-5 text-center font-black text-[10px] uppercase tracking-[0.35em] transition-all shadow-2xl hover:bg-orange-600 hover:text-white sm:rounded-[35px] sm:py-7">
+                  <Edit3 size={18} /> Edit Stay Details
                 </button>
               </motion.div>
             ))

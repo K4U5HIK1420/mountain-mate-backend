@@ -54,7 +54,7 @@ export default function StepRideDetails({
                 onChange={onOriginChange}
                 list="origin-location-suggestions"
                 className={`${inputClass} pl-10`}
-                placeholder="Dehradun"
+                placeholder="Origin"
               />
             </div>
             <datalist id="origin-location-suggestions">
@@ -83,7 +83,7 @@ export default function StepRideDetails({
               onChange={onDestinationChange}
               list="destination-location-suggestions"
               className={`${inputClass} pl-10`}
-              placeholder="Rishikesh"
+              placeholder="Destination"
             />
           </div>
           <datalist id="destination-location-suggestions">

@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin-mate
+Disallow: /admin-bookings
+Disallow: /admin-support
+Disallow: /add-hotel
+Disallow: /add-transport
+Disallow: /bookings
+Disallow: /manage-stays
+Disallow: /manage-rides
+Disallow: /profile
+Disallow: /booking/
+Disallow: /payment/
+
+Sitemap: https://mountainmate.in/sitemap.xml

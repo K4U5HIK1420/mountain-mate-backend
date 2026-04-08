@@ -1,16 +1,34 @@
 const mongoose = require("mongoose");
+const fs = require("fs");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Hotel = require("../models/Hotel");
 const Transport = require("../models/Transport");
 const Review = require("../models/Review");
+const cloudinary = require("../config/cloudinary");
 const { restoreBookingInventory } = require("../utils/bookingInventory");
 const { createNotification } = require("../services/notificationService");
 const { resolveAppUser } = require("../utils/resolveAppUser");
 const { getDataStore } = require("../utils/dataStore");
+const { getSupabaseClient } = require("../utils/supabaseClient");
 const supabaseBookings = require("../services/supabaseBookingsStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+
+async function uploadAvatar(file) {
+  if (!file?.path) return "";
+  try {
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: "mountain_mate/avatars",
+      resource_type: "image",
+    });
+    return result.secure_url || "";
+  } finally {
+    if (file?.path) {
+      fs.unlink(file.path, () => {});
+    }
+  }
+}
 
 async function resolveListingContact(booking, isSupabase) {
   if (!booking) return null;
@@ -68,21 +86,49 @@ async function attachCounterpartyDetails(bookings = [], { viewerRole = "user", i
 exports.setupProfile = async (req, res) => {
   try {
     const { fullName, phone, avatarUrl } = req.body;
-    const supabaseUser = req.user; 
+    const supabaseUser = req.user;
+    const trimmedFullName = String(fullName || "").trim();
+    const trimmedPhone = String(phone || "").trim();
+    const uploadedAvatarUrl = await uploadAvatar(req.file);
+    const nextAvatarUrl = uploadedAvatarUrl || String(avatarUrl || "").trim();
+
+    if (req.authType === "supabase" && supabaseUser?.id) {
+      const supabase = getSupabaseClient();
+      const nextUserMetadata = {
+        ...(supabaseUser.user_metadata || {}),
+      };
+
+      if (trimmedFullName) {
+        nextUserMetadata.full_name = trimmedFullName;
+        nextUserMetadata.display_name = trimmedFullName;
+      }
+
+      if (trimmedPhone) {
+        nextUserMetadata.phone = trimmedPhone;
+      }
+
+      if (nextAvatarUrl) {
+        nextUserMetadata.avatar_url = nextAvatarUrl;
+      }
+
+      await supabase.auth.admin.updateUserById(supabaseUser.id, {
+        user_metadata: nextUserMetadata,
+      });
+    }
 
     let user = await User.findOne({ email: supabaseUser.email });
 
     if (user) {
-      user.fullName = fullName || user.fullName;
-      user.phone = phone || user.phone;
-      user.avatarUrl = avatarUrl || user.avatarUrl;
+      user.name = trimmedFullName || user.name;
+      user.phone = trimmedPhone || user.phone;
+      user.avatarUrl = nextAvatarUrl || user.avatarUrl;
       await user.save();
     } else {
       user = await User.create({
         email: supabaseUser.email,
-        fullName,
-        phone,
-        avatarUrl,
+        name: trimmedFullName || supabaseUser.user_metadata?.full_name || supabaseUser.email?.split("@")[0] || "Traveler",
+        phone: trimmedPhone,
+        avatarUrl: nextAvatarUrl,
         referrals: {
           code: `MM-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
           invitedUsers: [],
@@ -90,7 +136,16 @@ exports.setupProfile = async (req, res) => {
         }
       });
     }
-    res.json({ success: true, message: "Profile Synchronized!", user });
+    res.json({
+      success: true,
+      message: "Profile synchronized",
+      data: {
+        name: user.name || trimmedFullName || "",
+        phone: user.phone || trimmedPhone || "",
+        avatarUrl: user.avatarUrl || nextAvatarUrl || "",
+        email: user.email || supabaseUser.email || "",
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: "Profile sync failed" });
   }

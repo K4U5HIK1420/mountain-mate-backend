@@ -1,32 +1,22 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronLeft,
-  Loader2,
-  Lock,
-  Mail,
-  ShieldCheck,
-  Sparkles,
-  Phone,
-  ArrowRight,
-} from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, Loader2, Lock, Mail, Sparkles } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useNotify } from "../context/NotificationContext";
 import { supabase } from "../utils/supabase";
 import { Button } from "../components/ui/Button";
+import { isValidEmail, normalizeEmail } from "../utils/validation";
 
 const Login = () => {
   const { notify } = useNotify();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("password");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
 
-  const from = location.state?.from || "/explore-stays";
+  const from = location.state?.from?.pathname || "/explore-stays";
 
   const handleGoogleLogin = async () => {
     try {
@@ -43,44 +33,21 @@ const Login = () => {
     }
   };
 
-  const handleOtpChange = (element, index) => {
-    if (Number.isNaN(Number(element.value)) && element.value !== "") return;
-    const nextOtp = otp.map((digit, idx) => (idx === index ? element.value : digit));
-    setOtp(nextOtp);
-
-    if (element.nextSibling && element.value) {
-      element.nextSibling.focus();
-    }
-
-    if (nextOtp.join("").length === 6 && !loading) {
-      setTimeout(() => {
-        attemptOtpVerify(nextOtp.join(""));
-      }, 80);
-    }
-  };
-
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
+      notify("Enter a valid email address.", "warning");
+      return;
+    }
     setLoading(true);
     try {
-      const isPhone = /^\+?[1-9]\d{1,14}$/.test(identifier.replace(/\s/g, ""));
-      const normalizedIdentifier = identifier.trim();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
-      if (isPhone) {
-        const { error } = await supabase.auth.signInWithPassword({
-          phone: normalizedIdentifier,
-          password,
-        });
-        if (error) throw error;
-      } else {
-        const normalizedEmail = normalizedIdentifier.toLowerCase();
-        const { error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
-        if (error) throw error;
-      }
-
+      if (error) throw error;
       notify("Uplink established. Welcome back.", "success");
       navigate(from, { replace: true });
     } catch (err) {
@@ -90,67 +57,22 @@ const Login = () => {
     }
   };
 
-  const handleOtpRequest = async (e) => {
-    e.preventDefault();
-    if (!identifier) return notify("Identifier required.", "error");
-
-    setLoading(true);
-    try {
-      const isPhone = /^\+?[1-9]\d{1,14}$/.test(identifier.replace(/\s/g, ""));
-      const { error } = isPhone
-        ? await supabase.auth.signInWithOtp({ phone: identifier })
-        : await supabase.auth.signInWithOtp({ email: identifier });
-
-      if (error) throw error;
-      setMode("otp_verify");
-      notify("Security code sent.", "success");
-    } catch (err) {
-      notify(err?.message || "Unable to send code.", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleForgotPassword = async () => {
-    const email = identifier.trim();
-    if (!email || !email.includes("@")) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
       notify("Enter your account email first.", "warning");
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
       notify("Password reset link sent to your email.", "success");
     } catch (err) {
       notify(err?.message || "Unable to send reset link.", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const attemptOtpVerify = async (codeInput) => {
-    if (loading) return;
-    const code = (codeInput ?? otp.join("")).trim();
-    if (code.length !== 6) return notify("Enter full code.", "error");
-
-    setLoading(true);
-    try {
-      const isPhone = /^\+?[1-9]\d{1,14}$/.test(identifier.replace(/\s/g, ""));
-      const { error } = await supabase.auth.verifyOtp({
-        [isPhone ? "phone" : "email"]: identifier,
-        token: code,
-        type: isPhone ? "sms" : "email",
-      });
-
-      if (error) throw error;
-      notify("Access granted.", "success");
-      navigate(from, { replace: true });
-    } catch (err) {
-      notify(err?.message || "Invalid OTP code.", "error");
     } finally {
       setLoading(false);
     }
@@ -183,153 +105,88 @@ const Login = () => {
           animate={{ opacity: 1, y: 0 }}
           className="cinematic-surface spotlight-border mx-auto w-full max-w-md rounded-[40px] bg-white/[0.02] p-6 backdrop-blur-3xl md:p-10"
         >
-          <AnimatePresence mode="wait">
-            {mode === "password" || mode === "otp_request" ? (
-              <motion.div key="login-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-8 text-center">
-                  <h2 className="text-4xl font-black uppercase italic tracking-tight text-white">Login.</h2>
-                  <p className="mt-2 text-[8px] font-black uppercase tracking-[0.4em] text-white/20">Secure Uplink</p>
-                </div>
+          <div className="mb-8 text-center">
+            <h2 className="text-4xl font-black uppercase italic tracking-tight text-white">Login.</h2>
+            <p className="mt-2 text-[8px] font-black uppercase tracking-[0.4em] text-white/20">Secure Uplink</p>
+          </div>
 
-                <div className="mb-8 grid grid-cols-2 gap-1 rounded-[20px] border border-white/5 bg-white/5 p-1">
-                  {["password", "otp_request"].map((item) => (
-                    <button
-                      key={item}
-                      onClick={() => setMode(item)}
-                      className={`rounded-[16px] py-3 text-[8px] font-black uppercase tracking-[0.2em] transition-all ${
-                        mode === item ? "bg-orange-600 text-white shadow-lg shadow-orange-600/20" : "text-white/30"
-                      }`}
-                    >
-                      {item === "password" ? "Key Access" : "OTP Sync"}
-                    </button>
-                  ))}
-                </div>
+          <form onSubmit={handlePasswordLogin} className="space-y-4">
+            <Field label="Email" icon={<Mail size={16} />}>
+              <input
+                type="email"
+                required
+                value={email}
+                placeholder="johndoe123@gmail.com"
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-transparent text-sm font-bold text-white outline-none"
+              />
+            </Field>
 
-                <form onSubmit={mode === "password" ? handlePasswordLogin : handleOtpRequest} className="space-y-4">
-                  <Field label="Identifier (Email or Phone)" icon={identifier.includes("@") ? <Mail size={16} /> : <Phone size={16} />}>
-                    <input
-                      type="text"
-                      required
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="+91 or explorer@email.com"
-                      className="w-full bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/20"
-                    />
-                  </Field>
+            <Field label="Password" icon={<Lock size={16} />}>
+              <input
+                type="password"
+                required
+                value={password}
+                placeholder="••••••••"
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-transparent text-sm font-bold text-white outline-none"
+              />
+            </Field>
 
-                  {mode === "password" && (
-                    <>
-                      <Field label="Security Key" icon={<Lock size={16} />}>
-                        <input
-                          type="password"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="********"
-                          className="w-full bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/20"
-                        />
-                      </Field>
-
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleForgotPassword}
-                          disabled={loading}
-                          className="text-[8px] font-black uppercase tracking-[0.28em] text-orange-400/80 transition hover:text-orange-300 disabled:opacity-60"
-                        >
-                          Forgot Password?
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  <Button
-                    disabled={loading}
-                    type="submit"
-                    size="lg"
-                    className="h-14 w-full rounded-[20px] bg-orange-600 text-[10px] tracking-[0.3em] shadow-xl shadow-orange-600/10 hover:bg-orange-500"
-                  >
-                    {loading ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
-                    {mode === "password" ? "Establish Uplink" : "Transmit Code"}
-                  </Button>
-                </form>
-
-                <div className="mt-8 space-y-6">
-                  <div className="flex items-center gap-4 text-white/10">
-                    <div className="h-px flex-1 bg-current" />
-                    <span className="text-[7px] font-black uppercase tracking-[0.4em]">Alternative</span>
-                    <div className="h-px flex-1 bg-current" />
-                  </div>
-
-                  <button
-                    onClick={handleGoogleLogin}
-                    disabled={loading}
-                    className="group flex h-14 w-full items-center justify-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] transition-all hover:bg-white/5 active:scale-95"
-                  >
-                    <svg className="h-5 w-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50 transition-colors group-hover:text-white">
-                      Authenticate with Google
-                    </span>
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="otp-verify"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-10 text-center"
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-[8px] font-black uppercase tracking-[0.28em] text-orange-400/80 transition hover:text-orange-300 disabled:opacity-60"
               >
-                <div className="space-y-4">
-                  <ShieldCheck size={48} className="mx-auto text-orange-500" />
-                  <h2 className="text-4xl font-black uppercase italic tracking-tight text-white">Verify Sync.</h2>
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 italic">Transmission sent to {identifier}</p>
-                </div>
-
-                <div className="mx-auto grid w-full max-w-[340px] grid-cols-6 gap-2 sm:gap-3">
-                  {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      maxLength="1"
-                      value={digit}
-                      onChange={(e) => handleOtpChange(e.target, index)}
-                      className="aspect-square w-full rounded-xl border border-white/10 bg-white/5 text-center text-lg font-black text-orange-500 outline-none transition-all focus:border-orange-500"
-                    />
-                  ))}
-                </div>
-
-                <Button onClick={() => attemptOtpVerify()} disabled={loading} className="h-14 w-full rounded-full bg-orange-600 text-[10px] tracking-[0.3em]">
-                  {loading ? "Verifying..." : "Confirm Identity"}
-                </Button>
-
-                <button
-                  onClick={() => setMode("password")}
-                  className="mx-auto flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest text-white/20 transition-colors hover:text-white"
-                >
-                  <ChevronLeft size={12} />
-                  Update Identity
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {(mode === "password" || mode === "otp_request") && (
-            <div className="mt-8 border-t border-white/5 pt-6 text-center">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">
-                New scout?
-                <Link to="/register" className="ml-2 text-orange-500 underline decoration-orange-500/20 underline-offset-4">
-                  Register now
-                </Link>
-              </p>
+                Forgot Password?
+              </button>
             </div>
-          )}
+
+            <Button
+              disabled={loading}
+              type="submit"
+              size="lg"
+              className="h-14 w-full rounded-[20px] bg-orange-600 text-[10px] tracking-[0.3em] shadow-xl shadow-orange-600/10 hover:bg-orange-500"
+            >
+              {loading ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
+              Establish Uplink
+            </Button>
+          </form>
+
+          <div className="mt-8 space-y-6">
+            <div className="flex items-center gap-4 text-white/10">
+              <div className="h-px flex-1 bg-current" />
+              <span className="text-[7px] font-black uppercase tracking-[0.4em]">Alternative</span>
+              <div className="h-px flex-1 bg-current" />
+            </div>
+
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="group flex h-14 w-full items-center justify-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] transition-all hover:bg-white/5 active:scale-95"
+            >
+              <svg className="h-5 w-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/50 transition-colors group-hover:text-white">
+                Authenticate with Google
+              </span>
+            </button>
+          </div>
+
+          <div className="mt-8 border-t border-white/5 pt-6 text-center">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">
+              New scout?
+              <Link to="/register" className="ml-2 text-orange-500 underline decoration-orange-500/20 underline-offset-4">
+                Register now
+              </Link>
+            </p>
+          </div>
         </motion.div>
       </div>
     </div>

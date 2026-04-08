@@ -2,13 +2,14 @@ const path = require("path");
 const cloudinary = require("cloudinary").v2;
 const express = require("express");
 const cors = require("cors");
-const rateLimit = require("express-rate-limit");
 const http = require("http");
 const { Server } = require("socket.io");
 const Booking = require("./models/Booking");
 
 const connectDB = require("./config/db");
 const errorHandler = require("./middleware/errorHandler");
+const requestSanitizer = require("./middleware/requestSanitizer");
+const { apiLimiter } = require("./middleware/rateLimiters");
 
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
@@ -188,21 +189,10 @@ io.on("connection", (socket) => {
 });
 
 app.use(cors(corsOptions));
-app.use(express.json());
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
-  skip: (req) => {
-    const path = String(req.path || "").replace(/\/+$/, "") || "/";
-    return path === "/notifications" || path === "/notifications/read";
-  },
-  message: {
-    message: "Too many requests from this telemetry node, try again in 15 mins",
-    status: 429,
-  },
-});
-app.use("/api/", limiter);
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(requestSanitizer);
+app.use("/api/", apiLimiter);
 
 const authRoutes = require("./routes/authRoutes");
 const hotelRoutes = require("./routes/hotelRoutes");

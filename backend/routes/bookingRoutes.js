@@ -3,6 +3,7 @@ const validate = require("../middleware/validate");
 const auth = require("../middleware/authMiddleware");
 const anyAuth = require("../middleware/anyAuth");
 const upload = require("../middleware/upload");
+const { bookingLimiter } = require("../middleware/rateLimiters");
 const express = require("express");
 const router = express.Router();
 const {
@@ -22,13 +23,25 @@ const {
 
 router.post(
   "/create",
+  bookingLimiter,
   anyAuth,
   [
-    body("customerName").notEmpty().withMessage("Name required"),
-    body("phoneNumber").isLength({ min: 10 }).withMessage("Invalid phone"),
-    body("bookingType").notEmpty(),
-    body("listingId").notEmpty(),
-    body("date").notEmpty().withMessage("Date required"),
+    body("customerName").isString().trim().isLength({ min: 2, max: 80 }).withMessage("Name required"),
+    body("phoneNumber").isString().trim().matches(/^[0-9]{10,15}$/).withMessage("Invalid phone"),
+    body("bookingType").isIn(["Hotel", "Transport"]).withMessage("Invalid booking type"),
+    body("listingId").isString().trim().notEmpty(),
+    body("date").isISO8601().withMessage("Date required"),
+    body("guests").optional().isInt({ min: 1, max: 20 }),
+    body("rooms").optional().isInt({ min: 1, max: 20 }),
+    body("amount").optional().isFloat({ min: 0, max: 1000000 }),
+    body().custom((value) => {
+      const allowed = ["customerName", "phoneNumber", "bookingType", "listingId", "date", "startDate", "endDate", "guests", "rooms", "amount"];
+      const keys = Object.keys(value || {});
+      if (keys.some((key) => !allowed.includes(key))) {
+        throw new Error("Unexpected fields in request.");
+      }
+      return true;
+    }),
   ],
   validate,
   createBooking

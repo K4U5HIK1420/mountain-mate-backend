@@ -3,6 +3,18 @@ import API from "../utils/api";
 import { motion } from "framer-motion";
 import { Calendar, Car, Crosshair, IndianRupee, Loader2, MapPin, Navigation, Save, Users } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
+import { geocodePlace, getBrowserLocation, reverseGeocode } from "../utils/location";
+import {
+  cleanValue,
+  digitsOnly,
+  isValidAadhaar,
+  isValidPan,
+  isValidPhone,
+  isValidVehiclePlate,
+  normalizePan,
+  normalizePhone,
+  normalizeVehiclePlate,
+} from "../utils/validation";
 
 const hubs = ["Guptakashi", "Sonprayag", "Phata", "Rudraprayag", "Rishikesh", "Dehradun", "Haridwar", "Joshimath"];
 const complianceFields = [
@@ -88,83 +100,69 @@ export default function ManageRides() {
     }));
   };
 
-  const getCoords = async (place) => {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`);
-      const data = await res.json();
-      return data?.[0]
-        ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-        : { lat: 30.3165, lng: 78.0322 };
-    } catch {
-      return { lat: 30.3165, lng: 78.0322 };
+  const validateRideDraft = (draft, { routeOnly = false } = {}) => {
+    if (!cleanValue(draft.routeFrom) || !cleanValue(draft.routeTo)) {
+      return "Add both source and destination.";
     }
-  };
-
-  const getLocationLabel = async (lat, lng) => {
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`
-      );
-      const data = await res.json();
-      return (
-        data?.address?.suburb ||
-        data?.address?.road ||
-        data?.address?.town ||
-        data?.address?.city ||
-        data?.display_name?.split(",")?.slice(0, 2)?.join(", ") ||
-        `${lat.toFixed(5)}, ${lng.toFixed(5)}`
-      );
-    } catch {
-      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (cleanValue(draft.routeFrom).toLowerCase() === cleanValue(draft.routeTo).toLowerCase()) {
+      return "Source and destination should be different.";
     }
+    if (routeOnly) return "";
+    if (cleanValue(draft.contactNumber) && !isValidPhone(draft.contactNumber)) {
+      return "Enter a valid driver contact number.";
+    }
+    if (cleanValue(draft.plateNumber) && !isValidVehiclePlate(draft.plateNumber)) {
+      return "Enter a valid vehicle number.";
+    }
+    if (cleanValue(draft.driverAadhaarNumber) && !isValidAadhaar(draft.driverAadhaarNumber)) {
+      return "Enter a valid Aadhaar number.";
+    }
+    if (cleanValue(draft.driverPanNumber) && !isValidPan(draft.driverPanNumber)) {
+      return "Enter a valid PAN number.";
+    }
+    return "";
   };
 
   const captureLiveLocation = (rideId) => {
-    if (!navigator.geolocation) {
-      notify("This browser does not support live location.", "error");
-      return;
-    }
-
     setLocatingId(rideId);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
+    getBrowserLocation()
+      .then(async (position) => {
         const coords = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        const label = await getLocationLabel(coords.lat, coords.lng);
+        const label = await reverseGeocode(coords.lat, coords.lng);
         setDraft(rideId, { routeFrom: label, fromCoords: coords });
         setLocatingId("");
         notify("Driver live location captured.", "success");
-      },
-      () => {
+      })
+      .catch(() => {
         setLocatingId("");
         notify("Allow location access to use your exact pickup point.", "error");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      }
-    );
+      });
   };
 
   const republishRide = async (ride) => {
     const draft = drafts[ride._id];
-    if (!draft?.routeFrom?.trim() || !draft?.routeTo?.trim()) {
-      notify("Add both source and destination.", "error");
+    const routeError = validateRideDraft(draft || {}, { routeOnly: true });
+    if (routeError) {
+      notify(routeError, "error");
       return;
     }
 
     setSavingId(`route-${ride._id}`);
     try {
       const [fromCoords, toCoords] = await Promise.all([
-        draft.fromCoords || getCoords(draft.routeFrom),
-        draft.toCoords || getCoords(draft.routeTo),
+        draft.fromCoords || geocodePlace(draft.routeFrom),
+        draft.toCoords || geocodePlace(draft.routeTo),
       ]);
+      if (!fromCoords || !toCoords) {
+        notify("Could not map the selected route right now. Try a clearer town name.", "error");
+        return;
+      }
       const payload = {
-        routeFrom: draft.routeFrom.trim(),
-        routeTo: draft.routeTo.trim(),
+        routeFrom: cleanValue(draft.routeFrom),
+        routeTo: cleanValue(draft.routeTo),
         availableDate: draft.availableDate || null,
         fromCoords,
         toCoords,
@@ -203,18 +201,25 @@ export default function ManageRides() {
 
   const saveOptionalDetails = async (ride) => {
     const draft = drafts[ride._id] || {};
+    const validationError = validateRideDraft(draft);
+    if (validationError) {
+      notify(validationError, "error");
+      return;
+    }
     setSavingId(`optional-${ride._id}`);
     try {
       const data = new FormData();
       data.append("vehicleModel", draft.vehicleModel || ride.vehicleModel || "");
-      data.append("plateNumber", draft.plateNumber || ride.plateNumber || "");
+      data.append("plateNumber", normalizeVehiclePlate(draft.plateNumber || ride.plateNumber || ""));
       data.append("driverName", draft.driverName || ride.driverName || "");
-      data.append("contactNumber", draft.contactNumber || ride.contactNumber || "");
+      data.append("contactNumber", normalizePhone(draft.contactNumber || ride.contactNumber || ""));
       data.append("pricePerSeat", String(draft.pricePerSeat ?? ride.pricePerSeat ?? 0));
       data.append("seatsAvailable", String(draft.seatsAvailable ?? ride.seatsAvailable ?? 1));
 
       complianceFields.forEach(([key]) => {
-        const val = draft[key];
+        let val = draft[key];
+        if (key === "driverAadhaarNumber") val = digitsOnly(val);
+        if (key === "driverPanNumber") val = normalizePan(val);
         if (val !== undefined && val !== null && String(val).trim() !== "") {
           data.append(key, String(val));
         }
@@ -348,10 +353,10 @@ export default function ManageRides() {
                   </div>
 
                   <div className="mt-8 grid gap-4 xl:grid-cols-[1fr_1fr_170px_170px_220px]">
-                    <Field icon={<MapPin size={16} />} label="Current Driver Location">
-                      <input
-                        value={draft.routeFrom || ""}
-                        onChange={(e) => setDraft(ride._id, { routeFrom: e.target.value, fromCoords: null })}
+                        <Field icon={<MapPin size={16} />} label="Current Driver Location">
+                          <input
+                            value={draft.routeFrom || ""}
+                            onChange={(e) => setDraft(ride._id, { routeFrom: e.target.value, fromCoords: null })}
                         placeholder="Guptakashi"
                         className="w-full bg-transparent text-sm font-black uppercase tracking-[0.18em] text-white outline-none placeholder:text-white/24"
                       />
@@ -433,7 +438,7 @@ export default function ManageRides() {
                         <Field icon={<Car size={16} />} label="Plate Number">
                           <input
                             value={draft.plateNumber || ""}
-                            onChange={(e) => setDraft(ride._id, { plateNumber: e.target.value })}
+                            onChange={(e) => setDraft(ride._id, { plateNumber: normalizeVehiclePlate(e.target.value) })}
                             className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
                             placeholder="UK07 XX 1234"
                           />
@@ -449,7 +454,7 @@ export default function ManageRides() {
                         <Field icon={<Users size={16} />} label="Contact Number">
                           <input
                             value={draft.contactNumber || ""}
-                            onChange={(e) => setDraft(ride._id, { contactNumber: e.target.value })}
+                            onChange={(e) => setDraft(ride._id, { contactNumber: normalizePhone(e.target.value) })}
                             className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
                             placeholder="9876543210"
                           />
@@ -461,7 +466,16 @@ export default function ManageRides() {
                           <Field key={`${ride._id}-${key}`} icon={<Navigation size={16} />} label={label}>
                             <input
                               value={draft[key] || ""}
-                              onChange={(e) => setDraft(ride._id, { [key]: e.target.value })}
+                              onChange={(e) =>
+                                setDraft(ride._id, {
+                                  [key]:
+                                    key === "driverAadhaarNumber"
+                                      ? digitsOnly(e.target.value).slice(0, 12)
+                                      : key === "driverPanNumber"
+                                        ? normalizePan(e.target.value)
+                                        : e.target.value,
+                                })
+                              }
                               className="w-full bg-transparent text-sm font-black uppercase tracking-[0.12em] text-white outline-none placeholder:text-white/24"
                               placeholder={label}
                             />

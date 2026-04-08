@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const anyAuth = require("../middleware/anyAuth");
+const upload = require("../middleware/upload");
 // Dost ka naya middleware
 const { supabaseAuth } = require("../middleware/supabaseAuthMiddleware");
 
@@ -33,7 +34,7 @@ router.get("/partner/incoming", anyAuth, getPartnerIncomingBookings);
 router.post("/bookings/update-status", anyAuth, updateBookingStatus);
 
 // --- Dost ka Profile Setup ---
-router.post("/setup-profile", supabaseAuth, setupProfile);
+router.post("/setup-profile", anyAuth, upload.single("avatar"), setupProfile);
 
 // --- Tere Referral Routes ---
 router.get("/referral", anyAuth, getReferralStats);

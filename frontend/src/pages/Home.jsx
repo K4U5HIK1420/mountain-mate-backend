@@ -53,21 +53,24 @@ const featuredRoutes = [
     name: "Kedarnath Access",
     difficulty: "Pilgrimage",
     time: "Trusted Route",
-    img: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=1200",
+    img: "/home-cards/kedarnath-access.jpg",
+    fallbackImg: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=60&w=1200&auto=format",
     price: "Stay + Ride Ready",
   },
   {
     name: "Rishikesh To Chopta",
     difficulty: "Touring",
     time: "Multi-stop Planning",
-    img: "https://images.unsplash.com/photo-1596328330768-ae380299f187?q=80&w=1200",
+    img: "/home-cards/rishikesh-to-chopta.jpg",
+    fallbackImg: "https://images.unsplash.com/photo-1596328330768-ae380299f187?q=60&w=1200&auto=format",
     price: "Cleaner Booking",
   },
   {
     name: "Valley Of Flowers",
     difficulty: "Adventure",
     time: "Season-sensitive",
-    img: "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1200",
+    img: "/home-cards/valley-of-flowers.jpg",
+    fallbackImg: "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=60&w=1200&auto=format",
     price: "Local Support",
   },
 ];
@@ -271,20 +274,21 @@ export default function Home() {
         <div className="absolute bottom-[-8rem] left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-white/5 blur-[150px]" />
       </div>
 
-      <section className="relative z-10 overflow-hidden border-b border-white/8 pt-28">
+      <section className="relative z-10 overflow-hidden border-b border-white/8 pt-[6.35rem] sm:pt-[6.85rem]">
         <div className="absolute inset-0">
           <motion.div style={{ y: heroY }} className="absolute inset-0">
             <img
-              src="https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=2070"
+              src="https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=60&w=1440&auto=format"
               className="h-full w-full scale-110 object-cover opacity-30"
               alt="Mountain expedition"
+              loading="eager"
             />
           </motion.div>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,4,4,0.62),rgba(4,4,4,0.28)_32%,rgba(4,4,4,0.88)_80%,#040404_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.2),transparent_30%)]" />
         </div>
 
-        <div className="relative z-20 overflow-hidden border-y border-white/8 bg-black/35 backdrop-blur-2xl">
+        <div className="relative z-20 mx-3 overflow-hidden rounded-2xl border border-white/8 bg-black/40 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:mx-6 lg:mx-10">
           <div className="animate-marquee flex min-w-max gap-12 py-3">
             {[...tickerItems, ...tickerItems, ...tickerItems, ...tickerItems].map((item, index) => (
               <div key={`${item.text}-${index}`} className={`flex items-center gap-3 whitespace-nowrap text-[9px] font-black uppercase tracking-[0.45em] ${item.tone}`}>
@@ -535,7 +539,17 @@ export default function Home() {
                 whileHover={{ y: -10 }}
                 className="group relative min-h-[520px] overflow-hidden rounded-[38px] border border-white/10 bg-black shadow-[0_35px_100px_rgba(0,0,0,0.38)]"
               >
-                <img src={route.img} alt={route.name} className="absolute inset-0 h-full w-full object-cover opacity-65 transition-transform duration-700 ease-out group-hover:scale-110" />
+                <img
+                  src={route.img}
+                  alt={route.name}
+                  className="absolute inset-0 h-full w-full object-cover opacity-65 transition-transform duration-700 ease-out group-hover:scale-110"
+                  loading="lazy"
+                  onError={(event) => {
+                    if (event.currentTarget.dataset.fallbackApplied === "true") return;
+                    event.currentTarget.dataset.fallbackApplied = "true";
+                    event.currentTarget.src = route.fallbackImg;
+                  }}
+                />
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.22)_30%,rgba(0,0,0,0.92)_100%)]" />
                 <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-orange-500/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 

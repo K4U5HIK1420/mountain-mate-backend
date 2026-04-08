@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  Camera,
   Compass,
   Home,
   LifeBuoy,
@@ -9,6 +10,7 @@ import {
   Map,
   Mountain,
   Package,
+  Save,
   ShieldCheck,
   Sparkles,
   Star,
@@ -25,22 +27,16 @@ import { Container } from "../components/ui/Container";
 
 const sidebarItems = [
   { id: "bookings", label: "Recent Activity", icon: Package },
-  { id: "trips", label: "Tactical Maps", icon: Map },
-  { id: "settings", label: "Identity Config", icon: UserCog },
-];
-
-const secondaryCards = [
-  { id: "bookings", title: "Reservations", metricKey: "active", subtitle: "Active Logs" },
-  { id: "trips", title: "Planner", metricKey: "trips", subtitle: "Saved Trips" },
-  { id: "settings", title: "Identity", metricKey: "level", subtitle: "Config Ready" },
+  { id: "trips", label: "Saved Plans", icon: Map },
+  { id: "settings", label: "Profile Details", icon: UserCog },
 ];
 
 const bottomNav = [
-  { label: "Home", to: "/", icon: Home },
-  { label: "Stays", to: "/explore-stays", icon: Hotel },
-  { label: "Rides", to: "/explore-rides", icon: Car },
-  { label: "Admin Console", to: "/admin-mate", icon: ShieldCheck },
-  { label: "Support", to: "/support", icon: LifeBuoy },
+  { label: "Home", to: "/", icon: Home, adminOnly: false },
+  { label: "Stays", to: "/explore-stays", icon: Hotel, adminOnly: false },
+  { label: "Rides", to: "/explore-rides", icon: Car, adminOnly: false },
+  { label: "Admin", to: "/admin-mate", icon: ShieldCheck, adminOnly: true },
+  { label: "Support", to: "/support", icon: LifeBuoy, adminOnly: false },
 ];
 
 function useCountUp(target, duration = 850) {
@@ -72,13 +68,24 @@ function useCountUp(target, duration = 850) {
 }
 
 export default function Profile() {
-  const { user, signOut } = useAuth();
+  const { user, role, signOut, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { notify } = useNotify();
 
   const [activeTab, setActiveTab] = useState("bookings");
   const [bookings, setBookings] = useState([]);
   const [savedTrips, setSavedTrips] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [profileForm, setProfileForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    avatarUrl: "",
+  });
+
+  const isAdmin = String(role || "").toLowerCase() === "admin";
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -98,6 +105,26 @@ export default function Profile() {
     if (user) fetchProfileData();
   }, [notify, user]);
 
+  useEffect(() => {
+    const fullName =
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.display_name ||
+      user?.name ||
+      user?.fullName ||
+      user?.email?.split("@")[0] ||
+      "";
+    const phone = user?.user_metadata?.phone || user?.phone || "";
+    const avatarUrl = user?.user_metadata?.avatar_url || user?.avatarUrl || "";
+
+    setProfileForm({
+      fullName,
+      email: user?.email || "",
+      phone,
+      avatarUrl,
+    });
+    setAvatarPreview(avatarUrl);
+  }, [user]);
+
   const stats = useMemo(
     () => ({
       completed: bookings.length,
@@ -108,16 +135,61 @@ export default function Profile() {
     [bookings, savedTrips.length]
   );
 
-  const name = String(user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Traveler").toUpperCase();
-
+  const displayName = String(profileForm.fullName || "Traveler").toUpperCase();
   const completedCount = useCountUp(stats.completed);
   const plannedCount = useCountUp(stats.planned);
   const activeCount = useCountUp(stats.active);
   const levelCount = useCountUp(stats.level);
 
+  const visibleBottomNav = bottomNav.filter((item) => !item.adminOnly || isAdmin);
+
   const handleLogout = async () => {
     await signOut();
     navigate("/login");
+  };
+
+  const handleAvatarChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      notify("Please choose an image file.", "error");
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleProfileSave = async () => {
+    if (!profileForm.fullName.trim()) {
+      notify("Name is required.", "error");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = new FormData();
+      payload.append("fullName", profileForm.fullName.trim());
+      payload.append("phone", profileForm.phone.trim());
+      payload.append("avatarUrl", profileForm.avatarUrl.trim());
+      if (avatarFile) payload.append("avatar", avatarFile);
+
+      const res = await API.post("/user/setup-profile", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const nextAvatar = res.data?.data?.avatarUrl || profileForm.avatarUrl;
+      setProfileForm((prev) => ({ ...prev, avatarUrl: nextAvatar }));
+      setAvatarPreview(nextAvatar || avatarPreview);
+      setAvatarFile(null);
+      await refreshUser?.();
+      notify("Profile updated.", "success");
+    } catch {
+      notify("Profile update failed.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!user) {
@@ -141,25 +213,30 @@ export default function Profile() {
         <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),rgba(6,6,6,0.94)] p-5 backdrop-blur-2xl md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
-              <motion.div
-                whileHover={{ scale: 1.04 }}
-                className="relative"
-              >
+              <div className="relative">
                 <motion.div
                   animate={{ opacity: [0.25, 0.5, 0.25] }}
                   transition={{ duration: 2.6, repeat: Infinity }}
                   className="absolute -inset-2 rounded-full bg-orange-500/30 blur-2xl"
                 />
-                <div className="relative h-28 w-28 rounded-full border border-orange-400/40 bg-black/45 p-1 shadow-[0_0_35px_rgba(249,115,22,0.35)]">
-                  <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0d0d0d] text-4xl font-black italic text-orange-200">
-                    {user.email?.charAt(0)?.toUpperCase() || "M"}
-                  </div>
+                <div className="relative h-28 w-28 overflow-hidden rounded-full border border-orange-400/40 bg-black/45 p-1 shadow-[0_0_35px_rgba(249,115,22,0.35)]">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt={profileForm.fullName || "Profile"} className="h-full w-full rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0d0d0d] text-4xl font-black italic text-orange-200">
+                      {profileForm.email?.charAt(0)?.toUpperCase() || "M"}
+                    </div>
+                  )}
                 </div>
-              </motion.div>
+                <label className="absolute bottom-1 right-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-black/75 text-orange-200 shadow-lg transition hover:bg-orange-600 hover:text-white">
+                  <Camera size={16} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                </label>
+              </div>
 
               <div>
                 <h1 className="text-center text-3xl font-black uppercase italic tracking-[-0.03em] text-white sm:text-left md:text-5xl">
-                  {name}
+                  {displayName}
                 </h1>
                 <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-orange-200">
                   <Sparkles size={12} />
@@ -190,29 +267,6 @@ export default function Profile() {
           <StatCard icon={Compass} label="Planned Paths" value={plannedCount} />
           <StatCard icon={Package} label="Active Reservations" value={activeCount} />
           <StatCard icon={ShieldCheck} label="Explorer Level" value={levelCount} />
-        </section>
-
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          {secondaryCards.map((item) => {
-            const count =
-              item.metricKey === "active"
-                ? stats.active
-                : item.metricKey === "trips"
-                ? stats.planned
-                : stats.level;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className="rounded-2xl border border-white/12 bg-white/5 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-orange-400/35 hover:shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
-              >
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">{item.title}</p>
-                <p className="mt-2 text-3xl font-black italic text-white">{count}</p>
-                <p className="mt-1 text-xs text-white/55">{item.subtitle}</p>
-                <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">Open in Profile</p>
-              </button>
-            );
-          })}
         </section>
 
         <section className="mt-6 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -270,7 +324,7 @@ export default function Profile() {
 
                 {activeTab === "trips" && (
                   savedTrips.length === 0 ? (
-                    <GenericEmpty title="No tactical maps saved yet." />
+                    <GenericEmpty title="No saved plans yet." />
                   ) : (
                     <div className="space-y-3">
                       {savedTrips.map((trip, index) => (
@@ -288,9 +342,51 @@ export default function Profile() {
                 )}
 
                 {activeTab === "settings" && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <IdentityCard label="Identity Name" value={user.user_metadata?.full_name || "Not available"} />
-                    <IdentityCard label="Email" value={user.email || "Not available"} />
+                  <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+                    <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">Profile Photo</p>
+                      <div className="mt-5 flex flex-col items-center gap-4">
+                        <div className="h-36 w-36 overflow-hidden rounded-full border border-orange-400/35 bg-black/30">
+                          {avatarPreview ? (
+                            <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-5xl font-black italic text-orange-200">
+                              {profileForm.email?.charAt(0)?.toUpperCase() || "M"}
+                            </div>
+                          )}
+                        </div>
+                        <label className="cursor-pointer rounded-full border border-orange-400/25 bg-orange-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-orange-200 transition hover:bg-orange-500/20">
+                          Upload Photo
+                          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
+                      <Field
+                        label="Full Name"
+                        value={profileForm.fullName}
+                        onChange={(value) => setProfileForm((prev) => ({ ...prev, fullName: value }))}
+                      />
+                      <Field label="Email" value={profileForm.email} readOnly />
+                      <Field
+                        label="Phone Number"
+                        value={profileForm.phone}
+                        onChange={(value) => setProfileForm((prev) => ({ ...prev, phone: value }))}
+                      />
+                      <Field
+                        label="Photo URL (optional)"
+                        value={profileForm.avatarUrl}
+                        onChange={(value) => {
+                          setProfileForm((prev) => ({ ...prev, avatarUrl: value }));
+                          if (!avatarFile) setAvatarPreview(value);
+                        }}
+                      />
+                      <Button type="button" size="sm" onClick={handleProfileSave} disabled={saving} className="rounded-xl px-5 py-3 text-[10px] tracking-[0.16em]">
+                        {saving ? "Saving..." : "Save Profile"}
+                        <Save size={14} />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -299,9 +395,9 @@ export default function Profile() {
         </section>
       </Container>
 
-      <div className="fixed bottom-3 left-0 z-30 w-full px-3">
-        <div className="mx-auto grid max-w-4xl grid-cols-5 gap-2 rounded-2xl border border-white/12 bg-black/70 p-2 backdrop-blur-2xl">
-          {bottomNav.map((item) => {
+      <div className="fixed bottom-3 left-0 z-30 w-full px-3 md:hidden">
+        <div className={`mx-auto grid max-w-4xl gap-2 rounded-2xl border border-white/12 bg-black/70 p-2 backdrop-blur-2xl ${visibleBottomNav.length === 4 ? "grid-cols-4" : "grid-cols-5"}`}>
+          {visibleBottomNav.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -332,6 +428,20 @@ function StatCard({ icon: Icon, label, value }) {
       </div>
       <p className="mt-3 text-3xl font-black italic tracking-tight text-white">{value}</p>
     </motion.div>
+  );
+}
+
+function Field({ label, value, onChange, readOnly = false }) {
+  return (
+    <label className="block">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <input
+        value={value}
+        readOnly={readOnly}
+        onChange={(event) => onChange?.(event.target.value)}
+        className={`w-full rounded-[18px] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition ${readOnly ? "cursor-not-allowed text-white/50" : "focus:border-orange-500/45"}`}
+      />
+    </label>
   );
 }
 
@@ -368,15 +478,6 @@ function BookingCard({ booking }) {
         {booking.listingLabel || booking.hotelId?.hotelName || booking.customerName || "Reservation"}
       </p>
       <p className="mt-1 text-sm text-white/55">Total: Rs {booking.totalPrice || "---"}</p>
-    </div>
-  );
-}
-
-function IdentityCard({ label, value }) {
-  return (
-    <div className="rounded-xl border border-white/12 bg-white/5 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
-      <p className="mt-2 text-sm text-white/80">{value}</p>
     </div>
   );
 }

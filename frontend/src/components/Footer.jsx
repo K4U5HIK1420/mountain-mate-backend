@@ -124,11 +124,11 @@ export default function Footer() {
                   mountainmate.app@mail.com
                 </a>
                 <a
-                  href="tel:+919876543210"
+                  href="tel:+917906382749"
                   className="flex items-center gap-2 text-sm text-white/68 transition-colors hover:text-orange-300"
                 >
                   <Phone size={14} className="text-orange-300" />
-                  +91 98765 43210
+                  +91 79063 82749
                 </a>
               </div>
               <div className="mt-4 flex gap-2">

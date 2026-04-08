@@ -29,7 +29,7 @@ export default function StepBasicInfo({ formData, errors, onFieldChange }) {
             value={formData.vehicleModel}
             onChange={onFieldChange}
             className={inputClass}
-            placeholder="Innova Crysta"
+            placeholder="Model Name"
           />
         </Field>
 
@@ -49,7 +49,7 @@ export default function StepBasicInfo({ formData, errors, onFieldChange }) {
             value={formData.driverName}
             onChange={onFieldChange}
             className={inputClass}
-            placeholder="Rahul Singh"
+            placeholder="John Doe"
           />
         </Field>
 
@@ -78,7 +78,7 @@ export default function StepBasicInfo({ formData, errors, onFieldChange }) {
             value={formData.contactNumber}
             onChange={onFieldChange}
             className={inputClass}
-            placeholder="9876543210"
+            placeholder="XXXXXXXXXX"
             inputMode="tel"
           />
         </Field>

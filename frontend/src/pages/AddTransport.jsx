@@ -7,6 +7,18 @@ import StepBasicInfo from "../components/transportOnboarding/StepBasicInfo";
 import StepRideDetails from "../components/transportOnboarding/StepRideDetails";
 import StepPricingSeats from "../components/transportOnboarding/StepPricingSeats";
 import StepDocuments from "../components/transportOnboarding/StepDocuments";
+import { geocodePlace, getBrowserLocation, reverseGeocode } from "../utils/location";
+import {
+  cleanValue,
+  digitsOnly,
+  isValidAadhaar,
+  isValidPan,
+  isValidPhone,
+  isValidVehiclePlate,
+  normalizePan,
+  normalizePhone,
+  normalizeVehiclePlate,
+} from "../utils/validation";
 
 const DRAFT_KEY = "mm_offer_ride_wizard_v1";
 const TOTAL_STEPS = 4;
@@ -61,20 +73,31 @@ function validateStep(step, formData) {
   const errors = {};
 
   if (step === 1) {
-    if (!formData.vehicleModel.trim()) errors.vehicleModel = "Vehicle model is required.";
-    if (!formData.plateNumber.trim()) errors.plateNumber = "Plate number is required.";
-    if (!formData.driverName.trim()) errors.driverName = "Driver name is required.";
-    if (!formData.vehicleType.trim()) errors.vehicleType = "Vehicle type is required.";
-    if (!formData.contactNumber.trim()) {
+    if (!cleanValue(formData.vehicleModel)) errors.vehicleModel = "Vehicle model is required.";
+    if (!cleanValue(formData.plateNumber)) {
+      errors.plateNumber = "Plate number is required.";
+    } else if (!isValidVehiclePlate(formData.plateNumber)) {
+      errors.plateNumber = "Enter a valid vehicle number.";
+    }
+    if (!cleanValue(formData.driverName)) errors.driverName = "Driver name is required.";
+    if (!cleanValue(formData.vehicleType)) errors.vehicleType = "Vehicle type is required.";
+    if (!cleanValue(formData.contactNumber)) {
       errors.contactNumber = "Phone number is required.";
-    } else if (!/^[0-9]{10,15}$/.test(formData.contactNumber.replace(/\s+/g, ""))) {
+    } else if (!isValidPhone(formData.contactNumber)) {
       errors.contactNumber = "Enter a valid phone number.";
     }
   }
 
   if (step === 2) {
-    if (!formData.routeFrom.trim()) errors.routeFrom = "Origin is required.";
-    if (!formData.routeTo.trim()) errors.routeTo = "Destination is required.";
+    if (!cleanValue(formData.routeFrom)) errors.routeFrom = "Origin is required.";
+    if (!cleanValue(formData.routeTo)) errors.routeTo = "Destination is required.";
+    if (
+      cleanValue(formData.routeFrom) &&
+      cleanValue(formData.routeTo) &&
+      cleanValue(formData.routeFrom).toLowerCase() === cleanValue(formData.routeTo).toLowerCase()
+    ) {
+      errors.routeTo = "Destination should be different from origin.";
+    }
     if (!formData.availableDate) errors.availableDate = "Date is required.";
   }
 
@@ -83,62 +106,21 @@ function validateStep(step, formData) {
 
 function validatePublishMandatory(formData, documents) {
   const errors = {};
-  if (!formData.driverLicenseNumber?.trim()) {
+  if (!cleanValue(formData.driverLicenseNumber)) {
     errors.driverLicenseNumber = "Driver license number is required.";
   }
-  if (!formData.driverAadhaarNumber?.trim()) {
+  if (!cleanValue(formData.driverAadhaarNumber)) {
     errors.driverAadhaarNumber = "Driver Aadhaar number is required.";
+  } else if (!isValidAadhaar(formData.driverAadhaarNumber)) {
+    errors.driverAadhaarNumber = "Enter a valid 12-digit Aadhaar number.";
+  }
+  if (cleanValue(formData.driverPanNumber) && !isValidPan(formData.driverPanNumber)) {
+    errors.driverPanNumber = "Enter a valid PAN number.";
   }
   if (!documents?.driverAadhaarDoc) {
     errors.driverAadhaarDoc = "Driver Aadhaar photo is required.";
   }
   return errors;
-}
-
-async function geocodePlace(rawPlace) {
-  const place = String(rawPlace || "").trim();
-  if (!place) return null;
-
-  const candidates = [
-    place,
-    `${place}, Uttarakhand, India`,
-    `${place}, India`,
-  ].filter((value, index, arr) => arr.indexOf(value) === index);
-
-  for (const query of candidates) {
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&q=${encodeURIComponent(query)}`
-      );
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return {
-          lat: Number.parseFloat(data[0].lat),
-          lng: Number.parseFloat(data[0].lon),
-        };
-      }
-    } catch {
-      // try next source
-    }
-  }
-
-  try {
-    const res = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(place)}&limit=1`
-    );
-    const data = await res.json();
-    const feature = data?.features?.[0];
-    if (feature?.geometry?.coordinates?.length === 2) {
-      return {
-        lat: Number.parseFloat(feature.geometry.coordinates[1]),
-        lng: Number.parseFloat(feature.geometry.coordinates[0]),
-      };
-    }
-  } catch {
-    // no-op
-  }
-
-  return null;
 }
 
 export default function AddTransport() {
@@ -187,23 +169,6 @@ export default function AddTransport() {
 
   const getCoords = async (place) => geocodePlace(place);
 
-  const getLocationLabel = async (lat, lng) => {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`);
-      const data = await res.json();
-      return (
-        data?.address?.suburb ||
-        data?.address?.road ||
-        data?.address?.town ||
-        data?.address?.city ||
-        data?.display_name?.split(",")?.slice(0, 2)?.join(", ") ||
-        `${lat.toFixed(5)}, ${lng.toFixed(5)}`
-      );
-    } catch (_err) {
-      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    }
-  };
-
   useEffect(() => {
     let active = true;
     let timer;
@@ -249,7 +214,12 @@ export default function AddTransport() {
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let nextValue = value;
+    if (name === "contactNumber") nextValue = normalizePhone(value);
+    if (name === "plateNumber") nextValue = normalizeVehiclePlate(value);
+    if (name === "driverPanNumber") nextValue = normalizePan(value);
+    if (name === "driverAadhaarNumber") nextValue = digitsOnly(value).slice(0, 12);
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
     setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
@@ -281,35 +251,24 @@ export default function AddTransport() {
   };
 
   const captureLivePickup = () => {
-    if (!navigator.geolocation) {
-      notify("This browser does not support live location.", "error");
-      return;
-    }
-
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
+    getBrowserLocation()
+      .then(async (position) => {
         const coords = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        const label = await getLocationLabel(coords.lat, coords.lng);
+        const label = await reverseGeocode(coords.lat, coords.lng);
         setFormData((prev) => ({ ...prev, routeFrom: label }));
         setLiveFromCoords(coords);
         setUsingLivePickup(true);
         setLocating(false);
         notify("Live pickup location captured.", "success");
-      },
-      () => {
+      })
+      .catch(() => {
         setLocating(false);
         notify("Allow location permission to capture live pickup.", "error");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      }
-    );
+      });
   };
 
   const progressPercent = (currentStep / TOTAL_STEPS) * 100;
@@ -388,8 +347,12 @@ export default function AddTransport() {
 
       const payload = {
         ...formData,
-        vehicleModel: formData.vehicleModel?.trim(),
-        plateNumber: formData.plateNumber?.trim(),
+        vehicleModel: cleanValue(formData.vehicleModel),
+        plateNumber: normalizeVehiclePlate(formData.plateNumber),
+        driverName: cleanValue(formData.driverName),
+        contactNumber: normalizePhone(formData.contactNumber),
+        driverPanNumber: cleanValue(formData.driverPanNumber) ? normalizePan(formData.driverPanNumber) : "",
+        driverAadhaarNumber: cleanValue(formData.driverAadhaarNumber) ? digitsOnly(formData.driverAadhaarNumber) : "",
         pricePerSeat: formData.pricePerSeat || "0",
         seatsAvailable: formData.seatsAvailable || "1",
       };

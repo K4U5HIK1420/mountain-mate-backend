@@ -226,7 +226,7 @@ export default function AdminSupport() {
           </div>
         </motion.div>
 
-        <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
           <div className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.03] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
             <div className="border-b border-white/10 px-6 py-5">
               <div className="flex items-center gap-3">
@@ -283,7 +283,7 @@ export default function AdminSupport() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.03] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+          <div className="overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),rgba(8,8,8,0.92)] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
             {!selectedConversation ? (
               <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
                 <MessageSquare size={30} className="text-orange-400/70" />
@@ -317,22 +317,22 @@ export default function AdminSupport() {
                   </div>
                 </div>
 
-                <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+                <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
                   {selectedConversation.messages.map((message, index) => {
                     const senderLabel =
                       message.sender === "user" ? "Explorer" : message.sender === "admin" ? "Admin" : "Support";
                     const tone =
                       message.sender === "user"
-                        ? "ml-auto bg-orange-600 text-white"
+                        ? "ml-auto border border-orange-400/25 bg-orange-500/18 text-white"
                         : message.sender === "admin"
-                          ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-50"
+                          ? "border border-emerald-500/25 bg-emerald-500/12 text-emerald-50"
                           : "border border-white/10 bg-white/5 text-white";
 
                     return (
-                      <div key={message.id || `${message.sender}-${message.createdAt || index}`} className="flex">
-                        <div className={`max-w-[85%] rounded-[24px] px-5 py-4 shadow-lg ${tone}`}>
-                          <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.26em] opacity-70">
-                            <div className="flex items-center gap-3">
+                      <div key={message.id || `${message.sender}-${message.createdAt || index}`} className={`flex ${message.sender === "user" ? "justify-start" : "justify-end"}`}>
+                        <div className={`max-w-[92%] rounded-[24px] px-4 py-4 shadow-lg sm:max-w-[80%] sm:px-5 ${tone}`}>
+                          <div className="flex flex-wrap items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.22em] opacity-70">
+                            <div className="flex flex-wrap items-center gap-3">
                               <span>{senderLabel}</span>
                               <span>{formatTime(message.createdAt)}</span>
                             </div>
@@ -346,18 +346,18 @@ export default function AdminSupport() {
                               Delete
                             </button>
                           </div>
-                          <p className="mt-3 text-sm leading-7">{message.text}</p>
+                          <p className="mt-3 text-sm leading-7 text-white/90">{message.text}</p>
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="border-t border-white/10 px-6 py-5">
+                <div className="border-t border-white/10 bg-black/20 px-4 py-4 sm:px-6 sm:py-5">
                   <textarea
                     value={reply}
                     onChange={(event) => setReply(event.target.value)}
-                    rows={4}
+                    rows={5}
                     placeholder="Reply as admin..."
                     className="w-full rounded-[28px] border border-white/10 bg-black/30 px-5 py-4 text-sm leading-7 text-white outline-none transition-all placeholder:text-white/20 focus:border-orange-500/40"
                   />

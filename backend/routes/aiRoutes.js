@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { body } = require("express-validator");
+const validate = require("../middleware/validate");
+const { aiLimiter } = require("../middleware/rateLimiters");
 
 // ✅ SAHI PATHS (Apne models folder mein check karo file ka asli naam kya hai)
 const Hotel = require("../models/Hotel"); 
@@ -8,7 +11,7 @@ const Transport = require("../models/Transport");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-router.post("/chat", async (req, res) => {
+router.post("/chat", aiLimiter, [body("prompt").isString().trim().isLength({ min: 1, max: 1200 })], validate, async (req, res) => {
   try {
     const { prompt } = req.body;
 

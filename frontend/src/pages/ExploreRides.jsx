@@ -32,6 +32,7 @@ import RoutePreview from "../components/RoutePreview";
 import { RidesGridSkeleton } from "../components/Skeletons";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
+import { cleanValue, isValidPhone, normalizePhone } from "../utils/validation";
 
 const ease = [0.22, 1, 0.36, 1];
 
@@ -143,7 +144,7 @@ const ExploreRides = () => {
         navigate("/login", { state: { from: { pathname: "/explore-rides" } } });
         return;
       }
-      if (!bookingContact.name.trim() || bookingContact.phone.trim().length < 10 || !bookingContact.travelDate) {
+      if (!cleanValue(bookingContact.name) || !isValidPhone(bookingContact.phone) || !bookingContact.travelDate) {
         notify("Add your name, phone, and travel date.", "error");
         return;
       }
@@ -151,7 +152,7 @@ const ExploreRides = () => {
       setIsProcessing(true);
       const res = await API.post("/booking/create", {
         customerName: bookingContact.name.trim(),
-        phoneNumber: bookingContact.phone.trim(),
+        phoneNumber: normalizePhone(bookingContact.phone),
         bookingType: "Transport",
         listingId: selectedRide._id,
         date: bookingContact.travelDate,
@@ -454,7 +455,7 @@ const RideModal = ({
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[2147483000] p-4 pt-28 md:p-8 md:pt-32"
+    className="fixed inset-0 z-[2147483000] overflow-y-auto p-3 pt-24 sm:p-4 sm:pt-28 md:p-8 md:pt-32"
   >
     <button onClick={onClose} className="absolute inset-0 h-full w-full bg-black/95 backdrop-blur-2xl" aria-label="Close ride modal" />
 
@@ -463,7 +464,7 @@ const RideModal = ({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 24, scale: 0.985 }}
       transition={{ duration: 0.45, ease }}
-      className="relative mx-auto flex h-full max-h-[92vh] w-full max-w-[1320px] overflow-hidden rounded-[38px] border border-white/10 bg-[#070707] shadow-[0_42px_140px_rgba(0,0,0,0.55)] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
+      className="relative mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-[1320px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707] shadow-[0_42px_140px_rgba(0,0,0,0.55)] sm:rounded-[38px] lg:min-h-0 lg:max-h-[92vh] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
     >
       <div className="relative min-h-[320px] overflow-hidden border-b border-white/8 lg:border-b-0 lg:border-r">
         {currentImage ? (
@@ -489,30 +490,30 @@ const RideModal = ({
         )}
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.12),rgba(0,0,0,0.18)_38%,rgba(0,0,0,0.76)_100%)]" />
 
-        <div className="absolute left-6 right-6 top-6 flex items-center justify-between">
+        <div className="absolute left-4 right-4 top-4 flex items-center justify-between sm:left-6 sm:right-6 sm:top-6">
           <div className="rounded-full border border-white/12 bg-black/35 px-4 py-2 backdrop-blur-xl">
             <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-white">
               <ShieldCheck size={12} className="text-orange-300" />
               Vetted Fleet
             </span>
           </div>
-          <button onClick={onClose} className="flex h-12 w-12 items-center justify-center rounded-full border border-white/12 bg-black/40 text-white transition-colors hover:bg-red-500">
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-black/40 text-white transition-colors hover:bg-red-500 sm:h-12 sm:w-12">
             <X size={18} />
           </button>
         </div>
 
         {rideImages.length > 1 && (
           <>
-            <button onClick={onPreviousImage} className="absolute left-6 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-black/40 text-white transition-colors hover:bg-white hover:text-black">
+            <button onClick={onPreviousImage} className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-black/40 text-white transition-colors hover:bg-white hover:text-black sm:left-6 sm:h-12 sm:w-12">
               <ChevronLeft size={18} />
             </button>
-            <button onClick={onNextImage} className="absolute right-6 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-black/40 text-white transition-colors hover:bg-white hover:text-black">
+            <button onClick={onNextImage} className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-black/40 text-white transition-colors hover:bg-white hover:text-black sm:right-6 sm:h-12 sm:w-12">
               <ChevronRight size={18} />
             </button>
           </>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 p-6">
+        <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {rideImages.map((img, idx) => (
               <button
@@ -527,8 +528,8 @@ const RideModal = ({
         </div>
       </div>
 
-      <div className="no-scrollbar overflow-y-auto p-6 md:p-8 lg:p-10">
-        <div className="flex items-start justify-between gap-6">
+      <div className="no-scrollbar overflow-y-auto p-4 sm:p-6 md:p-8 lg:p-10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-300">Ride Brief</p>
             <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-5xl">
@@ -539,7 +540,7 @@ const RideModal = ({
               {ride.routeFrom} to {ride.routeTo}
             </p>
           </div>
-          <div className="rounded-[24px] bg-gradient-to-r from-orange-500 to-amber-400 px-5 py-4 text-right text-white shadow-[0_16px_40px_rgba(249,115,22,0.25)]">
+          <div className="rounded-[24px] bg-gradient-to-r from-orange-500 to-amber-400 px-5 py-4 text-left text-white shadow-[0_16px_40px_rgba(249,115,22,0.25)] sm:text-right">
             <p className="text-[10px] font-black uppercase tracking-[0.26em]">Per Seat</p>
             <p className="mt-2 text-3xl font-black italic">Rs {ride.pricePerSeat}</p>
           </div>
@@ -656,7 +657,7 @@ function Metric({ title, value }) {
   return (
     <div className="rounded-[24px] border border-white/8 bg-white/5 px-4 py-5">
       <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/38">{title}</p>
-      <p className="mt-3 text-2xl font-black uppercase italic tracking-tight text-white">{value}</p>
+      <p className="mt-3 text-lg font-black uppercase italic leading-tight tracking-tight text-white [overflow-wrap:anywhere] sm:text-2xl">{value}</p>
     </div>
   );
 }

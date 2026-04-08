@@ -78,6 +78,16 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  const refreshUser = async () => {
+    if (!supabase) return null;
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) {
+      setSupabaseUser(data.user);
+      return data.user;
+    }
+    return null;
+  };
+
   // 🔐 LOGIN
   const login = async ({ email, password }) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -168,6 +178,7 @@ export function AuthProvider({ children }) {
     registerLegacy,
     loginLegacy,
     signOut,
+    refreshUser,
     isSupabaseAvailable: !!supabase,
   };
 
