@@ -299,14 +299,14 @@ export default function Home() {
           </div>
         </div>
 
-        <Container className="relative z-10 py-16 md:py-24 lg:py-28">
+        <Container className="relative z-10 py-10 md:py-14 lg:py-16">
           <motion.div variants={stagger} initial="hidden" animate="show" className="max-w-6xl">
             <motion.div variants={fadeUp} className="mb-8 inline-flex items-center gap-3 rounded-full border border-orange-400/20 bg-orange-500/10 px-5 py-2 backdrop-blur-xl">
               <Sparkles size={14} className="text-amber-300" />
               <span className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-200">Built For Uttarakhand Travel</span>
             </motion.div>
 
-            <motion.h1 variants={fadeUp} className="text-balance text-5xl font-black uppercase italic tracking-[-0.06em] text-white sm:text-7xl lg:text-[10rem] lg:leading-[0.82]">
+            <motion.h1 variants={fadeUp} className="text-balance text-3xl font-black uppercase italic tracking-[-0.04em] text-white sm:text-5xl lg:text-[6rem] lg:leading-[0.9]">
               Reach The Hills
               <br />
               <span className="bg-gradient-to-r from-white via-amber-200 to-orange-500 bg-clip-text text-transparent">
@@ -314,11 +314,11 @@ export default function Home() {
               </span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="mt-6 max-w-3xl text-base font-medium leading-8 text-white/75 md:text-lg">
+            <motion.p variants={fadeUp} className="mt-5 max-w-3xl text-sm font-medium leading-7 text-white/75 md:text-base">
               Plan verified stays, trusted rides, and your complete Uttarakhand trip in minutes from one premium dashboard.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <motion.div variants={fadeUp} className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Button
                 size="lg"
                 onClick={() => navigate("/planner")}
@@ -336,14 +336,14 @@ export default function Home() {
               </Button>
             </motion.div>
 
-            <motion.div variants={fadeUp} className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+            <motion.div variants={fadeUp} className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-end">
               <p className="max-w-2xl border-l border-orange-500/30 pl-6 text-base font-medium leading-8 text-white/68 md:text-lg">
                 Trusted by pilgrims, families, and explorers, Mountain Mate reduces planning stress with cleaner booking flow, route clarity, and dependable local inventory.
               </p>
               <RotatingReasonCard />
             </motion.div>
 
-            <motion.div variants={fadeUp} className="mt-10 cinematic-surface spotlight-border rounded-[34px] p-3 md:rounded-[42px] md:p-4">
+            <motion.div variants={fadeUp} className="mt-8 cinematic-surface spotlight-border rounded-[30px] p-3 md:rounded-[36px] md:p-4">
               <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)_auto]">
                 <div className="relative rounded-[28px] border border-white/8 bg-white/6 px-6 py-5 backdrop-blur-xl">
                   <div className="mb-3 flex items-center gap-3 text-orange-400">
@@ -425,7 +425,7 @@ export default function Home() {
               <p className="mt-3 px-2 text-xs text-white/48">Popular now: Kedarnath, Badrinath, Joshimath, Valley of Flowers</p>
             </motion.div>
 
-            <motion.div variants={fadeUp} className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-black/25 backdrop-blur-2xl">
+            <motion.div variants={fadeUp} className="mt-5 overflow-hidden rounded-[24px] border border-white/10 bg-black/25 backdrop-blur-2xl">
               <div className="animate-signal-marquee flex min-w-max gap-4 px-4 py-4">
                 {[...landingSignals, ...landingSignals, ...landingSignals].map((item, index) => (
                   <div
@@ -444,7 +444,7 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.25 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-16 grid gap-4 md:grid-cols-3"
+            className="mt-12 grid gap-4 md:grid-cols-3"
           >
             <InfoStrip title="Trusted Stays" text="Find accommodation that feels more dependable than random listings and disconnected calls." />
             <InfoStrip title="Reliable Rides" text="Book mountain transport with clearer coordination and better confidence around the route." />
@@ -453,7 +453,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="relative z-10 px-4 py-16 md:py-24">
+      <section className="cv-auto relative z-10 px-4 py-10 md:py-12">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -467,7 +467,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Why It Exists</p>
-              <h2 className="mt-3 text-3xl font-black uppercase italic tracking-tight text-white md:text-5xl">Mountain travel should feel exciting, not chaotic.</h2>
+                <h2 className="mt-3 text-xl font-black uppercase italic tracking-tight text-white md:text-3xl">Mountain travel should feel exciting, not chaotic.</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <TimingBox icon={<Sunrise size={16} />} time="TRUST" label="Before Booking" />
@@ -479,7 +479,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="relative z-10 px-4 py-20 md:py-32">
+      <section className="cv-auto relative z-10 px-4 py-10 md:py-14">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -489,7 +489,7 @@ export default function Home() {
             className="mb-14 md:mb-20"
           >
             <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-400">Why Choose Us</p>
-            <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.04em] text-white md:text-7xl">Built for real routes, real uncertainty, and real mountain travel.</h2>
+            <h2 className="mt-4 text-2xl font-black uppercase italic tracking-[-0.03em] text-white md:text-4xl">Built for real routes, real uncertainty, and real mountain travel.</h2>
           </motion.div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -513,12 +513,12 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="relative z-10 px-4 py-20 md:py-32">
+      <section className="cv-auto relative z-10 px-4 py-10 md:py-14">
         <Container>
           <div className="mb-14 flex flex-col gap-6 md:mb-20 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-400">Real Use Cases</p>
-              <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-7xl lg:text-8xl">
+              <h2 className="mt-4 text-2xl font-black uppercase italic tracking-[-0.03em] text-white md:text-4xl lg:text-5xl">
                 Where travelers
                 <span className="ml-3 text-white/20">need us most.</span>
               </h2>
@@ -528,7 +528,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-3">
             {featuredRoutes.map((route, index) => (
               <motion.article
                 key={route.name}
@@ -537,7 +537,7 @@ export default function Home() {
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.9, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
                 whileHover={{ y: -10 }}
-                className="group relative min-h-[520px] overflow-hidden rounded-[38px] border border-white/10 bg-black shadow-[0_35px_100px_rgba(0,0,0,0.38)]"
+                className="group relative min-h-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-black shadow-[0_28px_80px_rgba(0,0,0,0.36)]"
               >
                 <img
                   src={route.img}
@@ -568,7 +568,7 @@ export default function Home() {
                       <Clock size={12} />
                       {route.time}
                     </p>
-                    <h3 className="max-w-xs text-3xl font-black uppercase italic tracking-tight text-white md:text-4xl">
+                    <h3 className="max-w-xs text-xl font-black uppercase italic tracking-tight text-white md:text-2xl">
                       {route.name}
                     </h3>
                     <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
@@ -585,7 +585,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="relative z-10 px-4 py-20 md:py-28">
+      <section className="cv-auto relative z-10 px-4 py-10 md:py-12">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -597,7 +597,7 @@ export default function Home() {
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Trusted By Travelers</p>
-                <h2 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.04em] text-white md:text-6xl">
+                <h2 className="mt-4 text-2xl font-black uppercase italic tracking-[-0.03em] text-white md:text-4xl">
                   Social proof that feels
                   <span className="ml-3 text-white/25">earned.</span>
                 </h2>
@@ -614,7 +614,7 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            <div className="mt-8 grid gap-4 lg:grid-cols-3">
               {testimonials.map((item, index) => (
                 <motion.article
                   key={item.name}
@@ -642,7 +642,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="relative z-10 overflow-hidden px-4 py-28 text-center md:py-40">
+      <section className="cv-auto relative z-10 overflow-hidden px-4 py-14 text-center md:py-18">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.16),transparent_28%)]" />
         <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-orange-500/10">
           <Mountain size={700} />
@@ -655,15 +655,15 @@ export default function Home() {
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           >
             <p className="text-[10px] font-black uppercase tracking-[0.45em] text-orange-300">Final Call</p>
-            <h2 className="mt-6 text-5xl font-black uppercase italic tracking-[-0.06em] text-white md:text-8xl lg:text-[10rem] lg:leading-[0.84]">
+            <h2 className="mt-5 text-3xl font-black uppercase italic tracking-[-0.04em] text-white md:text-5xl lg:text-[6rem] lg:leading-[0.9]">
               Book
               <br />
               <span className="bg-gradient-to-b from-amber-200 via-orange-400 to-orange-700 bg-clip-text text-transparent">Confidently.</span>
             </h2>
-            <p className="mx-auto mt-8 max-w-2xl text-base leading-8 text-white/62 md:text-lg">
+            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-white/62 md:text-base">
               Skip random calls and scattered tabs. Start with verified options and finish your Uttarakhand trip planning in one smooth flow.
             </p>
-            <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Button as="button" size="lg" variant="neutral" onClick={() => navigate("/explore-stays")} className="rounded-full px-10">
                 Find Verified Stays <ArrowRight size={16} />
               </Button>

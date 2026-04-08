@@ -1,23 +1,33 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
-
   const [notification, setNotification] = useState(null);
+  const timeoutRef = useRef(null);
 
-  const notify = (message, type = "info") => {
-
+  const notify = useCallback((message, type = "info") => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+    }
     setNotification({ message, type });
-
-    setTimeout(() => {
+    timeoutRef.current = window.setTimeout(() => {
       setNotification(null);
     }, 4000);
+  }, []);
 
-  };
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const value = useMemo(() => ({ notify, notification }), [notify, notification]);
 
   return (
-    <NotificationContext.Provider value={{ notify, notification }}>
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );

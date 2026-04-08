@@ -20,11 +20,63 @@ const resolveSocketUrl = () => {
   return raw;
 };
 
-const socketUrl = resolveSocketUrl();
+let socketInstance = null;
 
-const socket = io(socketUrl, {
-  withCredentials: true,
-  transports: ["websocket"],
-});
+function getSocketInstance() {
+  if (socketInstance) return socketInstance;
 
+  socketInstance = io(resolveSocketUrl(), {
+    withCredentials: true,
+    transports: ["websocket"],
+    autoConnect: false,
+  });
+
+  return socketInstance;
+}
+
+function ensureConnected() {
+  const socket = getSocketInstance();
+  if (!socket.connected && socket.disconnected) {
+    socket.connect();
+  }
+  return socket;
+}
+
+const socket = {
+  get id() {
+    return getSocketInstance().id;
+  },
+  get connected() {
+    return getSocketInstance().connected;
+  },
+  connect() {
+    return ensureConnected();
+  },
+  disconnect() {
+    if (socketInstance) {
+      socketInstance.disconnect();
+    }
+    return socket;
+  },
+  emit(...args) {
+    ensureConnected().emit(...args);
+    return socket;
+  },
+  on(...args) {
+    ensureConnected().on(...args);
+    return socket;
+  },
+  once(...args) {
+    ensureConnected().once(...args);
+    return socket;
+  },
+  off(...args) {
+    if (socketInstance) {
+      socketInstance.off(...args);
+    }
+    return socket;
+  },
+};
+
+export { getSocketInstance };
 export default socket;

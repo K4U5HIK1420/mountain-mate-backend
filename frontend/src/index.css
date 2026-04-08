@@ -245,6 +245,11 @@ html:not(.dark) .spotlight-border::after {
   text-wrap: balance;
 }
 
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 900px;
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);

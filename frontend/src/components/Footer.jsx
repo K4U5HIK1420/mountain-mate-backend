@@ -15,7 +15,6 @@ const platformLinks = [
 const partnerLinks = [
   { label: "List Your Stay", to: "/add-hotel" },
   { label: "Offer a Ride", to: "/add-transport" },
-  { label: "Admin Console", to: "/admin-mate" },
   { label: "Join as Partner", to: "/register-partner" },
 ];
 

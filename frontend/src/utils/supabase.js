@@ -19,10 +19,27 @@ export const supabase = hasSupabaseEnv
     })
   : null;
 
+let cachedAccessToken = null;
+let sessionLoadPromise = null;
+
+if (supabase) {
+  sessionLoadPromise = supabase.auth.getSession().then(({ data, error }) => {
+    cachedAccessToken = error ? null : data?.session?.access_token || null;
+    return cachedAccessToken;
+  });
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    cachedAccessToken = session?.access_token || null;
+  });
+}
+
 export async function getSupabaseAccessToken() {
   if (!supabase) return null;
+  if (cachedAccessToken) return cachedAccessToken;
+  if (sessionLoadPromise) return sessionLoadPromise;
+
   const { data, error } = await supabase.auth.getSession();
-  if (error) return null;
-  return data?.session?.access_token || null;
+  cachedAccessToken = error ? null : data?.session?.access_token || null;
+  return cachedAccessToken;
 }
 

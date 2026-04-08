@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, Polyline, TileLayer, useMap } from "react-leaflet";
 import { normalizeCoords } from "../utils/location";
 
@@ -44,10 +44,10 @@ const RoutePreview = ({ pickupCoords, destinationCoords }) => {
   const points = [pickup, destination].filter(Boolean);
   const center = pickup || destination || defaultCenter;
   const distanceKm = pickup && destination ? getDistanceKm(pickup, destination) : null;
-  const mapKey = useMemo(
-    () => points.map((point) => `${point.lat.toFixed(5)}:${point.lng.toFixed(5)}`).join("|") || "default",
-    [points]
-  );
+  const mapKey =
+    points.length > 0
+      ? points.map((point) => `${point.lat.toFixed(5)}:${point.lng.toFixed(5)}`).join("|")
+      : "default";
 
   return (
     <div className="space-y-3">

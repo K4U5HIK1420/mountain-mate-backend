@@ -12,10 +12,8 @@ import socket from "./utils/socket";
 import Notification from "./components/Notification";
 import AnimatedBackground from "./components/AnimatedBackground";
 import Footer from "./components/Footer";
-import LiveChatSupport from "./components/LiveChatSupport";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SeoManager from "./components/SeoManager";
-import AIAdvisor from "./components/Features/AIAdvisor";
 
 import "leaflet/dist/leaflet.css";
 
@@ -99,11 +97,13 @@ const ScrollToTop = () => {
 
 const AppLayout = ({ children }) => {
   const location = useLocation();
+  const { notification } = useNotify();
   const isHomePage = location.pathname === "/";
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#050505] font-sans text-white">
-      <AnimatedBackground />
+      <AnimatedBackground variant={isAdminRoute ? "admin" : "default"} />
       <RefreshRedirect />
       <Navbar />
       <main className={`relative z-10 flex-1 ${isHomePage ? "pt-0" : "pt-32"}`}>
@@ -112,10 +112,48 @@ const AppLayout = ({ children }) => {
         </Suspense>
       </main>
       <Footer />
-      <LiveChatSupport />
-      <Notification notification={Notification} />
+      <Notification notification={notification} />
       <div className="pointer-events-none fixed bottom-0 h-32 w-full bg-gradient-to-t from-black via-black/70 to-transparent opacity-60" />
+      <DeferredGlobalWidgets />
     </div>
+  );
+};
+
+const DeferredGlobalWidgets = () => {
+  const location = useLocation();
+  const [showWidgets, setShowWidgets] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const enableWidgets = () => {
+      if (!cancelled) {
+        setShowWidgets(true);
+      }
+    };
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(enableWidgets, { timeout: 1500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(enableWidgets, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  if (!showWidgets || location.pathname.startsWith("/admin")) {
+    return null;
+  }
+
+  return (
+    <Suspense fallback={null}>
+      <LiveChatSupport />
+    </Suspense>
   );
 };
 
@@ -160,6 +198,8 @@ const Profile = React.lazy(() => import("./pages/Profile"));
 const SupportChat = React.lazy(() => import("./pages/SupportChat"));
 const BookingConfirm = React.lazy(() => import("./pages/BookingConfirm"));
 const PaymentResult = React.lazy(() => import("./pages/PaymentResult"));
+const LiveChatSupport = React.lazy(() => import("./components/LiveChatSupport"));
+const AIAdvisor = React.lazy(() => import("./components/Features/AIAdvisor"));
 
 const Navbar = () => {
   const location = useLocation();
@@ -230,13 +270,18 @@ const Navbar = () => {
     };
 
     loadNotifications();
-    const intervalId = window.setInterval(loadNotifications, 15000);
     socket.on("notification:new", handleNewNotification);
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        loadNotifications();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityRefresh, { passive: true });
 
     return () => {
       active = false;
-      window.clearInterval(intervalId);
       socket.off("notification:new", handleNewNotification);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
     };
   }, [token, user, notify]);
 
@@ -399,15 +444,6 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
-            {isAdmin && (
-              <Link
-                to="/admin-mate"
-                className="hidden items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/8 px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-orange-300 transition-all hover:bg-orange-500/14 hover:text-white xl:flex"
-              >
-                <Shield size={12} />
-                Admin
-              </Link>
-            )}
             {token ? (
               <div className="flex items-center gap-5">
                 <div className="relative">
@@ -501,7 +537,6 @@ const Navbar = () => {
 };
 
 function App() {
-  const { notification } = useNotify();
   if (MAINTENANCE_MODE) return <MaintenancePage />;
   if (!hasSupabaseEnv) return <div className="flex min-h-screen items-center justify-center bg-black text-[10px] font-black uppercase tracking-[0.5em] text-orange-500 italic animate-pulse">Establishing Uplink...</div>;
 

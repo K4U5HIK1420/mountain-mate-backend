@@ -69,12 +69,11 @@ const sortHotels = (list, sort, ratingMap) => {
   return arr;
 };
 
-const extractCoords = (hotel) => {
-  const lat = Number(hotel?.coords?.lat ?? hotel?.latitude ?? hotel?.lat);
-  const lng = Number(hotel?.coords?.lng ?? hotel?.longitude ?? hotel?.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
-};
+const normalizeHotel = (hotel) => ({
+  ...hotel,
+  parsedAmenities: safeParseAmenities(hotel.amenities),
+  previewImage: hotel.images?.[0] || "",
+});
 
 export default function ExploreStays() {
   const { notify } = useNotify();
@@ -150,7 +149,7 @@ export default function ExploreStays() {
         },
       });
 
-      const list = response.data?.data || response.data || [];
+      const list = (response.data?.data || response.data || []).map(normalizeHotel);
       setHotels(list);
 
       const ids = list.map((hotel) => hotel._id).join(",");
@@ -177,9 +176,8 @@ export default function ExploreStays() {
     let list = [...hotels];
 
     list = list.filter((hotel) => {
-      const amenities = safeParseAmenities(hotel.amenities);
+      const amenities = hotel.parsedAmenities || [];
       const rating = Number(ratingMap?.[hotel._id]?.avgRating || 0);
-      const price = Number(hotel.pricePerNight || 0);
       const location = String(hotel.location || "").toLowerCase();
 
       if (filters.location && !location.includes(filters.location.toLowerCase())) return false;
@@ -268,19 +266,19 @@ export default function ExploreStays() {
         <div className="absolute right-[4%] top-[18rem] h-[28rem] w-[28rem] rounded-full bg-amber-300/8 blur-[140px]" />
       </div>
 
-      <Container className="relative z-10 px-4 pb-20 pt-32 sm:px-8">
-        <section className="mb-6 rounded-[34px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),rgba(8,8,8,0.93)] p-5 backdrop-blur-2xl md:p-8">
+      <Container className="relative z-10 px-4 pb-12 pt-24 sm:px-8">
+        <section className="mb-5 rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),rgba(8,8,8,0.93)] p-4 backdrop-blur-2xl md:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-orange-300/30 bg-orange-500/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-orange-200">
                 <Sparkles size={12} />
                 Prime Estates
               </div>
-              <h1 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-7xl">
+              <h1 className="mt-3 text-2xl font-black uppercase italic tracking-[-0.03em] text-white md:text-4xl">
                 BOOK
                 <span className="block">PREMIUM STAYS</span>
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62 md:text-base">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/62 md:text-sm">
                 Search verified mountain stays with cleaner defaults, faster filters, and cinematic booking cards.
               </p>
             </div>
@@ -432,7 +430,7 @@ function SortFilterBar({ filters, setFilters, sort, setSort }) {
 }
 
 function StayCard({ hotel, rating, onOpen, index }) {
-  const amenities = safeParseAmenities(hotel.amenities);
+  const amenities = hotel.parsedAmenities || [];
   return (
     <motion.article
       initial={{ opacity: 0, y: 18 }}
@@ -444,7 +442,8 @@ function StayCard({ hotel, rating, onOpen, index }) {
       <div className="relative h-[260px] overflow-hidden">
         <img
           loading="lazy"
-          src={hotel.images?.[0]}
+          decoding="async"
+          src={hotel.previewImage}
           alt={hotel.hotelName}
           className="h-full w-full object-cover opacity-85 transition-transform duration-700 group-hover:scale-110"
         />
@@ -518,7 +517,7 @@ function StayDetailsModal({
         className="relative mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-[1280px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707] sm:rounded-[34px] lg:min-h-0 lg:max-h-[92vh] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
       >
         <div className="relative min-h-[300px] overflow-hidden border-b border-white/8 lg:border-b-0 lg:border-r">
-          <img src={hotel.images?.[currentImgIndex]} alt={hotel.hotelName} className="h-full w-full object-cover" />
+          <img src={hotel.images?.[currentImgIndex]} alt={hotel.hotelName} loading="eager" decoding="async" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.76))]" />
           <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
             <div className="inline-flex items-center gap-1 rounded-full border border-white/12 bg-black/40 px-3 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white">
@@ -538,7 +537,7 @@ function StayDetailsModal({
           <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto p-4">
             {hotel.images?.map((img, idx) => (
               <button key={img || idx} onClick={() => setCurrentImgIndex(idx)} className={`h-14 w-14 overflow-hidden rounded-xl border-2 ${currentImgIndex === idx ? "border-orange-300" : "border-transparent opacity-65"}`}>
-                <img src={img} alt={`${idx + 1}`} className="h-full w-full object-cover" />
+                <img src={img} alt={`${idx + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </button>
             ))}
           </div>

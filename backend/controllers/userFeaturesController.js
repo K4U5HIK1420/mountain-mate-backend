@@ -15,6 +15,10 @@ const supabaseBookings = require("../services/supabaseBookingsStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
 
+function canUseMongoModels() {
+  return mongoose.connection.readyState === 1;
+}
+
 async function uploadAvatar(file) {
   if (!file?.path) return "";
   try {
@@ -91,13 +95,11 @@ exports.setupProfile = async (req, res) => {
     const trimmedPhone = String(phone || "").trim();
     const uploadedAvatarUrl = await uploadAvatar(req.file);
     const nextAvatarUrl = uploadedAvatarUrl || String(avatarUrl || "").trim();
+    let nextUserMetadata = {
+      ...(supabaseUser?.user_metadata || {}),
+    };
 
     if (req.authType === "supabase" && supabaseUser?.id) {
-      const supabase = getSupabaseClient();
-      const nextUserMetadata = {
-        ...(supabaseUser.user_metadata || {}),
-      };
-
       if (trimmedFullName) {
         nextUserMetadata.full_name = trimmedFullName;
         nextUserMetadata.display_name = trimmedFullName;
@@ -111,8 +113,26 @@ exports.setupProfile = async (req, res) => {
         nextUserMetadata.avatar_url = nextAvatarUrl;
       }
 
-      await supabase.auth.admin.updateUserById(supabaseUser.id, {
-        user_metadata: nextUserMetadata,
+      try {
+        const supabase = getSupabaseClient();
+        await supabase.auth.admin.updateUserById(supabaseUser.id, {
+          user_metadata: nextUserMetadata,
+        });
+      } catch (supabaseErr) {
+        console.error("Supabase profile sync error:", supabaseErr.message);
+      }
+    }
+
+    if (!canUseMongoModels()) {
+      return res.json({
+        success: true,
+        message: "Profile synchronized",
+        data: {
+          name: trimmedFullName || nextUserMetadata.full_name || nextUserMetadata.display_name || "",
+          phone: trimmedPhone || nextUserMetadata.phone || "",
+          avatarUrl: nextAvatarUrl || nextUserMetadata.avatar_url || "",
+          email: supabaseUser?.email || "",
+        },
       });
     }
 

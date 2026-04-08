@@ -203,14 +203,14 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] pb-28 pt-28 text-white md:pt-32">
+    <div className="min-h-screen bg-[#050505] pb-16 pt-20 text-white md:pt-24">
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute left-[4%] top-6 h-[22rem] w-[22rem] rounded-full bg-orange-500/14 blur-[130px]" />
         <div className="absolute bottom-[-8rem] right-[5%] h-[24rem] w-[24rem] rounded-full bg-orange-400/10 blur-[130px]" />
       </div>
 
       <Container className="relative z-10">
-        <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),rgba(6,6,6,0.94)] p-5 backdrop-blur-2xl md:p-8">
+        <section className="rounded-[26px] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),rgba(6,6,6,0.94)] p-4 backdrop-blur-2xl md:p-6">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
               <div className="relative">
@@ -219,7 +219,7 @@ export default function Profile() {
                   transition={{ duration: 2.6, repeat: Infinity }}
                   className="absolute -inset-2 rounded-full bg-orange-500/30 blur-2xl"
                 />
-                <div className="relative h-28 w-28 overflow-hidden rounded-full border border-orange-400/40 bg-black/45 p-1 shadow-[0_0_35px_rgba(249,115,22,0.35)]">
+                <div className="relative h-24 w-24 overflow-hidden rounded-full border border-orange-400/40 bg-black/45 p-1 shadow-[0_0_35px_rgba(249,115,22,0.35)]">
                   {avatarPreview ? (
                     <img src={avatarPreview} alt={profileForm.fullName || "Profile"} className="h-full w-full rounded-full object-cover" />
                   ) : (
@@ -235,7 +235,7 @@ export default function Profile() {
               </div>
 
               <div>
-                <h1 className="text-center text-3xl font-black uppercase italic tracking-[-0.03em] text-white sm:text-left md:text-5xl">
+                <h1 className="text-center text-xl font-black uppercase italic tracking-[-0.02em] text-white sm:text-left md:text-3xl">
                   {displayName}
                 </h1>
                 <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-orange-200">
@@ -262,14 +262,14 @@ export default function Profile() {
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard icon={Star} label="Completed Missions" value={completedCount} />
           <StatCard icon={Compass} label="Planned Paths" value={plannedCount} />
           <StatCard icon={Package} label="Active Reservations" value={activeCount} />
           <StatCard icon={ShieldCheck} label="Explorer Level" value={levelCount} />
         </section>
 
-        <section className="mt-6 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <section className="mt-5 grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="rounded-[24px] border border-white/10 bg-black/35 p-4 backdrop-blur-xl">
             <div className="space-y-2">
               {sidebarItems.map((item) => {
@@ -426,7 +426,7 @@ function StatCard({ icon: Icon, label, value }) {
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">{label}</p>
         <Icon size={14} className="text-orange-300" />
       </div>
-      <p className="mt-3 text-3xl font-black italic tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-2xl font-black italic tracking-tight text-white">{value}</p>
     </motion.div>
   );
 }

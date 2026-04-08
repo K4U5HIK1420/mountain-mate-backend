@@ -23,7 +23,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
-import LiveRideTracker from "../components/LiveRideTracker";
+const LiveRideTracker = React.lazy(() => import("../components/LiveRideTracker"));
 
 const ease = [0.22, 1, 0.36, 1];
 
@@ -135,18 +135,18 @@ export default function Bookings() {
 
   return (
     <div className="min-h-screen bg-[#040404] text-white">
-      <Container className="px-6 pb-20 pt-10 sm:px-8 lg:px-12">
+      <Container className="px-6 pb-14 pt-8 sm:px-8 lg:px-12">
         <motion.section
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease }}
-          className="rounded-[40px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),radial-gradient(circle_at_top,rgba(249,115,22,0.15),transparent_38%),rgba(8,8,8,0.94)] p-6 shadow-[0_38px_100px_rgba(0,0,0,0.42)] md:p-10"
+          className="rounded-[32px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02)),radial-gradient(circle_at_top,rgba(249,115,22,0.15),transparent_38%),rgba(8,8,8,0.94)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.4)] md:p-7"
         >
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.42em] text-orange-300">Booking Command</p>
-              <h1 className="mt-4 text-4xl font-black uppercase italic tracking-[-0.05em] text-white md:text-7xl">Approvals with clear signal.</h1>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-white/62">
+              <h1 className="mt-3 text-3xl font-black uppercase italic tracking-[-0.04em] text-white md:text-5xl">Approvals with clear signal.</h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/62">
                 Users can track every stay and ride request, while owners and drivers can confirm or decline them from one cleaner control surface.
               </p>
             </div>
@@ -158,7 +158,7 @@ export default function Bookings() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <TabButton active={activeTab === "user"} onClick={() => setActiveTab("user")}>My Bookings</TabButton>
             <TabButton active={activeTab === "partner"} onClick={() => setActiveTab("partner")}>Owner / Driver Inbox</TabButton>
             <TabButton active={activeTab === "alerts"} onClick={() => setActiveTab("alerts")}>Notifications</TabButton>
@@ -177,7 +177,7 @@ export default function Bookings() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 18 }}
               transition={{ duration: 0.35, ease }}
-              className="mt-10 space-y-6"
+              className="mt-8 space-y-5"
             >
               {activeTab === "user" && (
                 <BookingList
@@ -209,13 +209,17 @@ export default function Bookings() {
         )}
       </Container>
 
-      <LiveRideTracker
-        bookingId={trackingSelection?.booking?._id || ""}
-        initialBooking={trackingSelection?.booking || null}
-        initialViewerRole={trackingSelection?.viewerRole || "rider"}
-        open={Boolean(trackingSelection?.booking?._id)}
-        onClose={() => setTrackingSelection(null)}
-      />
+      {trackingSelection?.booking?._id ? (
+        <React.Suspense fallback={null}>
+          <LiveRideTracker
+            bookingId={trackingSelection.booking._id}
+            initialBooking={trackingSelection.booking || null}
+            initialViewerRole={trackingSelection.viewerRole || "rider"}
+            open={true}
+            onClose={() => setTrackingSelection(null)}
+          />
+        </React.Suspense>
+      ) : null}
     </div>
   );
 }
@@ -266,7 +270,7 @@ function BookingList({
                 Ref {booking._id.slice(-6).toUpperCase()}
               </span>
             </div>
-            <h3 className="mt-3 text-2xl font-black uppercase italic tracking-tight text-white md:text-4xl">
+            <h3 className="mt-2 text-xl font-black uppercase italic tracking-tight text-white md:text-3xl">
               {booking.listingLabel || booking.listingId?.hotelName || booking.listingId?.vehicleType || "Booking"}
             </h3>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-white/58">
@@ -432,7 +436,7 @@ function StatCard({ label, value }) {
   return (
     <div className="rounded-[26px] border border-white/10 bg-white/5 px-5 py-5">
       <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">{label}</p>
-      <p className="mt-3 text-3xl font-black uppercase italic tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-2xl font-black uppercase italic tracking-tight text-white">{value}</p>
     </div>
   );
 }

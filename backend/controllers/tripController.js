@@ -1,5 +1,10 @@
 const Trip = require("../models/Trip");
 const { resolveAppUser } = require("../utils/resolveAppUser");
+const mongoose = require("mongoose");
+
+function canUseTripsStore() {
+  return mongoose.connection.readyState === 1;
+}
 
 /**
  * @desc    Create a new tactical itinerary
@@ -9,6 +14,13 @@ const { resolveAppUser } = require("../utils/resolveAppUser");
 exports.createTrip = async (req, res, next) => {
   try {
     const { title, itinerary } = req.body || {};
+    if (!canUseTripsStore()) {
+      return res.status(503).json({
+        success: false,
+        message: "Saved plans are temporarily unavailable.",
+      });
+    }
+
     const user = await resolveAppUser(req);
     
     if (!title) {
@@ -48,6 +60,14 @@ exports.createTrip = async (req, res, next) => {
  */
 exports.getMyTrips = async (req, res, next) => {
   try {
+    if (!canUseTripsStore()) {
+      return res.json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
     const user = await resolveAppUser(req);
     const ownerId = String(user?._id || req.user?.id || req.user?._id || "");
     const trips = await Trip.find({ userId: ownerId }).sort({ createdAt: -1 });
@@ -68,6 +88,13 @@ exports.getMyTrips = async (req, res, next) => {
  */
 exports.updateTrip = async (req, res, next) => {
   try {
+    if (!canUseTripsStore()) {
+      return res.status(503).json({
+        success: false,
+        message: "Saved plans are temporarily unavailable.",
+      });
+    }
+
     const { title, itinerary } = req.body || {};
     const user = await resolveAppUser(req);
     const update = {};
@@ -104,6 +131,13 @@ exports.updateTrip = async (req, res, next) => {
  */
 exports.deleteTrip = async (req, res, next) => {
   try {
+    if (!canUseTripsStore()) {
+      return res.status(503).json({
+        success: false,
+        message: "Saved plans are temporarily unavailable.",
+      });
+    }
+
     const user = await resolveAppUser(req);
     const trip = await Trip.findOneAndDelete({ 
       _id: req.params.id, 

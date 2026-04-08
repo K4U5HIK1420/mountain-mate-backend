@@ -1,7 +1,43 @@
-import React from "react";
-import ParticlesCanvas from "./ParticlesCanvas";
+import React, { Suspense, useEffect, useState } from "react";
+
+const ParticlesCanvas = React.lazy(() => import("./ParticlesCanvas"));
+
+function supportsEnhancedBackground() {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
+  if (!window.matchMedia?.("(min-width: 1024px)").matches) return false;
+  if (window.matchMedia?.("(pointer: coarse)").matches) return false;
+  return true;
+}
 
 export default function AnimatedBackground({ variant = "default" }) {
+  const [showParticles, setShowParticles] = useState(false);
+
+  useEffect(() => {
+    if (!supportsEnhancedBackground()) return;
+
+    let cancelled = false;
+    const loadParticles = () => {
+      if (!cancelled) {
+        setShowParticles(true);
+      }
+    };
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(loadParticles, { timeout: 1200 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(loadParticles, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
   const base =
     "fixed inset-0 -z-10 overflow-hidden pointer-events-none bg-slate-50 dark:bg-[#050505]";
 
@@ -29,8 +65,12 @@ export default function AnimatedBackground({ variant = "default" }) {
       <div className="absolute -right-40 top-40 h-[620px] w-[620px] rounded-full bg-amber-400/12 dark:bg-amber-400/10 blur-3xl animate-float-slower" />
       <div className="absolute left-1/2 -translate-x-1/2 -bottom-60 h-[760px] w-[760px] rounded-full bg-emerald-500/8 dark:bg-emerald-500/5 blur-3xl animate-float-slowest" />
 
-      {/* Interactive particle layer */}
-      <ParticlesCanvas />
+      {/* Only load the canvas layer on larger, motion-capable devices after first paint. */}
+      {showParticles ? (
+        <Suspense fallback={null}>
+          <ParticlesCanvas density={variant === "admin" ? 28 : 36} />
+        </Suspense>
+      ) : null}
 
       {/* Fine grain/noise (very subtle) */}
       <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06] mix-blend-overlay bg-noise" />

@@ -9,6 +9,7 @@ function prefersReducedMotion() {
 export default function ParticlesCanvas({ density = 42 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
+  const resizeHandlerRef = useRef(null);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
@@ -18,8 +19,11 @@ export default function ParticlesCanvas({ density = 42 }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
     const particles = [];
     const mouse = { x: 0.5, y: 0.5 };
+    let isRunning = true;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -48,6 +52,11 @@ export default function ParticlesCanvas({ density = 42 }) {
     };
 
     const draw = () => {
+      if (!isRunning || document.visibilityState === "hidden") {
+        rafRef.current = null;
+        return;
+      }
+
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       ctx.clearRect(0, 0, w, h);
@@ -77,25 +86,56 @@ export default function ParticlesCanvas({ density = 42 }) {
       rafRef.current = requestAnimationFrame(draw);
     };
 
+    const start = () => {
+      if (rafRef.current || !isRunning || document.visibilityState === "hidden") return;
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    const stop = () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+
     const onMove = (e) => {
       const rect = canvas.getBoundingClientRect();
       mouse.x = (e.clientX - rect.left) / rect.width;
       mouse.y = (e.clientY - rect.top) / rect.height;
     };
 
-    resize();
-    init();
-    rafRef.current = requestAnimationFrame(draw);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        stop();
+        return;
+      }
 
-    window.addEventListener("resize", () => {
       resize();
       init();
-    });
+      start();
+    };
+
+    resizeHandlerRef.current = () => {
+      resize();
+      init();
+    };
+
+    resize();
+    init();
+    start();
+
+    window.addEventListener("resize", resizeHandlerRef.current, { passive: true });
     window.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("visibilitychange", handleVisibilityChange, { passive: true });
 
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      isRunning = false;
+      stop();
+      if (resizeHandlerRef.current) {
+        window.removeEventListener("resize", resizeHandlerRef.current);
+      }
       window.removeEventListener("mousemove", onMove);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [density]);
 
