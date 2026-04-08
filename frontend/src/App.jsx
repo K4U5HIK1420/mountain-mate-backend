@@ -14,6 +14,7 @@ import AnimatedBackground from "./components/AnimatedBackground";
 import Footer from "./components/Footer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SeoManager from "./components/SeoManager";
+import AnalyticsManager from "./components/AnalyticsManager";
 
 import "leaflet/dist/leaflet.css";
 
@@ -155,24 +156,6 @@ const DeferredGlobalWidgets = () => {
       <LiveChatSupport />
     </Suspense>
   );
-};
-
-const GA_MEASUREMENT_ID = "G-HQQHDKVTYQ";
-
-const AnalyticsTracker = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    if (typeof window.gtag !== "function") return;
-
-    window.gtag("config", GA_MEASUREMENT_ID, {
-      page_path: `${location.pathname}${location.search}${location.hash}`,
-      page_title: document.title,
-      page_location: window.location.href,
-    });
-  }, [location.pathname, location.search, location.hash]);
-
-  return null;
 };
 
 const Home = React.lazy(() => import("./pages/Home"));
@@ -545,7 +528,7 @@ function App() {
       <ErrorBoundary>
         <SeoManager />
         <ScrollToTop />
-        <AnalyticsTracker />
+        <AnalyticsManager />
         <AppLayout>
           <Routes>
             <Route path="/" element={<Home />} />

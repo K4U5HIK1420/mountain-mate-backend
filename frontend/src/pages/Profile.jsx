@@ -24,6 +24,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
+import { trackEvent } from "../utils/analytics";
 
 const sidebarItems = [
   { id: "bookings", label: "Recent Activity", icon: Package },
@@ -184,6 +185,9 @@ export default function Profile() {
       setAvatarPreview(nextAvatar || avatarPreview);
       setAvatarFile(null);
       await refreshUser?.();
+      trackEvent("profile_updated", {
+        has_avatar_upload: Boolean(avatarFile),
+      });
       notify("Profile updated.", "success");
     } catch {
       notify("Profile update failed.", "error");
@@ -382,7 +386,7 @@ export default function Profile() {
                           if (!avatarFile) setAvatarPreview(value);
                         }}
                       />
-                      <Button type="button" size="sm" onClick={handleProfileSave} disabled={saving} className="rounded-xl px-5 py-3 text-[10px] tracking-[0.16em]">
+                      <Button type="button" size="sm" onClick={handleProfileSave} analyticsEvent="profile_save_clicked" analyticsParams={{ section: "profile_settings" }} disabled={saving} className="rounded-xl px-5 py-3 text-[10px] tracking-[0.16em]">
                         {saving ? "Saving..." : "Save Profile"}
                         <Save size={14} />
                       </Button>

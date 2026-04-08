@@ -33,6 +33,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
 import { cleanValue, isValidPhone, normalizePhone } from "../utils/validation";
+import { trackEvent } from "../utils/analytics";
 
 const motionEase = [0.22, 1, 0.36, 1];
 const locationSuggestions = ["Kedarnath", "Guptkashi", "Sonprayag", "Rudraprayag", "Joshimath", "Auli", "Badrinath"];
@@ -250,6 +251,12 @@ export default function ExploreStays() {
       const createdBooking = res.data?.data || res.data;
       const bookingId = createdBooking?._id;
       if (!bookingId) throw new Error("Missing booking id");
+      trackEvent("stay_booking_started", {
+        listing_id: selectedHotel._id,
+        rooms: Number(bookingForm.rooms || 1),
+        guests: Number(bookingForm.guests || 1),
+        amount,
+      });
       setSelectedHotel(null);
       navigate(`/booking/${bookingId}/confirm`, { state: { booking: createdBooking } });
     } catch {

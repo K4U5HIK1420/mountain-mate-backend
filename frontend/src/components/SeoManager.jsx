@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useLocation } from "react-router-dom";
 
 const SITE_URL = "https://mountainmate.in";
 const SITE_NAME = "Mountain Mate";
 const DEFAULT_IMAGE = `${SITE_URL}/branding/mountain-mate-share-banner.jpg`;
+const TWITTER_HANDLE = "@mountainmate";
 const DEFAULT_DESCRIPTION =
   "Book verified stays, trusted rides, and smarter Uttarakhand trip plans from one platform.";
 const DEFAULT_KEYWORDS =
@@ -120,45 +121,6 @@ const SEO_BY_ROUTE = {
   },
 };
 
-function upsertMeta(selector, attributes) {
-  let element = document.head.querySelector(selector);
-
-  if (!element) {
-    element = document.createElement("meta");
-    document.head.appendChild(element);
-  }
-
-  Object.entries(attributes).forEach(([key, value]) => {
-    element.setAttribute(key, value);
-  });
-}
-
-function upsertLink(selector, attributes) {
-  let element = document.head.querySelector(selector);
-
-  if (!element) {
-    element = document.createElement("link");
-    document.head.appendChild(element);
-  }
-
-  Object.entries(attributes).forEach(([key, value]) => {
-    element.setAttribute(key, value);
-  });
-}
-
-function upsertJsonLd(id, data) {
-  let element = document.head.querySelector(`#${id}`);
-
-  if (!element) {
-    element = document.createElement("script");
-    element.id = id;
-    element.type = "application/ld+json";
-    document.head.appendChild(element);
-  }
-
-  element.textContent = JSON.stringify(data);
-}
-
 function getSeoConfig(pathname) {
   if (pathname.startsWith("/booking/")) {
     return {
@@ -187,64 +149,72 @@ function getSeoConfig(pathname) {
 
 export default function SeoManager() {
   const location = useLocation();
+  const { pathname } = location;
+  const seo = getSeoConfig(pathname);
+  const title = seo.title || `${SITE_NAME} | Uttarakhand Travel Platform`;
+  const description = seo.description || DEFAULT_DESCRIPTION;
+  const keywords = seo.keywords || DEFAULT_KEYWORDS;
+  const robots = seo.robots || "index, follow";
+  const canonicalUrl = `${SITE_URL}${pathname === "/" ? "" : pathname}`;
 
-  useEffect(() => {
-    const { pathname } = location;
-    const seo = getSeoConfig(pathname);
-    const title = seo.title || `${SITE_NAME} | Uttarakhand Travel Platform`;
-    const description = seo.description || DEFAULT_DESCRIPTION;
-    const keywords = seo.keywords || DEFAULT_KEYWORDS;
-    const robots = seo.robots || "index, follow";
-    const canonicalUrl = `${SITE_URL}${pathname === "/" ? "" : pathname}`;
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: SITE_URL,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${SITE_URL}/explore-stays?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
 
-    document.title = title;
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/mountain-mate-badge.png`,
+    sameAs: [SITE_URL],
+  };
 
-    upsertMeta('meta[name="description"]', { name: "description", content: description });
-    upsertMeta('meta[name="keywords"]', { name: "keywords", content: keywords });
-    upsertMeta('meta[name="robots"]', { name: "robots", content: robots });
-    upsertMeta('meta[name="googlebot"]', { name: "googlebot", content: robots });
+  return (
+    <Helmet prioritizeSeoTags>
+      <html lang="en" />
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      <meta name="keywords" content={keywords} />
+      <meta name="robots" content={robots} />
+      <meta name="googlebot" content={robots} />
 
-    upsertMeta('meta[property="og:type"]', { property: "og:type", content: "website" });
-    upsertMeta('meta[property="og:site_name"]', { property: "og:site_name", content: SITE_NAME });
-    upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: "en_IN" });
-    upsertMeta('meta[property="og:title"]', { property: "og:title", content: title });
-    upsertMeta('meta[property="og:description"]', { property: "og:description", content: description });
-    upsertMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl });
-    upsertMeta('meta[property="og:image"]', { property: "og:image", content: DEFAULT_IMAGE });
-    upsertMeta('meta[property="og:image:secure_url"]', { property: "og:image:secure_url", content: DEFAULT_IMAGE });
-    upsertMeta('meta[property="og:image:alt"]', {
-      property: "og:image:alt",
-      content: "Mountain Mate travel planning banner",
-    });
+      <meta property="og:type" content="website" />
+      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:locale" content="en_IN" />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:image" content={DEFAULT_IMAGE} />
+      <meta property="og:image:secure_url" content={DEFAULT_IMAGE} />
+      <meta property="og:image:type" content="image/jpeg" />
+      <meta property="og:image:width" content="1600" />
+      <meta property="og:image:height" content="900" />
+      <meta property="og:image:alt" content="Mountain Mate travel planning banner" />
 
-    upsertMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary_large_image" });
-    upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title });
-    upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: description });
-    upsertMeta('meta[name="twitter:image"]', { name: "twitter:image", content: DEFAULT_IMAGE });
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:site" content={TWITTER_HANDLE} />
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={DEFAULT_IMAGE} />
+      <meta name="twitter:image:alt" content="Mountain Mate travel planning banner" />
 
-    upsertLink('link[rel="canonical"]', { rel: "canonical", href: canonicalUrl });
+      <link rel="canonical" href={canonicalUrl} />
 
-    upsertJsonLd("mm-website-schema", {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      name: SITE_NAME,
-      url: SITE_URL,
-      potentialAction: {
-        "@type": "SearchAction",
-        target: `${SITE_URL}/explore-stays?q={search_term_string}`,
-        "query-input": "required name=search_term_string",
-      },
-    });
-
-    upsertJsonLd("mm-organization-schema", {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      name: SITE_NAME,
-      url: SITE_URL,
-      logo: `${SITE_URL}/mountain-mate-badge.png`,
-      sameAs: [SITE_URL],
-    });
-  }, [location]);
-
-  return null;
+      <script id="mm-website-schema" type="application/ld+json">
+        {JSON.stringify(websiteSchema)}
+      </script>
+      <script id="mm-organization-schema" type="application/ld+json">
+        {JSON.stringify(organizationSchema)}
+      </script>
+    </Helmet>
+  );
 }

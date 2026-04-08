@@ -32,6 +32,7 @@ import { RidesGridSkeleton } from "../components/Skeletons";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
 import { cleanValue, isValidPhone, normalizePhone } from "../utils/validation";
+import { trackEvent } from "../utils/analytics";
 
 const ease = [0.22, 1, 0.36, 1];
 const LazyRoutePreview = React.lazy(() => import("../components/RoutePreview"));
@@ -165,6 +166,11 @@ const ExploreRides = () => {
       const createdBooking = res.data?.data || res.data;
       const bookingId = createdBooking?._id;
       if (!bookingId) throw new Error("Missing booking id");
+      trackEvent("ride_booking_started", {
+        listing_id: selectedRide._id,
+        seats: Number(bookingSeats || 1),
+        amount: Number(selectedRide.pricePerSeat || 0) * Number(bookingSeats || 1),
+      });
       setSelectedRide(null);
       navigate(`/booking/${bookingId}/confirm`, { state: { booking: createdBooking } });
     } catch {

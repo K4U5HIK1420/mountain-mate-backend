@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "./cn";
+import { trackEvent } from "../../utils/analytics";
 
 const variants = {
   primary:
@@ -23,9 +24,20 @@ export function Button({
   size = "md",
   className,
   children,
+  onClick,
+  analyticsEvent,
+  analyticsParams,
   ...props
 }) {
   const Comp = As || "button";
+
+  const handleClick = (event) => {
+    if (analyticsEvent) {
+      trackEvent(analyticsEvent, analyticsParams || {});
+    }
+    onClick?.(event);
+  };
+
   return (
     <Comp
       className={cn(
@@ -34,6 +46,7 @@ export function Button({
         sizes[size] || sizes.md,
         className
       )}
+      onClick={handleClick}
       {...props}
     >
       {children}

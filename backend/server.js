@@ -30,6 +30,8 @@ cloudinary.config({
 
 const app = express();
 const server = http.createServer(app);
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
 
 const parseAllowedOrigins = () => {
   const configured = String(process.env.ALLOWED_ORIGINS || "")
@@ -60,6 +62,51 @@ const parseAllowedOrigins = () => {
 };
 
 const allowedOrigins = parseAllowedOrigins();
+const isProduction = process.env.NODE_ENV === "production";
+
+const buildCsp = () => {
+  const connectSources = [
+    "'self'",
+    "https://api.mountainmate.in",
+    "https://mountainmate.in",
+    "https://*.supabase.co",
+    "wss://*.supabase.co",
+    "https://www.google-analytics.com",
+    "https://region1.google-analytics.com",
+    "https://analytics.google.com",
+    "https://www.googletagmanager.com",
+    "https://maps.googleapis.com",
+    "https://maps.gstatic.com",
+    "https://api.openweathermap.org",
+    "https://res.cloudinary.com",
+    "https://*.tile.openstreetmap.org",
+  ];
+
+  if (!isProduction) {
+    connectSources.push(
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+      "ws://localhost:5000",
+      "ws://127.0.0.1:5000"
+    );
+  }
+
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'self'",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://maps.googleapis.com https://maps.gstatic.com",
+    `connect-src ${connectSources.join(" ")}`,
+    "frame-src 'self' https://www.googletagmanager.com https://www.google.com",
+    "form-action 'self'",
+    ...(isProduction ? ["upgrade-insecure-requests"] : []),
+  ].join("; ");
+};
 
 const corsOptions = {
   origin(origin, callback) {
@@ -78,6 +125,21 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  res.setHeader("Content-Security-Policy", buildCsp());
+
+  if (isProduction) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+
+  next();
+});
 app.use("/api/payment/webhook", express.raw({ type: "application/json" }));
 
 const mapLocationPayload = (payload = {}) => {

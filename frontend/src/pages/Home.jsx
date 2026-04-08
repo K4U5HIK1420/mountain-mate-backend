@@ -28,6 +28,7 @@ import { useNavigate } from "react-router-dom";
 import { Container } from "../components/ui/Container";
 import { Button } from "../components/ui/Button";
 import { getWeatherData } from "../utils/api";
+import { trackEvent } from "../utils/analytics";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 34 },
@@ -206,6 +207,10 @@ export default function Home() {
   const handleSearchSubmit = () => {
     const target = activeMode.route;
     const query = searchQuery.trim();
+    trackEvent("search_submitted", {
+      search_mode: activeMode.key,
+      search_query: query || "empty",
+    });
     if (!query) {
       navigate(target);
       return;
@@ -322,6 +327,8 @@ export default function Home() {
               <Button
                 size="lg"
                 onClick={() => navigate("/planner")}
+                analyticsEvent="planner_cta_clicked"
+                analyticsParams={{ placement: "home_hero" }}
                 className="rounded-full px-8 text-[11px] tracking-[0.28em] shadow-[0_14px_35px_rgba(249,115,22,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_45px_rgba(249,115,22,0.45)]"
               >
                 Start Planning Now <ArrowRight size={16} />
@@ -330,6 +337,8 @@ export default function Home() {
                 size="lg"
                 variant="ghost"
                 onClick={() => navigate("/explore-stays")}
+                analyticsEvent="explore_stays_clicked"
+                analyticsParams={{ placement: "home_hero" }}
                 className="rounded-full border-white/20 px-8 text-[11px] tracking-[0.26em] transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-300/40"
               >
                 View Trusted Options
@@ -417,6 +426,8 @@ export default function Home() {
                 <Button
                   size="lg"
                   onClick={handleSearchSubmit}
+                  analyticsEvent="search_cta_clicked"
+                  analyticsParams={{ placement: "home_search_panel" }}
                   className="min-h-full rounded-[28px] px-8 text-[11px] tracking-[0.3em] transition-all duration-300 hover:-translate-y-0.5"
                 >
                   {activeMode.label === "Full Plan" ? "Build My Plan" : `Explore ${activeMode.label}`} <ArrowRight size={16} />
@@ -664,13 +675,13 @@ export default function Home() {
               Skip random calls and scattered tabs. Start with verified options and finish your Uttarakhand trip planning in one smooth flow.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Button as="button" size="lg" variant="neutral" onClick={() => navigate("/explore-stays")} className="rounded-full px-10">
+              <Button as="button" size="lg" variant="neutral" onClick={() => navigate("/explore-stays")} analyticsEvent="explore_stays_clicked" analyticsParams={{ placement: "home_final_cta" }} className="rounded-full px-10">
                 Find Verified Stays <ArrowRight size={16} />
               </Button>
-              <Button as="button" size="lg" onClick={() => navigate("/explore-rides")} className="rounded-full px-10">
+              <Button as="button" size="lg" onClick={() => navigate("/explore-rides")} analyticsEvent="explore_rides_clicked" analyticsParams={{ placement: "home_final_cta" }} className="rounded-full px-10">
                 Book Trusted Rides <ArrowRight size={16} />
               </Button>
-              <Button as="button" size="lg" variant="ghost" onClick={() => navigate("/planner")} className="rounded-full px-10">
+              <Button as="button" size="lg" variant="ghost" onClick={() => navigate("/planner")} analyticsEvent="planner_cta_clicked" analyticsParams={{ placement: "home_final_cta" }} className="rounded-full px-10">
                 Build Full Plan
               </Button>
             </div>
