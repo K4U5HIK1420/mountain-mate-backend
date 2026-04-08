@@ -14,6 +14,7 @@ import AnimatedBackground from "./components/AnimatedBackground";
 import Footer from "./components/Footer";
 import LiveChatSupport from "./components/LiveChatSupport";
 import ErrorBoundary from "./components/ErrorBoundary";
+import SeoManager from "./components/SeoManager";
 import AIAdvisor from "./components/Features/AIAdvisor";
 
 import "leaflet/dist/leaflet.css";
@@ -492,6 +493,7 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
+        <SeoManager />
         <ScrollToTop />
         <AnalyticsTracker />
         <AppLayout>
