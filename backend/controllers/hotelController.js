@@ -4,6 +4,7 @@ const Hotel = require("../models/Hotel");
 const fs = require("fs");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
+const { applyInventorySnapshotToHotels } = require("../services/roomInventoryService");
 
 const HOTEL_DOC_FIELDS = [
   "ownerPhoto",
@@ -315,12 +316,16 @@ exports.getHotels = async (req, res, next) => {
 exports.searchHotels = async (req, res, next) => {
   try {
     if (getDataStore() === "supabase") {
-      const hotels = await supabaseHotels.searchApprovedHotels({
+      let hotels = await supabaseHotels.searchApprovedHotels({
         location: req.query.location || "",
         minPrice: req.query.minPrice,
         maxPrice: req.query.maxPrice,
         sort: req.query.sort,
       });
+      if (req.query.checkInDate) {
+        hotels = await applyInventorySnapshotToHotels(hotels, req.query.checkInDate);
+        hotels = hotels.filter((hotel) => hotel.isAvailableOnDate !== false);
+      }
       return res.json(hotels);
     }
 

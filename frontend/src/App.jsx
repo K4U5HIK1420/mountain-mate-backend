@@ -205,8 +205,8 @@ const Navbar = () => {
       if (!token) return;
       try {
         const [hRes, rRes] = await Promise.all([
-          API.get("/hotel/admin/all").catch(() => ({ data: [] })),
-          API.get("/transport/admin/all").catch(() => ({ data: [] })),
+          API.get("/hotel/my-hotels").catch(() => ({ data: { data: [] } })),
+          API.get("/transport/my-rides").catch(() => ({ data: { data: [] } })),
         ]);
         const hData = hRes.data?.data || hRes.data || [];
         const rData = rRes.data?.data || rRes.data || [];

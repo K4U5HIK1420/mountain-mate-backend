@@ -54,6 +54,21 @@ const getDatePlusDays = (days) => {
   return date.toISOString().split("T")[0];
 };
 
+const addDaysToIso = (isoDate, days) => {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return getDatePlusDays(days);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
+};
+
+const getNightCount = (checkIn, checkOut) => {
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+  return Math.max(0, diff);
+};
+
 const sortHotels = (list, sort, ratingMap) => {
   const arr = [...list];
   if (sort === "priceLowToHigh") {
@@ -90,7 +105,13 @@ export default function ExploreStays() {
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [sort, setSort] = useState("rating");
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [selectedNightPrice, setSelectedNightPrice] = useState(0);
+  const [pricingQuote, setPricingQuote] = useState({
+    loading: false,
+    error: "",
+    totalAmount: 0,
+    unitPrice: 0,
+    totalNights: 0,
+  });
   const [filters, setFilters] = useState({
     location: "",
     checkIn: getDatePlusDays(0),
@@ -141,9 +162,69 @@ export default function ExploreStays() {
         guests: 1,
         rooms: 1,
       }));
-      setSelectedNightPrice(Number(selectedHotel.pricePerNight || 0));
+      setPricingQuote({
+        loading: false,
+        error: "",
+        totalAmount: 0,
+        unitPrice: Number(selectedHotel.pricePerNight || 0),
+        totalNights: getNightCount(filters.checkIn || getDatePlusDays(0), filters.checkOut || getDatePlusDays(1)),
+      });
     }
-  }, [selectedHotel, filters.checkIn]);
+  }, [selectedHotel, filters.checkIn, filters.checkOut]);
+
+  useEffect(() => {
+    if (!selectedHotel?._id || !bookingForm.checkIn) return;
+    if (!bookingForm.checkOut || bookingForm.checkOut <= bookingForm.checkIn) {
+      setBookingForm((prev) => ({
+        ...prev,
+        checkOut: addDaysToIso(prev.checkIn || getDatePlusDays(0), 1),
+      }));
+      return;
+    }
+
+    let active = true;
+    const loadPricingQuote = async () => {
+      setPricingQuote((prev) => ({ ...prev, loading: true, error: "" }));
+      try {
+        const inventoryEndDate = addDaysToIso(bookingForm.checkOut, -1);
+        const res = await API.get(`/inventory/${selectedHotel._id}`, {
+          params: {
+            startDate: bookingForm.checkIn,
+            endDate: inventoryEndDate,
+          },
+        });
+        const rows = res.data?.data || [];
+        const totalNights = rows.length;
+        const unitPrice = totalNights
+          ? Math.round(rows.reduce((sum, row) => sum + Number(row.price || 0), 0) / totalNights)
+          : Number(selectedHotel.pricePerNight || 0);
+        const totalAmount = rows.reduce((sum, row) => sum + Number(row.price || 0), 0) * Number(bookingForm.rooms || 1);
+
+        if (!active) return;
+        setPricingQuote({
+          loading: false,
+          error: "",
+          totalAmount,
+          unitPrice,
+          totalNights,
+        });
+      } catch (_err) {
+        if (!active) return;
+        setPricingQuote({
+          loading: false,
+          error: "Live pricing unavailable for the selected dates.",
+          totalAmount: 0,
+          unitPrice: Number(selectedHotel.pricePerNight || 0),
+          totalNights: getNightCount(bookingForm.checkIn, bookingForm.checkOut),
+        });
+      }
+    };
+
+    loadPricingQuote();
+    return () => {
+      active = false;
+    };
+  }, [selectedHotel, bookingForm.checkIn, bookingForm.checkOut, bookingForm.rooms]);
 
   const fetchHotels = async () => {
     setIsSearching(true);
@@ -237,11 +318,14 @@ export default function ExploreStays() {
       notify("Add your name, phone, and check-in date.", "error");
       return;
     }
+    if (!bookingForm.checkOut || bookingForm.checkOut <= bookingForm.checkIn) {
+      notify("Choose a check-out date after check-in.", "error");
+      return;
+    }
 
     setBookingLoading(true);
     try {
-      const nightly = Number(selectedNightPrice || selectedHotel.pricePerNight || 0);
-      const amount = nightly * Number(bookingForm.rooms || 1);
+      const amount = Number(pricingQuote.totalAmount || 0);
       const res = await API.post("/booking/create", {
         customerName: bookingForm.name.trim(),
         phoneNumber: normalizePhone(bookingForm.phone),
@@ -346,11 +430,10 @@ export default function ExploreStays() {
             onNext={nextImage}
             onPrev={previousImage}
             onBook={handleStayBooking}
-            bookingLoading={bookingLoading}
-            onPriceResolve={setSelectedNightPrice}
-            selectedNightPrice={selectedNightPrice}
-          />
-        )}
+          bookingLoading={bookingLoading}
+          pricingQuote={pricingQuote}
+        />
+      )}
       </AnimatePresence>
     </div>
   );
@@ -514,8 +597,7 @@ function StayDetailsModal({
   onPrev,
   onBook,
   bookingLoading,
-  onPriceResolve,
-  selectedNightPrice,
+  pricingQuote,
 }) {
   const today = getDatePlusDays(0);
   return (
@@ -582,8 +664,13 @@ function StayDetailsModal({
               <UserInventoryCalendar
                 hotelId={hotel._id}
                 selectedDate={bookingForm.checkIn}
-                onSelectDate={(date) => setBookingForm((p) => ({ ...p, checkIn: date, checkOut: date }))}
-                onPriceResolve={onPriceResolve}
+                onSelectDate={(date) =>
+                  setBookingForm((p) => ({
+                    ...p,
+                    checkIn: date,
+                    checkOut: !p.checkOut || p.checkOut <= date ? addDaysToIso(date, 1) : p.checkOut,
+                  }))
+                }
               />
 
               <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-[11px] text-white/72">
@@ -628,7 +715,7 @@ function StayDetailsModal({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <DateInput value={bookingForm.checkIn} onChange={(value) => setBookingForm((p) => ({ ...p, checkIn: value }))} min={today} label="Check-in" />
-                <DateInput value={bookingForm.checkOut} onChange={(value) => setBookingForm((p) => ({ ...p, checkOut: value }))} min={bookingForm.checkIn || today} label="Check-out" />
+                <DateInput value={bookingForm.checkOut} onChange={(value) => setBookingForm((p) => ({ ...p, checkOut: value }))} min={addDaysToIso(bookingForm.checkIn || today, 1)} label="Check-out" />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -642,9 +729,23 @@ function StayDetailsModal({
               disabled={bookingLoading}
               className="mt-5 w-full rounded-2xl py-3 text-[10px] tracking-[0.16em] shadow-[0_18px_42px_rgba(249,115,22,0.42)] transition-all duration-300 hover:scale-[1.01]"
             >
-              {bookingLoading ? "Starting Payment..." : `Reserve Now - Rs ${selectedNightPrice || hotel.pricePerNight}/night`}
+              {bookingLoading
+                ? "Starting Payment..."
+                : pricingQuote.totalNights > 0
+                  ? `Reserve Now - Rs ${pricingQuote.totalAmount || 0} total for ${pricingQuote.totalNights} night${pricingQuote.totalNights > 1 ? "s" : ""}`
+                  : `Reserve Now - Rs ${pricingQuote.unitPrice || hotel.pricePerNight}/night`}
               <ArrowRight size={14} />
             </Button>
+
+            {pricingQuote.error ? (
+              <p className="mt-3 text-xs text-rose-300">{pricingQuote.error}</p>
+            ) : (
+              <p className="mt-3 text-xs text-orange-200">
+                {pricingQuote.loading
+                  ? "Refreshing live pricing..."
+                  : `Estimated total: Rs ${pricingQuote.totalAmount || 0} for ${pricingQuote.totalNights || getNightCount(bookingForm.checkIn, bookingForm.checkOut)} night${(pricingQuote.totalNights || getNightCount(bookingForm.checkIn, bookingForm.checkOut)) > 1 ? "s" : ""} and ${bookingForm.rooms} room${Number(bookingForm.rooms || 1) > 1 ? "s" : ""}.`}
+              </p>
+            )}
 
             <div className="mt-4 grid gap-2 rounded-2xl border border-white/10 bg-black/25 p-3 text-[11px] text-white/72">
               <p className="inline-flex items-center gap-2"><Check size={13} className="text-emerald-300" /> Free cancellation</p>

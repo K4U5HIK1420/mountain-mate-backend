@@ -1,5 +1,5 @@
 function getDataStore() {
-  const v = (process.env.DATA_STORE || "mongo").toLowerCase();
+  const v = (process.env.DATA_STORE || "supabase").toLowerCase();
   return v === "supabase" ? "supabase" : "mongo";
 }
 

@@ -26,19 +26,12 @@ async function restoreBookingInventory(booking) {
   }
 
   if (booking.bookingType === "Hotel") {
-    const rooms = Math.max(1, Number(booking.rooms || 1));
     if (isSupabase) {
-      const hotel = await supabaseHotels.getHotelById(String(booking.listingId));
-      if (!hotel) return;
-      await supabaseHotels.updateHotel({
-        ownerId: String(hotel.owner || ""),
-        id: String(booking.listingId),
-        updateData: { roomsAvailable: Number(hotel.roomsAvailable || 0) + rooms },
-      });
+      await releaseInventoryForHotelBooking(booking);
       return;
     }
     await releaseInventoryForHotelBooking(booking);
-    await Hotel.findByIdAndUpdate(booking.listingId, { $inc: { roomsAvailable: rooms } });
+    await Hotel.findByIdAndUpdate(booking.listingId, { $inc: { roomsAvailable: Math.max(1, Number(booking.rooms || 1)) } });
   }
 }
 

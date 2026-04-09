@@ -13,9 +13,8 @@ const { sendBookingRequestOwnerEmail } = require("../services/emailService");
 const { resolveUserEmail } = require("../utils/resolveUserEmail");
 const {
   DEFAULT_ROOM_TYPE,
-  ensureHotelInventoryRows,
   dateKey,
-  toStartOfUtcDay,
+  getStayPricingQuote,
 } = require("../services/roomInventoryService");
 
 function uploadFileToCloudinary(file, folder) {
@@ -99,39 +98,26 @@ exports.createBooking = async (req, res, next) => {
           : `${listing.vehicleType || ""} ${listing.routeFrom || ""} - ${listing.routeTo || ""}`.trim();
 
         let pricing = resolveBookingPricing({ isHotel, listing, body: req.body });
+        let normalizedStayDates = null;
 
-        if (isHotel && getDataStore() !== "supabase") {
-          const roomsRequested = Math.max(1, Number(req.body.rooms || 1));
-          const start = toStartOfUtcDay(req.body.startDate || req.body.date);
-          const end = toStartOfUtcDay(req.body.endDate || req.body.startDate || req.body.date);
+        if (isHotel) {
           const roomType = String(req.body.roomType || DEFAULT_ROOM_TYPE);
-
-          const { rows } = await ensureHotelInventoryRows({
+          const stayQuote = await getStayPricingQuote({
             hotelId: String(req.body.listingId || ""),
             roomType,
-            startDate: start,
-            endDate: end,
+            startDate: req.body.startDate || req.body.date,
+            endDate: req.body.endDate,
+            rooms: Number(req.body.rooms || 1),
           });
 
-          if (!rows.length) {
-            return res.status(400).json({ success: false, message: "Inventory unavailable for selected dates." });
-          }
-
-          for (const row of rows) {
-            const available = Math.max(0, Number(row.totalRooms || 0) - Number(row.bookedRooms || 0));
-            if (row.isSoldOut || available < roomsRequested) {
-              return res.status(400).json({
-                success: false,
-                message: `No rooms available on ${dateKey(row.date)}`,
-              });
-            }
-          }
-
-          const rangeTotal = rows.reduce((sum, row) => sum + Number(row.price || 0), 0);
+          normalizedStayDates = {
+            checkIn: stayQuote.checkIn,
+            checkOut: stayQuote.checkOut,
+          };
           pricing = {
-            quantity: roomsRequested,
-            unitPrice: rows.length ? Math.round(rangeTotal / rows.length) : Number(listing?.pricePerNight || 0),
-            totalAmount: rangeTotal * roomsRequested,
+            quantity: stayQuote.pricing.quantity,
+            unitPrice: stayQuote.pricing.unitPrice,
+            totalAmount: stayQuote.pricing.totalAmount,
           };
         }
 
@@ -139,6 +125,9 @@ exports.createBooking = async (req, res, next) => {
           ...req.body,
           roomType: req.body.roomType || DEFAULT_ROOM_TYPE,
           listingId: String(req.body.listingId || ""),
+          date: normalizedStayDates?.checkIn || req.body.date,
+          startDate: normalizedStayDates?.checkIn || req.body.startDate || req.body.date,
+          endDate: normalizedStayDates?.checkOut || req.body.endDate || req.body.startDate || req.body.date,
           amount: pricing.totalAmount,
           userId: actorId,
           ownerId,
@@ -209,7 +198,10 @@ exports.createBooking = async (req, res, next) => {
 exports.getTrackingBooking = async (req, res, next) => {
   try {
     const actorId = String(req.user?.id || req.user?._id || "");
-    const booking = await Booking.findById(req.params.id).lean();
+    const booking =
+      getDataStore() === "supabase"
+        ? await supabaseBookings.getBookingById(req.params.id)
+        : await Booking.findById(req.params.id).lean();
 
     if (!booking) {
       return res.status(404).json({ success: false, message: "Booking not found" });
@@ -248,7 +240,10 @@ exports.updateTrackingStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Invalid tracking status" });
     }
 
-    const booking = await Booking.findById(req.params.id);
+    const isSupabase = getDataStore() === "supabase";
+    const booking = isSupabase
+      ? await supabaseBookings.getBookingById(req.params.id)
+      : await Booking.findById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: "Booking not found" });
     }
@@ -277,7 +272,16 @@ exports.updateTrackingStatus = async (req, res, next) => {
       booking.status = "confirmed";
     }
 
-    await booking.save();
+    let updatedBooking = booking;
+    if (isSupabase) {
+      updatedBooking = await supabaseBookings.updateBookingById(String(booking._id), {
+        status: booking.status,
+        liveTracking: booking.liveTracking,
+      });
+    } else {
+      await booking.save();
+      updatedBooking = booking;
+    }
 
     const io = req.app.get("io");
     if (io) {
@@ -305,7 +309,7 @@ exports.updateTrackingStatus = async (req, res, next) => {
       io
     );
 
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: updatedBooking });
   } catch (err) {
     next(err);
   }
@@ -314,7 +318,10 @@ exports.updateTrackingStatus = async (req, res, next) => {
 // Get All Bookings
 exports.getBookings = async (req, res, next) => {
     try {
-        const bookings = await Booking.find();
+        const bookings =
+          getDataStore() === "supabase"
+            ? await supabaseBookings.listAllBookings()
+            : await Booking.find();
         res.json(bookings);
     } catch (error) {
         next(error);
@@ -352,11 +359,14 @@ exports.updateBookingStatus = async (req, res, next) => {
       });
     }
 
-    const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const booking =
+      getDataStore() === "supabase"
+        ? await supabaseBookings.updateBookingById(req.params.id, { status })
+        : await Booking.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+          );
 
     if (!booking) {
       return res.status(404).json({
@@ -388,8 +398,10 @@ exports.getBookingsByStatus = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const bookings = await Booking.find({ status })
-      .lean();
+    const bookings =
+      getDataStore() === "supabase"
+        ? (await supabaseBookings.listAllBookings()).filter((item) => item.status === status)
+        : await Booking.find({ status }).lean();
 
     res.json(bookings);
 
@@ -400,7 +412,10 @@ exports.getBookingsByStatus = async (req, res, next) => {
 
 exports.getBookingStats = async (req, res, next) => {
   try {
-    const totalBookings = await Booking.countDocuments();
+    const totalBookings =
+      getDataStore() === "supabase"
+        ? (await supabaseBookings.listAllBookings()).length
+        : await Booking.countDocuments();
 
     res.json({
       success: true,
@@ -413,17 +428,20 @@ exports.getBookingStats = async (req, res, next) => {
 
 exports.getRevenueStats = async (req, res, next) => {
   try {
-    const bookings = await Booking.find({
-      status: { $in: ["confirmed", "completed"] }
-    }).populate("listingId");
+    const bookings =
+      getDataStore() === "supabase"
+        ? await supabaseBookings.listAllBookings()
+        : await Booking.find({
+            status: { $in: ["confirmed", "completed"] }
+          }).populate("listingId");
 
     let totalRevenue = 0;
 
-    bookings.forEach(b => {
-      if (b.listingId && b.listingId.pricePerNight) {
-        totalRevenue += b.listingId.pricePerNight;
-      }
-    });
+    bookings
+      .filter((b) => ["confirmed", "completed"].includes(String(b.status || "")))
+      .forEach((b) => {
+        totalRevenue += Number(b.amount || b.liveTracking?.pricing?.totalAmount || 0);
+      });
 
     res.json({
       success: true,
@@ -437,25 +455,34 @@ exports.getRevenueStats = async (req, res, next) => {
 
 exports.getStatusStats = async (req, res) => {
   try {
-    const stats = await Booking.aggregate([
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
     let result = {
       pending: 0,
       confirmed: 0,
       completed: 0,
-      cancelled: 0
+      cancelled: 0,
+      declined: 0,
     };
 
-    stats.forEach(item => {
-      result[item._id] = item.count;
-    });
+    if (getDataStore() === "supabase") {
+      const bookings = await supabaseBookings.listAllBookings();
+      bookings.forEach((item) => {
+        const key = String(item.status || "");
+        if (key in result) result[key] += 1;
+      });
+    } else {
+      const stats = await Booking.aggregate([
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      stats.forEach(item => {
+        result[item._id] = item.count;
+      });
+    }
 
     res.json(result);
 

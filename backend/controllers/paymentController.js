@@ -104,21 +104,16 @@ async function applyInventoryReservation(booking, isSupabase) {
   }
 
   if (booking.bookingType === "Hotel") {
-    const roomsRequested = Math.max(1, Number(booking.rooms || 1));
     const hotel = isSupabase
       ? await supabaseHotels.getHotelById(String(booking.listingId))
       : await Hotel.findById(booking.listingId);
 
-    if (!hotel || hotel.roomsAvailable < roomsRequested) {
+    if (!hotel) {
       throw new Error("Selected stay is no longer available.");
     }
 
     if (isSupabase) {
-      await supabaseHotels.updateHotel({
-        ownerId: String(hotel.owner || ""),
-        id: String(booking.listingId),
-        updateData: { roomsAvailable: Number(hotel.roomsAvailable) - roomsRequested },
-      });
+      await reserveInventoryForHotelBooking(booking);
     } else {
       await reserveInventoryForHotelBooking(booking);
       hotel.roomsAvailable -= roomsRequested;

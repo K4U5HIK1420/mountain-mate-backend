@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Ban, BookOpen, Building2, Car, CheckCircle2, ChevronLeft, ChevronRight, Crown, Database, Download, FileClock, Filter, Loader2, Menu, RefreshCw, Search, Shield, Star, Trash2, Users, WalletCards, WandSparkles } from "lucide-react";
+import { ArrowUpRight, Ban, BookOpen, Building2, Car, CheckCircle2, ChevronLeft, ChevronRight, Crown, Database, Download, Eye, EyeOff, FileClock, Filter, KeyRound, Loader2, Menu, RefreshCw, Search, Shield, Star, Trash2, Users, WalletCards, WandSparkles } from "lucide-react";
 import API from "../utils/api";
 import socket from "../utils/socket";
 import { useNotify } from "../context/NotificationContext";
@@ -77,6 +77,14 @@ function defaultSortKey(section) {
   if (section === "bookings") return "createdAt";
   if (section === "payments") return "submittedAt";
   return "updatedAt";
+}
+
+function formatProviderLabel(provider) {
+  const value = String(provider || "").trim().toLowerCase();
+  if (!value) return "Password";
+  if (value === "google") return "Google";
+  if (value === "email" || value === "password") return "Password";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function StatCard({ title, value, sublabel, accent }) {
@@ -459,6 +467,7 @@ export default function AdminDashboard() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [rawDraft, setRawDraft] = useState("");
   const [userDraft, setUserDraft] = useState({ role: "user", displayName: "", bannedUntil: "" });
+  const [userPasswordDraft, setUserPasswordDraft] = useState("");
   const [confirmText, setConfirmText] = useState("");
   const [loadingSection, setLoadingSection] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -482,6 +491,8 @@ export default function AdminDashboard() {
   const [paymentQueueCount, setPaymentQueueCount] = useState(0);
   const [paymentReviewReason, setPaymentReviewReason] = useState("");
   const [paymentActionLoading, setPaymentActionLoading] = useState(false);
+  const [userPasswordLoading, setUserPasswordLoading] = useState(false);
+  const [showAdminPasswordField, setShowAdminPasswordField] = useState(false);
   const rawMode = section === "raw";
   const auditMode = section === "audit";
   const selectedId = selected?.id || selected?._id;
@@ -523,11 +534,13 @@ export default function AdminDashboard() {
     }
   }, [savedPresets]);
 
-  useEffect(() => { setPage(1); setSelected(null); setSelectedIds([]); setRows([]); setRawDraft(""); setConfirmText(""); setStatusFilter(""); setPaymentFilter(""); setRoleFilter(""); setActionFilter(""); setTargetFilter(""); setSortDir("desc"); setSortBy(defaultSortKey(section)); setPaymentReviewReason(""); }, [section, rawCollection, pageSize]);
+  useEffect(() => { setPage(1); setSelected(null); setSelectedIds([]); setRows([]); setRawDraft(""); setUserPasswordDraft(""); setShowAdminPasswordField(false); setConfirmText(""); setStatusFilter(""); setPaymentFilter(""); setRoleFilter(""); setActionFilter(""); setTargetFilter(""); setSortDir("desc"); setSortBy(defaultSortKey(section)); setPaymentReviewReason(""); }, [section, rawCollection, pageSize]);
   useEffect(() => {
-    if (!selected) { setRawDraft(""); setUserDraft({ role: "user", displayName: "", bannedUntil: "" }); return; }
+    if (!selected) { setRawDraft(""); setUserDraft({ role: "user", displayName: "", bannedUntil: "" }); setUserPasswordDraft(""); setShowAdminPasswordField(false); return; }
     setRawDraft(section === "users" ? "" : pretty(selected));
     if (section === "users") setUserDraft({ role: selected.role || "user", displayName: selected.displayName || "", bannedUntil: selected.bannedUntil || "" });
+    if (section === "users") setUserPasswordDraft("");
+    if (section === "users") setShowAdminPasswordField(false);
     if (section === "payments") setPaymentReviewReason(selected.reviewReason || "");
   }, [selected, section]);
 
@@ -632,6 +645,24 @@ export default function AdminDashboard() {
       else await API.patch(actionUrl(), JSON.parse(rawDraft));
       notify("Admin record updated.", "success"); await refreshCurrent();
     } catch (err) { notify(err?.response?.data?.message || "Unable to save record.", "error"); } finally { setSaving(false); }
+  };
+  const handleAdminPasswordUpdate = async () => {
+    if (!selectedId || section !== "users") return;
+    if (String(userPasswordDraft || "").length < 8) {
+      notify("Password must be at least 8 characters.", "warning");
+      return;
+    }
+
+    setUserPasswordLoading(true);
+    try {
+      await API.patch(`/admin-console/users/${selectedId}/password`, { password: userPasswordDraft });
+      setUserPasswordDraft("");
+      notify("User password updated.", "success");
+    } catch (err) {
+      notify(err?.response?.data?.message || "Unable to update password.", "error");
+    } finally {
+      setUserPasswordLoading(false);
+    }
   };
   const handleDelete = async () => {
     if (!selectedId || !destructiveUnlocked || auditMode || section === "payments") return;
@@ -795,6 +826,13 @@ export default function AdminDashboard() {
                             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30">Identity</p>
                             <p className="mt-3 text-sm text-white/80">{selected.email}</p>
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">{selected.id}</p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {(selected.authProviders?.length ? selected.authProviders : [selected.primaryProvider || "password"]).map((provider) => (
+                                <span key={provider} className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200">
+                                  Registered via {formatProviderLabel(provider)}
+                                </span>
+                              ))}
+                            </div>
                             <div className="mt-4 grid grid-cols-2 gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/45">
                               <div>Hotels: {selected.activity?.hotels || 0}</div>
                               <div>Rides: {selected.activity?.rides || 0}</div>
@@ -813,6 +851,47 @@ export default function AdminDashboard() {
                               <option value="admin">admin</option>
                             </select>
                           </label>
+                          <div className="rounded-[26px] border border-white/8 bg-black/20 p-5">
+                            <div className="flex items-center gap-3">
+                              <div className="rounded-full border border-orange-500/20 bg-orange-500/10 p-2 text-orange-300">
+                                <KeyRound size={15} />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">Admin Password Reset</p>
+                                <p className="mt-1 text-sm text-white/55">
+                                  Existing passwords cannot be viewed. You can set a new password for this account.
+                                </p>
+                              </div>
+                            </div>
+                            <label className="mt-4 block text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+                              New Password
+                              <input
+                                type={showAdminPasswordField ? "text" : "password"}
+                                value={userPasswordDraft}
+                                onChange={(e) => setUserPasswordDraft(e.target.value)}
+                                placeholder="Minimum 8 characters"
+                                className="mt-3 w-full rounded-[24px] border border-white/10 bg-white/5 px-5 py-4 text-sm font-bold text-white outline-none focus:border-orange-500/50"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowAdminPasswordField((prev) => !prev)}
+                              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200 transition hover:text-orange-100"
+                            >
+                              {showAdminPasswordField ? <EyeOff size={14} /> : <Eye size={14} />}
+                              {showAdminPasswordField ? "Hide Password" : "Show Password"}
+                            </button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAdminPasswordUpdate}
+                              disabled={userPasswordLoading}
+                              className="mt-4 rounded-xl px-5 py-3 text-[10px] tracking-[0.16em]"
+                            >
+                              {userPasswordLoading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                              Set New Password
+                            </Button>
+                          </div>
                           <div className="rounded-[26px] border border-white/8 bg-black/20 p-5 text-sm text-white/55">
                             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">Auth metadata</p>
                             <pre className="mt-4 overflow-auto whitespace-pre-wrap break-all text-[12px] leading-6 text-white/55">{pretty(selected.authUser || {})}</pre>

@@ -12,6 +12,7 @@ router.get("/export/:section", controller.exportSection);
 
 router.get("/users", controller.listUsers);
 router.patch("/users/:id", controller.updateUser);
+router.patch("/users/:id/password", controller.setUserPassword);
 router.delete("/users/:id", controller.terminateUser);
 
 router.get("/user-meta", controller.listUserMeta);

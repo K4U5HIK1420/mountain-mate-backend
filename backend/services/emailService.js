@@ -48,6 +48,77 @@ function wrapTemplate(title, bodyHtml) {
   `;
 }
 
+function formatBookingPrimaryDate(booking) {
+  const raw = booking?.bookingType === "Hotel"
+    ? booking?.startDate || booking?.date
+    : booking?.date;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "Date not available";
+  return parsed.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getOwnerRequestEmailContent({ booking, listingLabel }) {
+  const isRide = booking?.bookingType === "Transport";
+
+  if (isRide) {
+    return {
+      title: "New Ride Request",
+      subject: "Mountain Mate: New Ride Request",
+      html: `
+        <p>A new ride request has been created for <strong>${listingLabel || "your route"}</strong>.</p>
+        <p><strong>Rider:</strong> ${booking.customerName}</p>
+        <p><strong>Phone:</strong> ${booking.phoneNumber}</p>
+        <p><strong>Travel Date:</strong> ${formatBookingPrimaryDate(booking)}</p>
+        <p>Please log in to Mountain Mate partner panel to accept or decline this ride request.</p>
+      `,
+    };
+  }
+
+  return {
+    title: "New Stay Booking Request",
+    subject: "Mountain Mate: New Stay Booking Request",
+    html: `
+      <p>A new stay booking request has been created for <strong>${listingLabel || "your property"}</strong>.</p>
+      <p><strong>Guest:</strong> ${booking.customerName}</p>
+      <p><strong>Phone:</strong> ${booking.phoneNumber}</p>
+      <p><strong>Check-in:</strong> ${formatBookingPrimaryDate(booking)}</p>
+      <p>Please log in to Mountain Mate partner panel to confirm or decline this stay request.</p>
+    `,
+  };
+}
+
+function getUserConfirmedEmailContent({ booking, listingLabel }) {
+  const isRide = booking?.bookingType === "Transport";
+
+  if (isRide) {
+    return {
+      title: "Ride Confirmed",
+      subject: "Mountain Mate: Ride Confirmed",
+      html: `
+        <p>Your ride for <strong>${listingLabel || "your selected route"}</strong> has been confirmed.</p>
+        <p><strong>Name:</strong> ${booking.customerName}</p>
+        <p><strong>Travel Date:</strong> ${formatBookingPrimaryDate(booking)}</p>
+        <p>Your driver has approved the request. You can now coordinate pickup details inside Mountain Mate.</p>
+      `,
+    };
+  }
+
+  return {
+    title: "Stay Booking Confirmed",
+    subject: "Mountain Mate: Stay Booking Confirmed",
+    html: `
+      <p>Your stay booking for <strong>${listingLabel || "your selected property"}</strong> has been confirmed.</p>
+      <p><strong>Name:</strong> ${booking.customerName}</p>
+      <p><strong>Check-in:</strong> ${formatBookingPrimaryDate(booking)}</p>
+      <p>Thank you for choosing Mountain Mate. Your host has approved the booking.</p>
+    `,
+  };
+}
+
 async function sendEmail({ to, subject, html }) {
   const tx = getTransporter();
   if (!tx || !to) return false;
@@ -59,38 +130,21 @@ async function sendEmail({ to, subject, html }) {
 
 async function sendBookingRequestOwnerEmail({ ownerEmail, booking, listingLabel }) {
   if (!ownerEmail) return false;
-  const html = wrapTemplate(
-    "New Booking Request",
-    `
-      <p>A new booking request has been created for <strong>${listingLabel || "your listing"}</strong>.</p>
-      <p><strong>Guest:</strong> ${booking.customerName}</p>
-      <p><strong>Phone:</strong> ${booking.phoneNumber}</p>
-      <p><strong>Travel Date:</strong> ${new Date(booking.date).toLocaleDateString()}</p>
-      <p>Please login to Mountain Mate partner panel to confirm or decline.</p>
-    `
-  );
+  const content = getOwnerRequestEmailContent({ booking, listingLabel });
   return sendEmail({
     to: ownerEmail,
-    subject: "Mountain Mate: New Booking Request",
-    html,
+    subject: content.subject,
+    html: wrapTemplate(content.title, content.html),
   });
 }
 
 async function sendBookingConfirmedUserEmail({ userEmail, booking, listingLabel }) {
   if (!userEmail) return false;
-  const html = wrapTemplate(
-    "Booking Confirmed",
-    `
-      <p>Your booking for <strong>${listingLabel || "selected listing"}</strong> has been confirmed.</p>
-      <p><strong>Name:</strong> ${booking.customerName}</p>
-      <p><strong>Date:</strong> ${new Date(booking.date).toLocaleDateString()}</p>
-      <p>Thank you for choosing Mountain Mate.</p>
-    `
-  );
+  const content = getUserConfirmedEmailContent({ booking, listingLabel });
   return sendEmail({
     to: userEmail,
-    subject: "Mountain Mate: Booking Confirmed",
-    html,
+    subject: content.subject,
+    html: wrapTemplate(content.title, content.html),
   });
 }
 

@@ -19,7 +19,6 @@ export default function UserInventoryCalendar({
   hotelId,
   selectedDate,
   onSelectDate,
-  onPriceResolve,
 }) {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
@@ -89,12 +88,6 @@ export default function UserInventoryCalendar({
     () => items.find((item) => item.date === selectedDate) || null,
     [items, selectedDate]
   );
-
-  useEffect(() => {
-    if (selectedDay && typeof onPriceResolve === "function") {
-      onPriceResolve(Number(selectedDay.price || 0));
-    }
-  }, [onPriceResolve, selectedDay]);
 
   if (loading) {
     return (

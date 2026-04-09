@@ -279,7 +279,7 @@ const ManageStays = () => {
               STAY <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-800">VAULT.</span>
             </h1>
             <p className="text-white/30 font-bold text-[10px] tracking-[0.4em] uppercase mt-6 flex items-center gap-3 italic">
-              <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
               Verified Partner: {user?.email}
             </p>
           </div>

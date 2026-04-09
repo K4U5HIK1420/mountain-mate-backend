@@ -49,6 +49,18 @@ function normalizeRole(value) {
   return String(value).trim().toLowerCase();
 }
 
+function normalizePasswordProvider(user) {
+  const providers = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
+  if (providers.length > 0) return providers.map((item) => String(item || "").toLowerCase()).filter(Boolean);
+
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+  const identityProviders = identities.map((item) => String(item?.provider || item?.identity_data?.provider || "").toLowerCase()).filter(Boolean);
+  if (identityProviders.length > 0) return [...new Set(identityProviders)];
+
+  const primaryProvider = String(user?.app_metadata?.provider || "").toLowerCase();
+  return primaryProvider ? [primaryProvider] : [];
+}
+
 function getRawModel(collection) {
   const model = RAW_COLLECTIONS[collection];
   if (!model) {
@@ -203,10 +215,13 @@ exports.listUsersInternal = async ({ q, page, pageSize, role, sortBy = "createdA
           bookings: bookingCounts.get(user.id) || 0,
           trips: tripCounts.get(user.id) || 0,
         },
+        authProviders: normalizePasswordProvider(user),
+        primaryProvider: normalizePasswordProvider(user)[0] || "password",
         userMeta: meta || null,
         authUser: {
           app_metadata: user.app_metadata || {},
           user_metadata: user.user_metadata || {},
+          identities: user.identities || [],
         },
       };
       })
@@ -827,6 +842,41 @@ exports.updateBooking = async (req, res, next) => {
     await logAdminAction(req, "update", "booking", req.params.id, "Updated booking", update);
     return res.json({ success: true, data: { ...data, listingLabel: data.listingId?.hotelName || data.listingId?.vehicleType || "Listing" } });
   } catch (err) { next(err); }
+};
+
+exports.setUserPassword = async (req, res, next) => {
+  try {
+    const supabase = getSupabaseClient();
+    const password = String(req.body?.password || "");
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
+    }
+
+    const current = await supabase.auth.admin.getUserById(req.params.id);
+    if (current.error || !current.data?.user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const { data, error } = await supabase.auth.admin.updateUserById(req.params.id, { password });
+    if (error) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    await logAdminAction(req, "update", "user", req.params.id, "Admin set user password", {
+      email: data?.user?.email || current.data.user.email || "",
+    });
+
+    return res.json({
+      success: true,
+      message: "User password updated.",
+      data: {
+        id: data?.user?.id || req.params.id,
+        email: data?.user?.email || current.data.user.email || "",
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.approvePayment = async (req, res, next) => {

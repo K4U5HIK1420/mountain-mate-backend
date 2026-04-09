@@ -144,10 +144,10 @@ export default function OwnerInventoryManager({ hotel, notify }) {
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button onClick={() => applyUpdate({ mode: "selected" })} disabled={updating} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_10px_30px_rgba(249,115,22,0.35)] disabled:opacity-60">
-          {updating ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Update
-        </button>
-        <button onClick={() => applyUpdate({ mode: "selected" })} disabled={updating} className="inline-flex items-center gap-2 rounded-xl border border-orange-400/35 bg-orange-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-200">
           {updating ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Apply Selected
+        </button>
+        <button onClick={() => applyUpdate({ mode: "selected", soldOut: true })} disabled={updating} className="inline-flex items-center gap-2 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-rose-200">
+          {updating ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Mark Sold Out
         </button>
         <button onClick={() => applyUpdate({ mode: "range" })} disabled={updating} className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white/80">
           <CalendarDays size={13} /> Apply Next N Days

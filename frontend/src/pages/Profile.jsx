@@ -4,12 +4,16 @@ import {
   ArrowRight,
   Camera,
   Compass,
+  Eye,
+  EyeOff,
   Home,
   LifeBuoy,
   LogOut,
   Map,
   Mountain,
   Package,
+  KeyRound,
+  Loader2,
   Save,
   ShieldCheck,
   Sparkles,
@@ -25,6 +29,7 @@ import { useNotify } from "../context/NotificationContext";
 import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
 import { trackEvent } from "../utils/analytics";
+import { supabase } from "../utils/supabase";
 
 const sidebarItems = [
   { id: "bookings", label: "Recent Activity", icon: Package },
@@ -85,6 +90,12 @@ export default function Profile() {
     phone: "",
     avatarUrl: "",
   });
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   const isAdmin = String(role || "").toLowerCase() === "admin";
 
@@ -193,6 +204,40 @@ export default function Profile() {
       notify("Profile update failed.", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordSave = async () => {
+    const newPassword = String(passwordForm.newPassword || "");
+    const confirmPassword = String(passwordForm.confirmPassword || "");
+
+    if (!supabase) {
+      notify("Password change is unavailable right now.", "error");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      notify("Password must be at least 8 characters.", "warning");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      notify("Passwords do not match.", "error");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      setPasswordForm({ newPassword: "", confirmPassword: "" });
+      trackEvent("password_changed", { source: "profile" });
+      notify("Password updated.", "success");
+    } catch (err) {
+      notify(err?.message || "Password update failed.", "error");
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -366,30 +411,79 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    <div className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
-                      <Field
-                        label="Full Name"
-                        value={profileForm.fullName}
-                        onChange={(value) => setProfileForm((prev) => ({ ...prev, fullName: value }))}
-                      />
-                      <Field label="Email" value={profileForm.email} readOnly />
-                      <Field
-                        label="Phone Number"
-                        value={profileForm.phone}
-                        onChange={(value) => setProfileForm((prev) => ({ ...prev, phone: value }))}
-                      />
-                      <Field
-                        label="Photo URL (optional)"
-                        value={profileForm.avatarUrl}
-                        onChange={(value) => {
-                          setProfileForm((prev) => ({ ...prev, avatarUrl: value }));
-                          if (!avatarFile) setAvatarPreview(value);
-                        }}
-                      />
-                      <Button type="button" size="sm" onClick={handleProfileSave} analyticsEvent="profile_save_clicked" analyticsParams={{ section: "profile_settings" }} disabled={saving} className="rounded-xl px-5 py-3 text-[10px] tracking-[0.16em]">
-                        {saving ? "Saving..." : "Save Profile"}
-                        <Save size={14} />
-                      </Button>
+                    <div className="space-y-5">
+                      <div className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
+                        <Field
+                          label="Full Name"
+                          value={profileForm.fullName}
+                          onChange={(value) => setProfileForm((prev) => ({ ...prev, fullName: value }))}
+                        />
+                        <Field label="Email" value={profileForm.email} readOnly />
+                        <Field
+                          label="Phone Number"
+                          value={profileForm.phone}
+                          onChange={(value) => setProfileForm((prev) => ({ ...prev, phone: value }))}
+                        />
+                        <Field
+                          label="Photo URL (optional)"
+                          value={profileForm.avatarUrl}
+                          onChange={(value) => {
+                            setProfileForm((prev) => ({ ...prev, avatarUrl: value }));
+                            if (!avatarFile) setAvatarPreview(value);
+                          }}
+                        />
+                        <Button type="button" size="sm" onClick={handleProfileSave} analyticsEvent="profile_save_clicked" analyticsParams={{ section: "profile_settings" }} disabled={saving} className="rounded-xl px-5 py-3 text-[10px] tracking-[0.16em]">
+                          {saving ? "Saving..." : "Save Profile"}
+                          <Save size={14} />
+                        </Button>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-full border border-orange-400/20 bg-orange-500/10 p-2 text-orange-300">
+                            <KeyRound size={16} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">Change Password</p>
+                            <p className="mt-1 text-sm text-white/55">Set a new login password for this account.</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 space-y-4">
+                          <Field
+                            label="New Password"
+                            type={showPasswordFields ? "text" : "password"}
+                            value={passwordForm.newPassword}
+                            onChange={(value) => setPasswordForm((prev) => ({ ...prev, newPassword: value }))}
+                          />
+                          <Field
+                            label="Confirm Password"
+                            type={showPasswordFields ? "text" : "password"}
+                            value={passwordForm.confirmPassword}
+                            onChange={(value) => setPasswordForm((prev) => ({ ...prev, confirmPassword: value }))}
+                          />
+                          <div className="flex flex-wrap items-center gap-4">
+                            <button
+                              type="button"
+                              onClick={() => setShowPasswordFields((prev) => !prev)}
+                              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200 transition hover:text-orange-100"
+                            >
+                              {showPasswordFields ? <EyeOff size={14} /> : <Eye size={14} />}
+                              {showPasswordFields ? "Hide Passwords" : "Show Passwords"}
+                            </button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handlePasswordSave}
+                              disabled={passwordSaving}
+                              className="rounded-xl px-4 py-2.5 text-[9px] tracking-[0.14em]"
+                            >
+                              {passwordSaving ? "Updating..." : "Update Password"}
+                              {passwordSaving ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -435,11 +529,12 @@ function StatCard({ icon: Icon, label, value }) {
   );
 }
 
-function Field({ label, value, onChange, readOnly = false }) {
+function Field({ label, value, onChange, readOnly = false, type = "text" }) {
   return (
     <label className="block">
       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
       <input
+        type={type}
         value={value}
         readOnly={readOnly}
         onChange={(event) => onChange?.(event.target.value)}
