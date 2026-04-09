@@ -14,6 +14,8 @@ const { getSupabaseClient } = require("../utils/supabaseClient");
 const supabaseBookings = require("../services/supabaseBookingsStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+const { sendBookingConfirmedUserEmail } = require("../services/emailService");
+const { resolveUserEmail } = require("../utils/resolveUserEmail");
 
 function canUseMongoModels() {
   return mongoose.connection.readyState === 1;
@@ -343,6 +345,15 @@ exports.updateBookingStatus = async (req, res) => {
         },
         req.app.get("io")
       );
+
+      if (normalizedStatus === "confirmed") {
+        const userEmail = await resolveUserEmail(booking.userId);
+        await sendBookingConfirmedUserEmail({
+          userEmail,
+          booking: updatedBooking,
+          listingLabel: updatedBooking.listingLabel,
+        });
+      }
     } catch (_notificationErr) {
       // Don't fail the booking update if notification delivery has an issue.
     }

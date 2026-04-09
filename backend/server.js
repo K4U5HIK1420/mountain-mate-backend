@@ -283,6 +283,7 @@ const adminConsoleRoutes = require("./routes/adminConsoleRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const supportRoutes = require("./routes/supportRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/hotel", hotelRoutes);
@@ -299,6 +300,7 @@ app.use("/api/admin-console", adminConsoleRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.get("/", (_req, res) => {
   res.send("Mountain-Mate Strategic Backend Running...");

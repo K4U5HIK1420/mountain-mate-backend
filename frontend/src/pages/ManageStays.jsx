@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Hotel,
@@ -13,6 +14,7 @@ import {
   Activity,
   Layers,
   ArrowUpRight,
+  CalendarDays,
 } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
@@ -29,6 +31,7 @@ import {
   normalizePan,
   normalizePhone,
 } from "../utils/validation";
+import OwnerInventoryManager from "../components/inventory/OwnerInventoryManager";
 
 const hotelDocumentFields = [
   { key: "ownerPhoto", label: "Hotel Owner Photo" },
@@ -73,6 +76,8 @@ const ManageStays = () => {
   const [editDocuments, setEditDocuments] = useState({});
   const [newImages, setNewImages] = useState([]);
   const [updating, setUpdating] = useState(false);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [selectedInventoryHotel, setSelectedInventoryHotel] = useState(null);
 
   useEffect(() => {
     if (user) fetchMyStays();
@@ -122,6 +127,11 @@ const ManageStays = () => {
     setEditDocuments(hotelDocumentFields.reduce((acc, item) => ({ ...acc, [item.key]: null }), {}));
     setNewImages([]);
     setIsEditModalOpen(true);
+  };
+
+  const openInventoryModal = (hotel) => {
+    setSelectedInventoryHotel(hotel);
+    setIsInventoryModalOpen(true);
   };
 
   const handleInputChange = (e) => {
@@ -327,6 +337,9 @@ const ManageStays = () => {
                 <button onClick={() => openEditModal(hotel)} className="flex w-full items-center justify-center gap-4 rounded-[28px] border border-white/5 bg-white/[0.02] px-5 py-5 text-center font-black text-[10px] uppercase tracking-[0.35em] transition-all shadow-2xl hover:bg-orange-600 hover:text-white sm:rounded-[35px] sm:py-7">
                   <Edit3 size={18} /> Edit Stay Details
                 </button>
+                <button onClick={() => openInventoryModal(hotel)} className="mt-3 flex w-full items-center justify-center gap-4 rounded-[24px] border border-orange-500/25 bg-orange-500/10 px-5 py-4 text-center font-black text-[10px] uppercase tracking-[0.28em] text-orange-200 transition-all hover:bg-orange-500/20">
+                  <CalendarDays size={16} /> Manage Inventory Calendar
+                </button>
               </motion.div>
             ))
           ) : (
@@ -464,6 +477,39 @@ const ManageStays = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {isInventoryModalOpen && selectedInventoryHotel && (
+                <div className="fixed inset-0 z-[2147483600] flex items-center justify-center p-3 sm:p-4 md:p-6">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsInventoryModalOpen(false)}
+                    className="absolute inset-0 bg-black/92 backdrop-blur-2xl"
+                  />
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="relative w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-[28px] border border-white/10 bg-[#080808] p-4 sm:p-5 md:p-6 shadow-[0_30px_100px_rgba(0,0,0,0.8)]"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-xl font-black uppercase tracking-tight text-white">Hotel Inventory Calendar</h3>
+                      <button onClick={() => setIsInventoryModalOpen(false)} className="rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:text-white">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <OwnerInventoryManager hotel={selectedInventoryHotel} notify={notify} />
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>,
+            document.body
+          )
+        : null}
     </div>
   );
 };

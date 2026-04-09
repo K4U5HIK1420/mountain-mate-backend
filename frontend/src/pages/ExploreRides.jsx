@@ -565,6 +565,41 @@ const RideModal = ({
           <SpecBox icon={<Navigation size={16} />} label="Ride Date" val={ride.availableDate ? new Date(ride.availableDate).toLocaleDateString() : "Flexible"} />
         </div>
 
+        <div className="mt-6 space-y-3 text-[12px] text-white/72">
+          <div className="rounded-[24px] border border-white/10 bg-black/25 p-5">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">Ride Identity</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <p>Vehicle Type: {ride.vehicleType || "Not provided"}</p>
+              <p>Vehicle Model: {ride.vehicleModel || "Not provided"}</p>
+              <p>Plate Number: {ride.plateNumber || "Not provided"}</p>
+              <p>Driver Name: {ride.driverName || "Not provided"}</p>
+              <p>Driver Contact: {ride.contactNumber || "Not provided"}</p>
+              <p>Status: {ride.driverOnline === false ? "Driver Offline" : "Driver Online"}</p>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-white/10 bg-black/25 p-5">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">Ride Infrastructure</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <p>Route From: {ride.routeFrom || "Not provided"}</p>
+              <p>Route To: {ride.routeTo || "Not provided"}</p>
+              <p>Available Date: {ride.availableDate ? new Date(ride.availableDate).toLocaleDateString() : "Flexible"}</p>
+              <p>Open Seats: {ride.seatsAvailable ?? "N/A"}</p>
+              <p>Fare Per Seat: Rs {ride.pricePerSeat ?? "N/A"}</p>
+              <p>Vehicle Category: {ride.carType || "Not provided"}</p>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-white/10 bg-black/25 p-5">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">Ride Narrative</p>
+            <p>
+              {ride.routeFrom && ride.routeTo
+                ? `${ride.driverName || "Driver"} is offering a ride from ${ride.routeFrom} to ${ride.routeTo}.`
+                : "No additional ride narrative provided by owner."}
+            </p>
+          </div>
+        </div>
+
         <div className="mt-8 rounded-[28px] border border-white/8 bg-white/5 p-6">
           <div className="flex items-center justify-between border-b border-white/8 pb-5">
             <div>

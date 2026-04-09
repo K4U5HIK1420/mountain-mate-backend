@@ -30,6 +30,7 @@ const bookingSchema = new mongoose.Schema({
     endDate: { type: Date, default: null },
     guests: { type: Number, default: 1 },
     rooms: { type: Number, default: 1 },
+    roomType: { type: String, default: "Standard" },
     amount: { type: Number, default: 0 },
     currency: { type: String, default: "INR" },
     status: {

@@ -34,6 +34,7 @@ import { Button } from "../components/ui/Button";
 import { Container } from "../components/ui/Container";
 import { cleanValue, isValidPhone, normalizePhone } from "../utils/validation";
 import { trackEvent } from "../utils/analytics";
+import UserInventoryCalendar from "../components/inventory/UserInventoryCalendar";
 
 const motionEase = [0.22, 1, 0.36, 1];
 const locationSuggestions = ["Kedarnath", "Guptkashi", "Sonprayag", "Rudraprayag", "Joshimath", "Auli", "Badrinath"];
@@ -89,6 +90,7 @@ export default function ExploreStays() {
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [sort, setSort] = useState("rating");
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [selectedNightPrice, setSelectedNightPrice] = useState(0);
   const [filters, setFilters] = useState({
     location: "",
     checkIn: getDatePlusDays(0),
@@ -104,6 +106,7 @@ export default function ExploreStays() {
     name: "",
     phone: "",
     checkIn: getDatePlusDays(0),
+    checkOut: getDatePlusDays(1),
     guests: 1,
     rooms: 1,
   });
@@ -134,9 +137,11 @@ export default function ExploreStays() {
       setBookingForm((prev) => ({
         ...prev,
         checkIn: filters.checkIn || getDatePlusDays(0),
+        checkOut: filters.checkOut || getDatePlusDays(1),
         guests: 1,
         rooms: 1,
       }));
+      setSelectedNightPrice(Number(selectedHotel.pricePerNight || 0));
     }
   }, [selectedHotel, filters.checkIn]);
 
@@ -235,7 +240,8 @@ export default function ExploreStays() {
 
     setBookingLoading(true);
     try {
-      const amount = Number(selectedHotel.pricePerNight || 0) * Number(bookingForm.rooms || 1);
+      const nightly = Number(selectedNightPrice || selectedHotel.pricePerNight || 0);
+      const amount = nightly * Number(bookingForm.rooms || 1);
       const res = await API.post("/booking/create", {
         customerName: bookingForm.name.trim(),
         phoneNumber: normalizePhone(bookingForm.phone),
@@ -243,7 +249,7 @@ export default function ExploreStays() {
         listingId: selectedHotel._id,
         date: bookingForm.checkIn,
         startDate: bookingForm.checkIn,
-        endDate: bookingForm.checkIn,
+        endDate: bookingForm.checkOut || bookingForm.checkIn,
         guests: Number(bookingForm.guests || 1),
         rooms: Number(bookingForm.rooms || 1),
         amount,
@@ -341,6 +347,8 @@ export default function ExploreStays() {
             onPrev={previousImage}
             onBook={handleStayBooking}
             bookingLoading={bookingLoading}
+            onPriceResolve={setSelectedNightPrice}
+            selectedNightPrice={selectedNightPrice}
           />
         )}
       </AnimatePresence>
@@ -506,6 +514,8 @@ function StayDetailsModal({
   onPrev,
   onBook,
   bookingLoading,
+  onPriceResolve,
+  selectedNightPrice,
 }) {
   const today = getDatePlusDays(0);
   return (
@@ -569,6 +579,48 @@ function StayDetailsModal({
             </div>
 
             <div className="mt-4 space-y-3">
+              <UserInventoryCalendar
+                hotelId={hotel._id}
+                selectedDate={bookingForm.checkIn}
+                onSelectDate={(date) => setBookingForm((p) => ({ ...p, checkIn: date, checkOut: date }))}
+                onPriceResolve={onPriceResolve}
+              />
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-[11px] text-white/72">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">Property Identity</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <p>Property Name: {hotel.hotelName || "Not provided"}</p>
+                  <p>Property Type: {hotel.propertyType || "Hotel"}</p>
+                  <p>Location: {hotel.location || "Not provided"}</p>
+                  <p>Landmark: {hotel.landmark || "Not provided"}</p>
+                  <p>Availability Status: {hotel.availabilityStatus || "Available now"}</p>
+                  <p>Contact Number: {hotel.contactNumber || "Not provided"}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-[11px] text-white/72">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">Facility Infrastructure</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <p>Rooms Available: {hotel.roomsAvailable ?? "N/A"}</p>
+                  <p>Guests per Room: {hotel.guestsPerRoom ?? "N/A"}</p>
+                  <p>Price Per Night: Rs {hotel.pricePerNight ?? "N/A"}</p>
+                  <p>Distance: {hotel.distance || "Not specified"}</p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedAmenities.length ? selectedAmenities.map((amenity) => (
+                    <div key={amenity} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] text-white/70">
+                      <span className="text-orange-300">{amenityIcons[amenity] || <Check size={13} />}</span>
+                      {amenity}
+                    </div>
+                  )) : <p className="text-[11px] text-white/60">No amenities listed.</p>}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-[11px] text-white/72">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">Property Narrative</p>
+                <p className="text-white/70">{hotel.description || "No description provided by owner."}</p>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <LabelInput icon={<User size={14} />} placeholder="Full Name" value={bookingForm.name} onChange={(value) => setBookingForm((p) => ({ ...p, name: value }))} />
                 <LabelInput icon={<Phone size={14} />} placeholder="Phone Number" value={bookingForm.phone} onChange={(value) => setBookingForm((p) => ({ ...p, phone: value }))} />
@@ -576,7 +628,7 @@ function StayDetailsModal({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <DateInput value={bookingForm.checkIn} onChange={(value) => setBookingForm((p) => ({ ...p, checkIn: value }))} min={today} label="Check-in" />
-                <DateInput value={bookingForm.checkIn} onChange={(value) => setBookingForm((p) => ({ ...p, checkIn: value }))} min={bookingForm.checkIn || today} label="Check-out" />
+                <DateInput value={bookingForm.checkOut} onChange={(value) => setBookingForm((p) => ({ ...p, checkOut: value }))} min={bookingForm.checkIn || today} label="Check-out" />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -590,7 +642,7 @@ function StayDetailsModal({
               disabled={bookingLoading}
               className="mt-5 w-full rounded-2xl py-3 text-[10px] tracking-[0.16em] shadow-[0_18px_42px_rgba(249,115,22,0.42)] transition-all duration-300 hover:scale-[1.01]"
             >
-              {bookingLoading ? "Starting Payment..." : `Reserve Now - Rs ${hotel.pricePerNight}/night`}
+              {bookingLoading ? "Starting Payment..." : `Reserve Now - Rs ${selectedNightPrice || hotel.pricePerNight}/night`}
               <ArrowRight size={14} />
             </Button>
 
@@ -600,14 +652,6 @@ function StayDetailsModal({
               <p className="inline-flex items-center gap-2"><Check size={13} className="text-emerald-300" /> Secure payment</p>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {selectedAmenities.slice(0, 4).map((amenity) => (
-                <div key={amenity} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] text-white/70">
-                  <span className="text-orange-300">{amenityIcons[amenity] || <Check size={13} />}</span>
-                  {amenity}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </motion.div>

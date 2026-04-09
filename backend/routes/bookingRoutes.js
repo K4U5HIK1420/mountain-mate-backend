@@ -18,6 +18,7 @@ const {
   getRevenueStats,
   getStatusStats,
   cancelMyBooking,
+  cancelMyBookingByBody,
   submitManualPaymentProof,
 } = require("../controllers/bookingController");
 
@@ -33,9 +34,10 @@ router.post(
     body("date").isISO8601().withMessage("Date required"),
     body("guests").optional().isInt({ min: 1, max: 20 }),
     body("rooms").optional().isInt({ min: 1, max: 20 }),
+    body("roomType").optional().isString().trim().isLength({ min: 2, max: 50 }),
     body("amount").optional().isFloat({ min: 0, max: 1000000 }),
     body().custom((value) => {
-      const allowed = ["customerName", "phoneNumber", "bookingType", "listingId", "date", "startDate", "endDate", "guests", "rooms", "amount"];
+      const allowed = ["customerName", "phoneNumber", "bookingType", "listingId", "date", "startDate", "endDate", "guests", "rooms", "roomType", "amount"];
       const keys = Object.keys(value || {});
       if (keys.some((key) => !allowed.includes(key))) {
         throw new Error("Unexpected fields in request.");
@@ -57,6 +59,7 @@ router.get("/stats", getBookingStats);
 router.get("/revenue", getRevenueStats);
 router.get("/stats/status", getStatusStats);
 router.patch("/cancel/:id", anyAuth, cancelMyBooking);
+router.post("/cancel", anyAuth, cancelMyBookingByBody);
 router.post("/:id/manual-payment", anyAuth, upload.single("paymentProof"), submitManualPaymentProof);
 
 module.exports = router;

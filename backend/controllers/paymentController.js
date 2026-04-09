@@ -8,6 +8,7 @@ const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
 const supabaseBookings = require("../services/supabaseBookingsStore");
+const { reserveInventoryForHotelBooking } = require("../services/roomInventoryService");
 
 function isValidMoney(value) {
   const amount = Number(value);
@@ -119,6 +120,7 @@ async function applyInventoryReservation(booking, isSupabase) {
         updateData: { roomsAvailable: Number(hotel.roomsAvailable) - roomsRequested },
       });
     } else {
+      await reserveInventoryForHotelBooking(booking);
       hotel.roomsAvailable -= roomsRequested;
       await hotel.save();
     }

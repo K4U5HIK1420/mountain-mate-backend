@@ -5,6 +5,10 @@ function extractMissingColumn(errorMessage = "") {
   return match ? match[1] : "";
 }
 
+function isMissingColumn(errorMessage = "", columnName = "") {
+  return String(errorMessage).toLowerCase().includes(`'${String(columnName).toLowerCase()}'`);
+}
+
 async function insertWithSchemaFallback(supabase, table, payload) {
   let current = { ...payload };
 
@@ -27,13 +31,31 @@ async function updateWithSchemaFallback(supabase, table, payload, id, ownerId) {
   let current = { ...payload };
 
   for (let i = 0; i < 6; i += 1) {
-    const { data, error } = await supabase
+    let data;
+    let error;
+
+    const primary = await supabase
       .from(table)
       .update(current)
       .eq("id", id)
       .eq("owner_id", ownerId)
       .select("*")
       .single();
+
+    data = primary.data;
+    error = primary.error;
+
+    if (error && isMissingColumn(error.message, "owner_id")) {
+      const legacy = await supabase
+        .from(table)
+        .update(current)
+        .eq("id", id)
+        .eq("owner", ownerId)
+        .select("*")
+        .single();
+      data = legacy.data;
+      error = legacy.error;
+    }
 
     if (!error) return { data, error: null };
 
@@ -68,7 +90,7 @@ function mapHotelRow(row) {
     amenities: JSON.stringify(row.amenities ?? []),
     complianceDetails: row.compliance_details || {},
     verificationDocuments: row.verification_documents || {},
-    owner: row.owner_id,
+    owner: row.owner_id || row.owner,
     status: row.status,
     isVerified: row.is_verified,
     createdAt: row.created_at,
@@ -81,6 +103,7 @@ async function addHotel({ ownerId, payload }) {
 
   const insert = {
     owner_id: ownerId,
+    owner: ownerId,
     hotel_name: payload.hotelName,
     property_type: payload.propertyType || "Hotel",
     location: payload.location,
@@ -109,14 +132,36 @@ async function addHotel({ ownerId, payload }) {
 
 async function getMyHotels(ownerId) {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  const primary = await supabase
     .from("hotels")
     .select("*")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(error.message);
-  return (data || []).map(mapHotelRow);
+  if (!primary.error && Array.isArray(primary.data) && primary.data.length > 0) {
+    return primary.data.map(mapHotelRow);
+  }
+
+  const ownerIdMissing = Boolean(primary.error && isMissingColumn(primary.error.message, "owner_id"));
+  if (primary.error && !ownerIdMissing) {
+    throw new Error(primary.error.message);
+  }
+
+  const legacy = await supabase
+    .from("hotels")
+    .select("*")
+    .eq("owner", ownerId)
+    .order("created_at", { ascending: false });
+
+  if (legacy.error) {
+    const ownerMissing = isMissingColumn(legacy.error.message, "owner");
+    if (ownerIdMissing && ownerMissing) {
+      return [];
+    }
+    throw new Error(legacy.error.message);
+  }
+
+  return (legacy.data || []).map(mapHotelRow);
 }
 
 async function getHotelById(id) {

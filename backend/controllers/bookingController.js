@@ -9,6 +9,14 @@ const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
 const supabaseBookings = require("../services/supabaseBookingsStore");
+const { sendBookingRequestOwnerEmail } = require("../services/emailService");
+const { resolveUserEmail } = require("../utils/resolveUserEmail");
+const {
+  DEFAULT_ROOM_TYPE,
+  ensureHotelInventoryRows,
+  dateKey,
+  toStartOfUtcDay,
+} = require("../services/roomInventoryService");
 
 function uploadFileToCloudinary(file, folder) {
   return cloudinary.uploader.upload(file.path, {
@@ -90,10 +98,46 @@ exports.createBooking = async (req, res, next) => {
           ? listing.hotelName
           : `${listing.vehicleType || ""} ${listing.routeFrom || ""} - ${listing.routeTo || ""}`.trim();
 
-        const pricing = resolveBookingPricing({ isHotel, listing, body: req.body });
+        let pricing = resolveBookingPricing({ isHotel, listing, body: req.body });
+
+        if (isHotel && getDataStore() !== "supabase") {
+          const roomsRequested = Math.max(1, Number(req.body.rooms || 1));
+          const start = toStartOfUtcDay(req.body.startDate || req.body.date);
+          const end = toStartOfUtcDay(req.body.endDate || req.body.startDate || req.body.date);
+          const roomType = String(req.body.roomType || DEFAULT_ROOM_TYPE);
+
+          const { rows } = await ensureHotelInventoryRows({
+            hotelId: String(req.body.listingId || ""),
+            roomType,
+            startDate: start,
+            endDate: end,
+          });
+
+          if (!rows.length) {
+            return res.status(400).json({ success: false, message: "Inventory unavailable for selected dates." });
+          }
+
+          for (const row of rows) {
+            const available = Math.max(0, Number(row.totalRooms || 0) - Number(row.bookedRooms || 0));
+            if (row.isSoldOut || available < roomsRequested) {
+              return res.status(400).json({
+                success: false,
+                message: `No rooms available on ${dateKey(row.date)}`,
+              });
+            }
+          }
+
+          const rangeTotal = rows.reduce((sum, row) => sum + Number(row.price || 0), 0);
+          pricing = {
+            quantity: roomsRequested,
+            unitPrice: rows.length ? Math.round(rangeTotal / rows.length) : Number(listing?.pricePerNight || 0),
+            totalAmount: rangeTotal * roomsRequested,
+          };
+        }
 
         const bookingPayload = {
           ...req.body,
+          roomType: req.body.roomType || DEFAULT_ROOM_TYPE,
           listingId: String(req.body.listingId || ""),
           amount: pricing.totalAmount,
           userId: actorId,
@@ -145,6 +189,13 @@ exports.createBooking = async (req, res, next) => {
             },
             req.app.get("io")
           );
+
+          const ownerEmail = (await resolveUserEmail(booking.ownerId)) || process.env.HOTEL_BOOKING_ALERT_EMAIL || "";
+          await sendBookingRequestOwnerEmail({
+            ownerEmail,
+            booking,
+            listingLabel,
+          });
         } catch (_notificationErr) {
           // Do not fail booking creation if notification channel is unavailable.
         }
@@ -438,6 +489,19 @@ exports.cancelMyBooking = async (req, res, next) => {
     booking.status = "cancelled";
     await booking.save();
     return res.json({ success: true, message: "Booking cancelled", data: booking });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.cancelMyBookingByBody = async (req, res, next) => {
+  try {
+    const bookingId = String(req.body?.bookingId || "").trim();
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: "bookingId is required" });
+    }
+    req.params.id = bookingId;
+    return exports.cancelMyBooking(req, res, next);
   } catch (err) {
     next(err);
   }

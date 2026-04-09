@@ -5,6 +5,10 @@ function extractMissingColumn(errorMessage = "") {
   return match ? match[1] : "";
 }
 
+function isMissingColumn(errorMessage = "", columnName = "") {
+  return String(errorMessage).toLowerCase().includes(`'${String(columnName).toLowerCase()}'`);
+}
+
 async function insertWithSchemaFallback(supabase, table, payload) {
   let current = { ...payload };
 
@@ -27,13 +31,31 @@ async function updateWithSchemaFallback(supabase, table, payload, id, ownerId) {
   let current = { ...payload };
 
   for (let i = 0; i < 6; i += 1) {
-    const { data, error } = await supabase
+    let data;
+    let error;
+
+    const primary = await supabase
       .from(table)
       .update(current)
       .eq("id", id)
       .eq("owner_id", ownerId)
       .select("*")
       .single();
+
+    data = primary.data;
+    error = primary.error;
+
+    if (error && isMissingColumn(error.message, "owner_id")) {
+      const legacy = await supabase
+        .from(table)
+        .update(current)
+        .eq("id", id)
+        .eq("owner", ownerId)
+        .select("*")
+        .single();
+      data = legacy.data;
+      error = legacy.error;
+    }
 
     if (!error) return { data, error: null };
 
@@ -52,7 +74,7 @@ function mapTransportRow(row) {
   if (!row) return null;
   return {
     _id: row.id,
-    owner: row.owner_id,
+    owner: row.owner_id || row.owner,
     vehicleModel: row.vehicle_model,
     vehicleType: row.vehicle_type,
     plateNumber: row.plate_number,
@@ -80,6 +102,7 @@ async function addTransport({ ownerId, payload }) {
   const supabase = getSupabaseClient();
   const insert = {
     owner_id: ownerId,
+    owner: ownerId,
     vehicle_model: payload.vehicleModel,
     vehicle_type: payload.vehicleType,
     plate_number: payload.plateNumber,
@@ -108,13 +131,36 @@ async function addTransport({ ownerId, payload }) {
 
 async function getMyRides(ownerId) {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  const primary = await supabase
     .from("transports")
     .select("*")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data || []).map(mapTransportRow);
+
+  if (!primary.error && Array.isArray(primary.data) && primary.data.length > 0) {
+    return primary.data.map(mapTransportRow);
+  }
+
+  const ownerIdMissing = Boolean(primary.error && isMissingColumn(primary.error.message, "owner_id"));
+  if (primary.error && !ownerIdMissing) {
+    throw new Error(primary.error.message);
+  }
+
+  const legacy = await supabase
+    .from("transports")
+    .select("*")
+    .eq("owner", ownerId)
+    .order("created_at", { ascending: false });
+
+  if (legacy.error) {
+    const ownerMissing = isMissingColumn(legacy.error.message, "owner");
+    if (ownerIdMissing && ownerMissing) {
+      return [];
+    }
+    throw new Error(legacy.error.message);
+  }
+
+  return (legacy.data || []).map(mapTransportRow);
 }
 
 function isMissingAvailableDateColumn(error) {

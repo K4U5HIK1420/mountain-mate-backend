@@ -3,6 +3,7 @@ const Transport = require("../models/Transport");
 const { getDataStore } = require("./dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+const { releaseInventoryForHotelBooking } = require("../services/roomInventoryService");
 
 async function restoreBookingInventory(booking) {
   if (!booking || booking.paymentStatus !== "paid") return;
@@ -36,6 +37,7 @@ async function restoreBookingInventory(booking) {
       });
       return;
     }
+    await releaseInventoryForHotelBooking(booking);
     await Hotel.findByIdAndUpdate(booking.listingId, { $inc: { roomsAvailable: rooms } });
   }
 }
