@@ -15,17 +15,24 @@ const toIsoDate = (value) => {
   return d.toISOString().slice(0, 10);
 };
 
+const getToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
 export default function UserInventoryCalendar({
   hotelId,
   selectedDate,
   onSelectDate,
+  onSelectedInventoryChange,
 }) {
+  const today = useMemo(() => getToday(), []);
+  const todayIso = useMemo(() => toIsoDate(today), [today]);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return new Date(today.getFullYear(), today.getMonth(), 1);
   });
 
   const monthLabel = useMemo(
@@ -56,8 +63,16 @@ export default function UserInventoryCalendar({
     try {
       const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      const effectiveStart = start < today ? today : start;
+
+      if (effectiveStart > end) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
       const res = await API.get(`/inventory/${hotelId}`, {
-        params: { startDate: toIsoDate(start), endDate: toIsoDate(end) },
+        params: { startDate: toIsoDate(effectiveStart), endDate: toIsoDate(end) },
       });
       const data = res.data?.data || [];
       setItems(data);
@@ -89,6 +104,10 @@ export default function UserInventoryCalendar({
     [items, selectedDate]
   );
 
+  useEffect(() => {
+    onSelectedInventoryChange?.(selectedDay);
+  }, [onSelectedInventoryChange, selectedDay]);
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-white/70">
@@ -116,6 +135,7 @@ export default function UserInventoryCalendar({
         <button
           type="button"
           onClick={() => setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+          disabled={currentMonth.getFullYear() === today.getFullYear() && currentMonth.getMonth() === today.getMonth()}
           className="rounded-lg border border-white/10 bg-black/30 p-2 text-white/70 hover:text-white"
         >
           <ChevronLeft size={14} />
@@ -139,6 +159,8 @@ export default function UserInventoryCalendar({
       <div className="mt-2 grid grid-cols-7 gap-2">
         {monthCells.map((cellDate) => {
           const iso = toIsoDate(cellDate);
+          const isPast = iso < todayIso;
+          const isCurrentMonth = cellDate.getMonth() === currentMonth.getMonth();
           const item = items.find((row) => row.date === iso) || {
             date: iso,
             price: 0,
@@ -148,7 +170,9 @@ export default function UserInventoryCalendar({
           };
           const isSelected = selectedDate === item.date;
           const soldOut = item.availableRooms <= 0 || item.isSoldOut;
-          const isCurrentMonth = cellDate.getMonth() === currentMonth.getMonth();
+          if (!isCurrentMonth || isPast) {
+            return <div key={iso} className="rounded-xl border border-transparent bg-transparent p-2 opacity-0" aria-hidden="true" />;
+          }
           return (
             <button
               key={item.date}

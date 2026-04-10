@@ -9,14 +9,20 @@ const toIsoDate = (value) => {
   return d.toISOString().slice(0, 10);
 };
 
+const getToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
 export default function OwnerInventoryManager({ hotel, notify }) {
+  const today = useMemo(() => getToday(), []);
+  const todayIso = useMemo(() => toIsoDate(today), [today]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [inventory, setInventory] = useState([]);
   const [selectedDates, setSelectedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return new Date(today.getFullYear(), today.getMonth(), 1);
   });
   const [form, setForm] = useState({
     price: "",
@@ -52,8 +58,16 @@ export default function OwnerInventoryManager({ hotel, notify }) {
     try {
       const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      const effectiveStart = startDate < today ? today : startDate;
+
+      if (effectiveStart > end) {
+        setInventory([]);
+        setLoading(false);
+        return;
+      }
+
       const res = await API.get(`/inventory/${hotel._id}`, {
-        params: { startDate: toIsoDate(startDate), endDate: toIsoDate(end) },
+        params: { startDate: toIsoDate(effectiveStart), endDate: toIsoDate(end) },
       });
       setInventory(res.data?.data || []);
     } catch {
@@ -86,6 +100,7 @@ export default function OwnerInventoryManager({ hotel, notify }) {
   );
 
   const toggleDate = (date) => {
+    if (date < todayIso) return;
     setSelectedDates((prev) =>
       prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date]
     );
@@ -158,6 +173,7 @@ export default function OwnerInventoryManager({ hotel, notify }) {
         <button
           type="button"
           onClick={() => setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+          disabled={currentMonth.getFullYear() === today.getFullYear() && currentMonth.getMonth() === today.getMonth()}
           className="rounded-lg border border-white/10 bg-black/30 p-2 text-white/70 hover:text-white"
         >
           <ChevronLeft size={14} />
@@ -186,6 +202,8 @@ export default function OwnerInventoryManager({ hotel, notify }) {
         <div className="mt-2 grid grid-cols-7 gap-2">
           {monthCells.map((cellDate) => {
             const iso = toIsoDate(cellDate);
+            const isPast = iso < todayIso;
+            const isCurrentMonth = cellDate.getMonth() === currentMonth.getMonth();
             const day = inventoryByDate.get(iso) || {
               date: iso,
               price: Number(hotel?.pricePerNight || 0),
@@ -196,7 +214,9 @@ export default function OwnerInventoryManager({ hotel, notify }) {
             };
             const selected = selectionSet.has(day.date);
             const soldOut = day.availableRooms <= 0 || day.isSoldOut;
-            const isCurrentMonth = cellDate.getMonth() === currentMonth.getMonth();
+            if (!isCurrentMonth || isPast) {
+              return <div key={iso} className="rounded-xl border border-transparent bg-transparent p-2 opacity-0" aria-hidden="true" />;
+            }
             return (
               <button
                 key={day.date}

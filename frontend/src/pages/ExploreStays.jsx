@@ -48,23 +48,39 @@ const amenityIcons = {
   pool: <Waves size={14} />,
 };
 
+const parseIsoDate = (isoDate) => {
+  const [year, month, day] = String(isoDate || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatIsoDate = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const getDatePlusDays = (days) => {
   const date = new Date();
+  date.setHours(0, 0, 0, 0);
   date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
+  return formatIsoDate(date);
 };
 
 const addDaysToIso = (isoDate, days) => {
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return getDatePlusDays(days);
+  const date = parseIsoDate(isoDate);
+  if (!date) return getDatePlusDays(days);
   date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
+  return formatIsoDate(date);
 };
 
 const getNightCount = (checkIn, checkOut) => {
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  const start = parseIsoDate(checkIn);
+  const end = parseIsoDate(checkOut);
+  if (!start || !end) return 0;
   const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
   return Math.max(0, diff);
 };
@@ -112,6 +128,7 @@ export default function ExploreStays() {
     unitPrice: 0,
     totalNights: 0,
   });
+  const [selectedInventoryDay, setSelectedInventoryDay] = useState(null);
   const [filters, setFilters] = useState({
     location: "",
     checkIn: getDatePlusDays(0),
@@ -155,6 +172,7 @@ export default function ExploreStays() {
   useEffect(() => {
     if (selectedHotel) {
       setCurrentImgIndex(0);
+      setSelectedInventoryDay(null);
       setBookingForm((prev) => ({
         ...prev,
         checkIn: filters.checkIn || getDatePlusDays(0),
@@ -306,6 +324,17 @@ export default function ExploreStays() {
   };
 
   const selectedAmenities = selectedHotel ? safeParseAmenities(selectedHotel.amenities) : [];
+  const bookingNightCount = pricingQuote.totalNights || getNightCount(bookingForm.checkIn, bookingForm.checkOut);
+  const isSingleNightStay = bookingNightCount === 1;
+  const selectedCalendarDateMatchesCheckIn = selectedInventoryDay?.date === bookingForm.checkIn;
+  const effectiveUnitPrice =
+    isSingleNightStay && selectedCalendarDateMatchesCheckIn
+      ? Number(selectedInventoryDay?.price || pricingQuote.unitPrice || selectedHotel?.pricePerNight || 0)
+      : Number(pricingQuote.unitPrice || selectedHotel?.pricePerNight || 0);
+  const effectiveTotalAmount =
+    isSingleNightStay && selectedCalendarDateMatchesCheckIn
+      ? effectiveUnitPrice * Math.max(1, Number(bookingForm.rooms || 1))
+      : Number(pricingQuote.totalAmount || 0);
 
   const handleStayBooking = async () => {
     if (!selectedHotel) return;
@@ -325,7 +354,7 @@ export default function ExploreStays() {
 
     setBookingLoading(true);
     try {
-      const amount = Number(pricingQuote.totalAmount || 0);
+      const amount = Number(effectiveTotalAmount || 0);
       const res = await API.post("/booking/create", {
         customerName: bookingForm.name.trim(),
         phoneNumber: normalizePhone(bookingForm.phone),
@@ -430,10 +459,15 @@ export default function ExploreStays() {
             onNext={nextImage}
             onPrev={previousImage}
             onBook={handleStayBooking}
-          bookingLoading={bookingLoading}
-          pricingQuote={pricingQuote}
-        />
-      )}
+            bookingLoading={bookingLoading}
+            pricingQuote={pricingQuote}
+            selectedInventoryDay={selectedInventoryDay}
+            onSelectedInventoryChange={setSelectedInventoryDay}
+            effectiveUnitPrice={effectiveUnitPrice}
+            effectiveTotalAmount={effectiveTotalAmount}
+            bookingNightCount={bookingNightCount}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
@@ -598,6 +632,11 @@ function StayDetailsModal({
   onBook,
   bookingLoading,
   pricingQuote,
+  selectedInventoryDay,
+  onSelectedInventoryChange,
+  effectiveUnitPrice,
+  effectiveTotalAmount,
+  bookingNightCount,
 }) {
   const today = getDatePlusDays(0);
   return (
@@ -664,6 +703,7 @@ function StayDetailsModal({
               <UserInventoryCalendar
                 hotelId={hotel._id}
                 selectedDate={bookingForm.checkIn}
+                onSelectedInventoryChange={onSelectedInventoryChange}
                 onSelectDate={(date) =>
                   setBookingForm((p) => ({
                     ...p,
@@ -731,9 +771,9 @@ function StayDetailsModal({
             >
               {bookingLoading
                 ? "Starting Payment..."
-                : pricingQuote.totalNights > 0
-                  ? `Reserve Now - Rs ${pricingQuote.totalAmount || 0} total for ${pricingQuote.totalNights} night${pricingQuote.totalNights > 1 ? "s" : ""}`
-                  : `Reserve Now - Rs ${pricingQuote.unitPrice || hotel.pricePerNight}/night`}
+                : bookingNightCount > 0
+                  ? `Reserve Now - Rs ${effectiveTotalAmount || 0} total for ${bookingNightCount} night${bookingNightCount > 1 ? "s" : ""}`
+                  : `Reserve Now - Rs ${effectiveUnitPrice || hotel.pricePerNight}/night`}
               <ArrowRight size={14} />
             </Button>
 
@@ -743,7 +783,7 @@ function StayDetailsModal({
               <p className="mt-3 text-xs text-orange-200">
                 {pricingQuote.loading
                   ? "Refreshing live pricing..."
-                  : `Estimated total: Rs ${pricingQuote.totalAmount || 0} for ${pricingQuote.totalNights || getNightCount(bookingForm.checkIn, bookingForm.checkOut)} night${(pricingQuote.totalNights || getNightCount(bookingForm.checkIn, bookingForm.checkOut)) > 1 ? "s" : ""} and ${bookingForm.rooms} room${Number(bookingForm.rooms || 1) > 1 ? "s" : ""}.`}
+                  : `Estimated total: Rs ${effectiveTotalAmount || 0} for ${bookingNightCount} night${bookingNightCount > 1 ? "s" : ""} and ${bookingForm.rooms} room${Number(bookingForm.rooms || 1) > 1 ? "s" : ""}.${selectedInventoryDay?.date === bookingForm.checkIn && bookingNightCount === 1 ? ` Selected day price: Rs ${effectiveUnitPrice}.` : ""}`}
               </p>
             )}
 
