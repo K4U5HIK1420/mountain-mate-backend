@@ -120,10 +120,10 @@ export default function UserInventoryCalendar({
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-3 sm:p-4">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">Live Pricing Calendar</p>
       <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-white/45">Price + Rooms Available</p>
-      <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-white/65">
+      <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-white/65 sm:text-[10px]">
         <span className="rounded-full border border-emerald-500/35 bg-emerald-500/10 px-2 py-1">Available</span>
         <span className="rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-1">Low (&lt;3)</span>
         <span className="rounded-full border border-rose-500/35 bg-rose-500/10 px-2 py-1">Sold out</span>
@@ -131,7 +131,7 @@ export default function UserInventoryCalendar({
 
       {error ? <p className="mt-3 text-xs text-rose-300">{error}</p> : null}
 
-      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-2 py-2 sm:px-3">
         <button
           type="button"
           onClick={() => setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
@@ -140,7 +140,7 @@ export default function UserInventoryCalendar({
         >
           <ChevronLeft size={14} />
         </button>
-        <p className="text-sm font-bold uppercase tracking-[0.14em] text-white">{monthLabel}</p>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-white sm:text-sm">{monthLabel}</p>
         <button
           type="button"
           onClick={() => setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
@@ -150,13 +150,13 @@ export default function UserInventoryCalendar({
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-7 gap-2 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white/45">
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[9px] font-black uppercase tracking-[0.1em] text-white/45 sm:gap-2 sm:text-[10px]">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div key={day}>{day}</div>
         ))}
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-2">
+      <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
         {monthCells.map((cellDate) => {
           const iso = toIsoDate(cellDate);
           const isPast = iso < todayIso;
@@ -171,7 +171,7 @@ export default function UserInventoryCalendar({
           const isSelected = selectedDate === item.date;
           const soldOut = item.availableRooms <= 0 || item.isSoldOut;
           if (!isCurrentMonth || isPast) {
-            return <div key={iso} className="rounded-xl border border-transparent bg-transparent p-2 opacity-0" aria-hidden="true" />;
+            return <div key={iso} className="rounded-lg border border-transparent bg-transparent p-1.5 opacity-0 sm:rounded-xl sm:p-2" aria-hidden="true" />;
           }
           return (
             <button
@@ -179,13 +179,13 @@ export default function UserInventoryCalendar({
               type="button"
               disabled={soldOut}
               onClick={() => onSelectDate?.(item.date)}
-              className={`rounded-xl border p-2 text-left transition ${
+              className={`min-h-[76px] rounded-lg border p-1.5 text-left transition sm:min-h-[92px] sm:rounded-xl sm:p-2 ${
                 isSelected ? "border-orange-300 bg-orange-500/15" : STATUS_CLASS[item.color] || "border-white/10 bg-white/5 text-white/70"
               } ${soldOut ? "cursor-not-allowed" : "hover:border-orange-300/45"}`}
             >
               <p className={`text-[10px] font-black uppercase tracking-[0.12em] ${isCurrentMonth ? "text-inherit" : "text-white/35"}`}>{cellDate.getDate()}</p>
-              <p className={`mt-1 text-[11px] font-bold ${isCurrentMonth ? "text-inherit" : "text-white/40"}`}>Rs {item.price}</p>
-              <p className={`text-[10px] ${isCurrentMonth ? "text-inherit" : "text-white/35"}`}>
+              <p className={`mt-1 text-[10px] font-bold sm:text-[11px] ${isCurrentMonth ? "text-inherit" : "text-white/40"}`}>Rs {item.price}</p>
+              <p className={`text-[9px] sm:text-[10px] ${isCurrentMonth ? "text-inherit" : "text-white/35"}`}>
                 {soldOut ? "Sold out" : item.availableRooms < 3 ? `Only ${item.availableRooms} left` : `${item.availableRooms} rooms`}
               </p>
             </button>

@@ -644,7 +644,7 @@ function StayDetailsModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2147483000] overflow-y-auto p-3 pt-24 sm:p-4 sm:pt-28 md:p-8 md:pt-32"
+      className="fixed inset-0 z-[2147483000] overflow-y-auto p-2 pt-20 sm:p-4 sm:pt-28 md:p-8 md:pt-32"
     >
       <button onClick={onClose} className="absolute inset-0 h-full w-full bg-black/95 backdrop-blur-2xl" />
       <motion.div
@@ -652,27 +652,27 @@ function StayDetailsModal({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.985 }}
         transition={{ duration: 0.35, ease: motionEase }}
-        className="relative mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-[1280px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707] sm:rounded-[34px] lg:min-h-0 lg:max-h-[92vh] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
+        className="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-[1280px] flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#070707] sm:rounded-[34px] lg:min-h-0 lg:max-h-[92vh] lg:grid lg:grid-cols-[1.02fr_0.98fr]"
       >
-        <div className="relative min-h-[300px] overflow-hidden border-b border-white/8 lg:border-b-0 lg:border-r">
+        <div className="relative min-h-[220px] overflow-hidden border-b border-white/8 sm:min-h-[300px] lg:border-b-0 lg:border-r">
           <img src={hotel.images?.[currentImgIndex]} alt={hotel.hotelName} loading="eager" decoding="async" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.76))]" />
-          <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
-            <div className="inline-flex items-center gap-1 rounded-full border border-white/12 bg-black/40 px-3 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white">
+          <div className="absolute left-3 right-3 top-3 flex items-center justify-between sm:left-4 sm:right-4 sm:top-4">
+            <div className="inline-flex items-center gap-1 rounded-full border border-white/12 bg-black/40 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-white sm:px-3 sm:py-2">
               <Star size={11} className="text-amber-300" />
               {rating ? Number(rating).toFixed(1) : "4.5"}/5
             </div>
-            <button onClick={onClose} className="rounded-full border border-white/12 bg-black/40 px-3 py-2 text-xs text-white">
+            <button onClick={onClose} className="rounded-full border border-white/12 bg-black/40 px-3 py-1.5 text-xs text-white sm:px-3 sm:py-2">
               Close
             </button>
           </div>
           {hotel.images?.length > 1 ? (
             <>
-              <button onClick={onPrev} className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/12 bg-black/45 p-2 text-white"><ChevronLeft size={16} /></button>
-              <button onClick={onNext} className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/12 bg-black/45 p-2 text-white"><ChevronRight size={16} /></button>
+              <button onClick={onPrev} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/12 bg-black/45 p-2 text-white sm:left-4"><ChevronLeft size={16} /></button>
+              <button onClick={onNext} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/12 bg-black/45 p-2 text-white sm:right-4"><ChevronRight size={16} /></button>
             </>
           ) : null}
-          <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto p-4">
+          <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto p-3 sm:p-4">
             {hotel.images?.map((img, idx) => (
               <button key={img || idx} onClick={() => setCurrentImgIndex(idx)} className={`h-14 w-14 overflow-hidden rounded-xl border-2 ${currentImgIndex === idx ? "border-orange-300" : "border-transparent opacity-65"}`}>
                 <img src={img} alt={`${idx + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
@@ -681,18 +681,18 @@ function StayDetailsModal({
           </div>
         </div>
 
-        <div className="flex items-start overflow-y-auto p-4 md:p-6">
-          <div className="w-full rounded-[30px] border border-white/15 bg-[linear-gradient(150deg,rgba(255,255,255,0.09),rgba(255,255,255,0.02)),rgba(8,8,8,0.88)] p-5 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:p-6">
-            <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start overflow-y-auto p-3 sm:p-4 md:p-6">
+          <div className="w-full rounded-[22px] border border-white/15 bg-[linear-gradient(150deg,rgba(255,255,255,0.09),rgba(255,255,255,0.02)),rgba(8,8,8,0.88)] p-4 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:rounded-[30px] md:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-300">Premium Reservation</p>
-                <h3 className="mt-2 text-2xl font-black uppercase italic tracking-tight text-white md:text-3xl">{hotel.hotelName}</h3>
+                <h3 className="mt-2 text-xl font-black uppercase italic tracking-tight text-white sm:text-2xl md:text-3xl">{hotel.hotelName}</h3>
                 <p className="mt-2 inline-flex items-center gap-2 text-sm text-white/65">
                   <MapPin size={14} className="text-orange-300" />
                   {hotel.location}
                 </p>
               </div>
-              <div className="rounded-2xl border border-orange-300/30 bg-orange-500/15 px-3 py-2 text-right">
+              <div className="rounded-2xl border border-orange-300/30 bg-orange-500/15 px-3 py-2 text-left sm:text-right">
                 <p className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-orange-100"><Star size={11} className="text-amber-300" /> {rating ? Number(rating).toFixed(1) : "4.5"}/5</p>
                 <p className="mt-1 text-lg font-black italic text-white">Rs {hotel.pricePerNight}</p>
                 <p className="text-[10px] text-white/60">per night</p>
