@@ -82,7 +82,9 @@ export default function Bookings() {
   const handleStatusUpdate = async (bookingId, status) => {
     setUpdatingId(bookingId);
     try {
-      const res = await API.post("/user/bookings/update-status", { bookingId, status });
+      const targetBooking = partnerBookings.find((item) => item._id === bookingId);
+      const endpoint = isTaxiBooking(targetBooking) ? "/transport/taxi/status" : "/user/bookings/update-status";
+      const res = await API.post(endpoint, { bookingId, status });
       if (res.data?.success) {
         notify(status === "confirmed" ? "Booking confirmed." : "Booking declined.", status === "confirmed" ? "success" : "error");
         await loadAll();
@@ -264,7 +266,7 @@ function BookingList({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-[10px] font-black uppercase tracking-[0.32em] text-orange-300">
-                {isStayBooking(booking) ? "Stay Request" : "Ride Request"}
+                {isTaxiBooking(booking) ? "Taxi Request" : isStayBooking(booking) ? "Stay Request" : "Ride Request"}
               </p>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-white/45">
                 Ref {booking._id.slice(-6).toUpperCase()}
@@ -275,11 +277,17 @@ function BookingList({
             </h3>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-white/58">
               <MetaChip icon={<Calendar size={14} />} text={new Date(booking.date || booking.createdAt).toLocaleDateString()} />
-              {booking.bookingType === "Transport" && (
+              {booking.bookingType === "Transport" && !isTaxiBooking(booking) && (
                 <MetaChip
                   icon={<Calendar size={14} />}
                   text={`Ride ${booking.listingId?.availableDate ? new Date(booking.listingId.availableDate).toLocaleDateString() : "Flexible"}`}
                 />
+              )}
+              {isTaxiBooking(booking) && (
+                <>
+                  <MetaChip icon={<MapPin size={14} />} text={`${booking.pickupLocation || "Pickup"} -> ${booking.dropLocation || "Drop"}`} />
+                  <MetaChip icon={<Navigation size={14} />} text={`${booking.distanceKm || 0} km`} />
+                </>
               )}
               <MetaChip icon={<IndianRupee size={14} />} text={`${booking.amount || 0}`} />
               <MetaChip icon={<Clock3 size={14} />} text={`Payment ${booking.paymentStatus || "pending"}`} />
@@ -295,7 +303,7 @@ function BookingList({
 
         <div className="flex flex-col gap-4 md:min-w-[320px]">
           <StatusPill status={booking.status} />
-          {booking.bookingType === "Transport" && booking.status !== "declined" && booking.status !== "cancelled" && (
+          {booking.bookingType === "Transport" && !isTaxiBooking(booking) && booking.status !== "declined" && booking.status !== "cancelled" && (
             <Button
               variant="ghost"
               onClick={() => onTrack?.(booking, mode === "partner" ? "driver" : "rider")}
@@ -307,7 +315,7 @@ function BookingList({
           {mode === "partner" && booking.status === "pending" && (
             <div className="grid grid-cols-2 gap-3">
               <Button onClick={() => onApprove(booking._id)} disabled={updatingId === booking._id} className="rounded-[20px] text-[10px] tracking-[0.26em]">
-                {updatingId === booking._id ? <Loader2 size={15} className="animate-spin" /> : <><CheckCircle2 size={15} /> Confirm</>}
+                {updatingId === booking._id ? <Loader2 size={15} className="animate-spin" /> : <><CheckCircle2 size={15} /> {isTaxiBooking(booking) ? "Accept" : "Confirm"}</>}
               </Button>
               <Button
                 variant="ghost"
@@ -315,17 +323,32 @@ function BookingList({
                 disabled={updatingId === booking._id}
                 className="rounded-[20px] border-red-500/20 text-[10px] tracking-[0.26em] text-red-300 hover:bg-red-500/10"
               >
-                <XCircle size={15} /> Decline
+                <XCircle size={15} /> {isTaxiBooking(booking) ? "Pass" : "Decline"}
               </Button>
+            </div>
+          )}
+          {mode === "partner" && isTaxiBooking(booking) && (
+            <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
+              {booking.assignmentMeta?.driverName
+                ? `This private cab request is assigned to ${booking.assignmentMeta.driverName}.`
+                : "Accept this request to take the trip under your live ride profile."}
             </div>
           )}
           <ContactActions booking={booking} mode={mode} />
           {mode === "user" && (
             <>
               <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-white/55">
-                {booking.paymentStatus === "under_review" && "Your payment proof is under admin review."}
-                {booking.status === "pending" && booking.paymentStatus === "paid" && "Your request is paid and waiting for owner or driver approval."}
-                {booking.status === "pending" && booking.paymentStatus === "pending" && (
+                {isTaxiBooking(booking) && booking.assignmentMeta?.driverName && (
+                  <div>
+                    <p>Your private cab is lined up with {booking.assignmentMeta.driverName}.</p>
+                    <p className="mt-2">Vehicle: {[booking.assignmentMeta.vehicleType, booking.assignmentMeta.vehicleModel].filter(Boolean).join(" ") || "Assigned cab"}</p>
+                    <p className="mt-2">Plate: {booking.assignmentMeta.plateNumber || "Will be shared shortly"}</p>
+                  </div>
+                )}
+                {isTaxiBooking(booking) && !booking.assignmentMeta?.driverName && "Your taxi request is live. Driver assignment will appear here as soon as it is matched."}
+                {!isTaxiBooking(booking) && booking.paymentStatus === "under_review" && "Your payment proof is under admin review."}
+                {!isTaxiBooking(booking) && booking.status === "pending" && booking.paymentStatus === "paid" && "Your request is paid and waiting for owner or driver approval."}
+                {!isTaxiBooking(booking) && booking.status === "pending" && booking.paymentStatus === "pending" && (
                   <div>
                     <p>Complete the payment step to move this booking forward.</p>
                     <Button as={Link} to={`/booking/${booking._id}/confirm`} size="sm" className="mt-3">
@@ -333,7 +356,7 @@ function BookingList({
                     </Button>
                   </div>
                 )}
-                {booking.paymentStatus === "failed" && (
+                {!isTaxiBooking(booking) && booking.paymentStatus === "failed" && (
                   <div>
                     <p>Payment proof was rejected or payment failed. You can submit a new payment attempt.</p>
                     <Button as={Link} to={`/booking/${booking._id}/confirm`} size="sm" className="mt-3">
@@ -341,10 +364,10 @@ function BookingList({
                     </Button>
                   </div>
                 )}
-                {booking.status === "confirmed" && "Your booking has been approved. You are ready to proceed."}
-                {booking.status === "completed" && "This booking is completed. You can leave a rating if reviews are enabled for this trip."}
-                {booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
-                {booking.status === "cancelled" && "This booking was cancelled."}
+                {!isTaxiBooking(booking) && booking.status === "confirmed" && "Your booking has been approved. You are ready to proceed."}
+                {!isTaxiBooking(booking) && booking.status === "completed" && "This booking is completed. You can leave a rating if reviews are enabled for this trip."}
+                {!isTaxiBooking(booking) && booking.status === "declined" && "This request was declined. The listing inventory has been released again."}
+                {!isTaxiBooking(booking) && booking.status === "cancelled" && "This booking was cancelled."}
               </div>
               {booking.hasReview && (
                 <div className="rounded-[22px] border border-green-500/20 bg-green-500/10 px-4 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-green-300">
@@ -479,6 +502,10 @@ function StatusPill({ status }) {
 
 function isStayBooking(booking) {
   return booking.bookingType === "Hotel" || !!booking.listingId?.hotelName;
+}
+
+function isTaxiBooking(booking) {
+  return booking?.productType === "taxi_booking" || booking?.taxiBooking === true;
 }
 
 function sanitizePhoneNumber(value) {

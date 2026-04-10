@@ -1,5 +1,20 @@
 export const DEFAULT_LOCATION = { lat: 30.3165, lng: 78.0322 };
 
+const PLACE_COORD_OVERRIDES = {
+  dehradun: { lat: 30.3165, lng: 78.0322 },
+  "dehradun railway station": { lat: 30.3184, lng: 78.0322 },
+  rishikesh: { lat: 30.0869, lng: 78.2676 },
+  "rishikesh bus stand": { lat: 30.1034, lng: 78.2940 },
+  haridwar: { lat: 29.9457, lng: 78.1642 },
+  "haridwar railway station": { lat: 29.9477, lng: 78.1602 },
+  rudraprayag: { lat: 30.2844, lng: 78.9811 },
+  guptkashi: { lat: 30.5252, lng: 79.0780 },
+  sonprayag: { lat: 30.6310, lng: 79.0669 },
+  phata: { lat: 30.4894, lng: 79.2150 },
+  ukhimath: { lat: 30.5297, lng: 79.2167 },
+  joshimath: { lat: 30.5554, lng: 79.5644 },
+};
+
 export function normalizeCoords(coords) {
   const lat = Number(coords?.lat);
   const lng = Number(coords?.lng);
@@ -19,6 +34,27 @@ function parseCoordinateString(rawValue) {
   return { lat, lng };
 }
 
+function parseGoogleMapsCoordinateUrl(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return null;
+
+  const atMatch = value.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+  if (atMatch) {
+    const lat = Number(atMatch[1]);
+    const lng = Number(atMatch[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  const queryMatch = value.match(/[?&](?:q|query|destination|origin)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/i);
+  if (queryMatch) {
+    const lat = Number(queryMatch[1]);
+    const lng = Number(queryMatch[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  return null;
+}
+
 async function tryJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error("Location lookup failed");
@@ -31,6 +67,21 @@ export async function geocodePlace(rawPlace) {
 
   const directCoords = parseCoordinateString(place);
   if (directCoords) return directCoords;
+
+  const googleMapsCoords = parseGoogleMapsCoordinateUrl(place);
+  if (googleMapsCoords) return googleMapsCoords;
+
+  const normalizedPlace = place.toLowerCase();
+  if (PLACE_COORD_OVERRIDES[normalizedPlace]) {
+    return PLACE_COORD_OVERRIDES[normalizedPlace];
+  }
+
+  const fuzzyOverrideKey = Object.keys(PLACE_COORD_OVERRIDES).find(
+    (key) => normalizedPlace.includes(key) || key.includes(normalizedPlace)
+  );
+  if (fuzzyOverrideKey) {
+    return PLACE_COORD_OVERRIDES[fuzzyOverrideKey];
+  }
 
   const candidates = [
     place,

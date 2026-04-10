@@ -34,9 +34,17 @@ export default function StepRideDetails({
   onDestinationChange,
   onCaptureLivePickup,
   locating,
+  resolvingRoute,
   liveFromCoords,
   liveToCoords,
 }) {
+  const hasBothCoords = Boolean(liveFromCoords && liveToCoords);
+  const destinationNeedsHelp = Boolean(
+    formData.routeTo &&
+    !resolvingRoute?.to &&
+    !liveToCoords
+  );
+
   return (
     <StepCard
       title="Ride Details"
@@ -71,20 +79,32 @@ export default function StepRideDetails({
               {locating ? <Loader2 size={14} className="animate-spin" /> : <Crosshair size={14} />}
               Use live location
             </button>
+            {resolvingRoute?.from ? (
+              <p className="text-xs text-white/45">Resolving origin coordinates...</p>
+            ) : null}
           </div>
         </Field>
 
         <Field label="Destination" error={errors.routeTo}>
-          <div className="relative">
-            <Navigation size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#FF6A00]" />
-            <input
-              name="routeTo"
-              value={formData.routeTo}
-              onChange={onDestinationChange}
-              list="destination-location-suggestions"
-              className={`${inputClass} pl-10`}
-              placeholder="Destination"
-            />
+          <div className="space-y-3">
+            <div className="relative">
+              <Navigation size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#FF6A00]" />
+              <input
+                name="routeTo"
+                value={formData.routeTo}
+                onChange={onDestinationChange}
+                list="destination-location-suggestions"
+                className={`${inputClass} pl-10`}
+                placeholder="Destination"
+              />
+            </div>
+            {resolvingRoute?.to ? (
+              <p className="text-xs text-white/45">Resolving destination coordinates...</p>
+            ) : destinationNeedsHelp ? (
+              <p className="text-xs text-amber-200">Destination could not be mapped yet. Try a clearer town name, paste `lat,lng`, or paste a Google Maps link containing coordinates.</p>
+            ) : (
+              <p className="text-xs text-white/45">Type a known town/stop name, paste coordinates like `30.0869, 78.2676`, or paste a Google Maps link.</p>
+            )}
           </div>
           <datalist id="destination-location-suggestions">
             {LOCATION_SUGGESTIONS.map((item) => (
@@ -107,6 +127,11 @@ export default function StepRideDetails({
       {(formData.routeFrom || formData.routeTo) && (
         <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
           <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">Route preview</p>
+          {!hasBothCoords && (formData.routeFrom || formData.routeTo) ? (
+            <p className="mb-3 text-xs text-white/45">
+              The map and distance appear after both locations are converted into coordinates.
+            </p>
+          ) : null}
           <RoutePreview pickupCoords={liveFromCoords} destinationCoords={liveToCoords} />
         </div>
       )}

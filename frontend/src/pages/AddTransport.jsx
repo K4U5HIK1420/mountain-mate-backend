@@ -36,6 +36,7 @@ const transportDocumentFields = [
 ];
 
 const createEmptyForm = () => ({
+  rideMode: "car_pooling",
   vehicleModel: "",
   plateNumber: "",
   vehicleType: "",
@@ -138,6 +139,7 @@ export default function AddTransport() {
   const [liveToCoords, setLiveToCoords] = useState(null);
   const [locating, setLocating] = useState(false);
   const [usingLivePickup, setUsingLivePickup] = useState(false);
+  const [resolvingRoute, setResolvingRoute] = useState({ from: false, to: false });
 
   useEffect(() => {
     try {
@@ -181,8 +183,12 @@ export default function AddTransport() {
 
       if (usingLivePickup) return;
 
+      if (active) setResolvingRoute((prev) => ({ ...prev, from: true }));
       const coords = await getCoords(formData.routeFrom);
-      if (active) setLiveFromCoords(coords || null);
+      if (active) {
+        setLiveFromCoords(coords || null);
+        setResolvingRoute((prev) => ({ ...prev, from: false }));
+      }
     };
 
     timer = setTimeout(syncFrom, LOCATION_DEBOUNCE_MS);
@@ -198,11 +204,18 @@ export default function AddTransport() {
 
     const syncTo = async () => {
       if (!formData.routeTo.trim()) {
-        if (active) setLiveToCoords(null);
+        if (active) {
+          setLiveToCoords(null);
+          setResolvingRoute((prev) => ({ ...prev, to: false }));
+        }
         return;
       }
+      if (active) setResolvingRoute((prev) => ({ ...prev, to: true }));
       const coords = await getCoords(formData.routeTo);
-      if (active) setLiveToCoords(coords || null);
+      if (active) {
+        setLiveToCoords(coords || null);
+        setResolvingRoute((prev) => ({ ...prev, to: false }));
+      }
     };
 
     timer = setTimeout(syncTo, LOCATION_DEBOUNCE_MS);
@@ -396,6 +409,7 @@ export default function AddTransport() {
           onDestinationChange={handleDestinationChange}
           onCaptureLivePickup={captureLivePickup}
           locating={locating}
+          resolvingRoute={resolvingRoute}
           liveFromCoords={liveFromCoords}
           liveToCoords={liveToCoords}
         />

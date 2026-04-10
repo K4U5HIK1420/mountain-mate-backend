@@ -8,6 +8,13 @@ const {
   addTransport, 
   getTransports, 
   searchTransport, 
+  getSharedTaxis,
+  searchSharedTaxis,
+  getTaxiQuote,
+  bookTaxi,
+  updateTaxiBookingStatus,
+  bookSharedTaxi,
+  getRoutePreview,
   getAllRidesForAdmin,
   verifyTransport,
   getMyRides,      
@@ -18,7 +25,14 @@ const {
 // PUBLIC
 router.get("/all", getTransports);
 router.get("/search", searchTransport);
+router.get("/shared/all", getSharedTaxis);
+router.get("/shared/search", searchSharedTaxis);
+router.post("/taxi/quote", getTaxiQuote);
+router.post("/route-preview", getRoutePreview);
 router.post("/book", bookRide);
+router.post("/taxi/book", supabaseAuth, bookTaxi);
+router.post("/taxi/status", supabaseAuth, updateTaxiBookingStatus);
+router.post("/shared/book", supabaseAuth, bookSharedTaxi);
 
 // OWNER
 router.post(

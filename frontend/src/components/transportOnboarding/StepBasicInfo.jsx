@@ -23,6 +23,13 @@ export default function StepBasicInfo({ formData, errors, onFieldChange }) {
       rightSlot={<span className="rounded-full border border-[#FF6A00]/30 bg-[#FF6A00]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#FFB37D]">Required</span>}
     >
       <div className="grid gap-5 md:grid-cols-2">
+        <Field label="Ride Service" error={errors.rideMode} helper="Choose how this route should appear to travelers.">
+          <select name="rideMode" value={formData.rideMode || "car_pooling"} onChange={onFieldChange} className={inputClass}>
+            <option value="car_pooling" className="bg-black">Car Pooling</option>
+            <option value="shared_taxi" className="bg-black">Shared Taxi</option>
+          </select>
+        </Field>
+
         <Field label="Vehicle Model" error={errors.vehicleModel} helper="Example: Innova Crysta, Swift Dzire.">
           <input
             name="vehicleModel"

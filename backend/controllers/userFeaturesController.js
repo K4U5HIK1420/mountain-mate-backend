@@ -14,6 +14,7 @@ const { getSupabaseClient } = require("../utils/supabaseClient");
 const supabaseBookings = require("../services/supabaseBookingsStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
+const supabaseRideProducts = require("../services/supabaseRideProductsStore");
 const { sendBookingConfirmedUserEmail } = require("../services/emailService");
 const { resolveUserEmail } = require("../utils/resolveUserEmail");
 
@@ -86,6 +87,52 @@ async function attachCounterpartyDetails(bookings = [], { viewerRole = "user", i
       };
     })
   );
+}
+
+function mapTaxiBookingForFeed(booking = {}, viewerRole = "user") {
+  const assignment = booking.assignmentMeta || {};
+  const counterpartyName =
+    viewerRole === "partner"
+      ? booking.customerName || "Traveler"
+      : assignment.driverName || "Driver";
+  const counterpartyPhone =
+    viewerRole === "partner"
+      ? booking.customerPhone || ""
+      : assignment.driverPhone || "";
+
+  return {
+    _id: booking._id,
+    userId: booking.userId,
+    ownerId: booking.driverId || "",
+    listingLabel: `Private Taxi: ${booking.pickupLocation || "Pickup"} to ${booking.dropLocation || "Drop"}`,
+    customerName: booking.customerName || "",
+    phoneNumber: booking.customerPhone || "",
+    bookingType: "Transport",
+    productType: "taxi_booking",
+    listingId: booking.sourceTransportId || "",
+    date: booking.scheduledFor || booking.createdAt || null,
+    startDate: booking.scheduledFor || null,
+    endDate: null,
+    guests: 1,
+    rooms: 1,
+    amount: Number(booking.estimatedFare || 0),
+    currency: "INR",
+    status: booking.status || "pending",
+    paymentStatus: "not_required",
+    hasReview: false,
+    canReview: false,
+    createdAt: booking.createdAt || null,
+    updatedAt: booking.updatedAt || null,
+    counterpartyName,
+    counterpartyPhone,
+    counterpartyRole: viewerRole === "partner" ? "customer" : "driver",
+    assignmentMeta: assignment,
+    pickupLocation: booking.pickupLocation || "",
+    dropLocation: booking.dropLocation || "",
+    distanceKm: Number(booking.distanceKm || 0),
+    estimatedFare: Number(booking.estimatedFare || 0),
+    taxiBooking: true,
+  };
 }
 
 // --- 🏔️ PROFILE SETUP ---
@@ -180,12 +227,22 @@ exports.getMyBookings = async (req, res) => {
   try {
     const ownerId = String(req.user?.id || req.user?._id || "");
     const isSupabase = getDataStore() === "supabase";
-    const data = isSupabase
-      ? await supabaseBookings.listBookingsByUserId(ownerId)
-      : await Booking.find({ userId: ownerId })
-          .sort({ createdAt: -1 })
-          .populate("listingId")
-          .lean();
+    let data = [];
+    let taxiFeed = [];
+
+    if (isSupabase) {
+      const [standardBookings, taxiBookings] = await Promise.all([
+        supabaseBookings.listBookingsByUserId(ownerId),
+        supabaseRideProducts.listTaxiBookingsByUserId(ownerId).catch(() => []),
+      ]);
+      data = standardBookings || [];
+      taxiFeed = (taxiBookings || []).map((item) => mapTaxiBookingForFeed(item, "user"));
+    } else {
+      data = await Booking.find({ userId: ownerId })
+        .sort({ createdAt: -1 })
+        .populate("listingId")
+        .lean();
+    }
 
     const bookingIds = data.map((item) => item._id);
     const canReadMongoReviews = mongoose.connection.readyState === 1;
@@ -226,7 +283,11 @@ exports.getMyBookings = async (req, res) => {
       isSupabase,
     });
 
-    res.json({ success: true, data: withCounterparty || [] });
+    const merged = [...(withCounterparty || []), ...taxiFeed].sort(
+      (a, b) => new Date(b.createdAt || b.date || 0).getTime() - new Date(a.createdAt || a.date || 0).getTime()
+    );
+
+    res.json({ success: true, data: merged || [] });
   } catch (err) { 
     res.status(500).json({ success: false, message: "Failed to fetch your expeditions" }); 
   }
@@ -237,20 +298,32 @@ exports.getPartnerIncomingBookings = async (req, res) => {
   try {
     const ownerId = String(req.user?.id || req.user?._id || "");
     const isSupabase = getDataStore() === "supabase";
-    const incoming =
-      isSupabase
-        ? await supabaseBookings.listBookingsByOwnerId(ownerId)
-        : await Booking.find({ ownerId })
-            .populate("listingId")
-            .sort({ createdAt: -1 })
-            .lean();
+    let incoming = [];
+    let taxiFeed = [];
+
+    if (isSupabase) {
+      const [standardIncoming, taxiIncoming] = await Promise.all([
+        supabaseBookings.listBookingsByOwnerId(ownerId),
+        supabaseRideProducts.listTaxiBookingsForDriverInbox(ownerId).catch(() => []),
+      ]);
+      incoming = standardIncoming || [];
+      taxiFeed = (taxiIncoming || []).map((item) => mapTaxiBookingForFeed(item, "partner"));
+    } else {
+      incoming = await Booking.find({ ownerId })
+        .populate("listingId")
+        .sort({ createdAt: -1 })
+        .lean();
+    }
 
     const withCounterparty = await attachCounterpartyDetails(incoming || [], {
       viewerRole: "partner",
       isSupabase,
     });
+    const merged = [...(withCounterparty || []), ...taxiFeed].sort(
+      (a, b) => new Date(b.createdAt || b.date || 0).getTime() - new Date(a.createdAt || a.date || 0).getTime()
+    );
 
-    res.json({ success: true, data: withCounterparty || [] });
+    res.json({ success: true, data: merged || [] });
   } catch (err) {
     console.error("Partner Booking Error:", err);
     res.status(500).json({ success: false, message: "Failed to fetch incoming requests" });

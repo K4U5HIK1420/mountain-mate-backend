@@ -12,7 +12,7 @@ function isMissingColumn(errorMessage = "", columnName = "") {
 async function insertWithSchemaFallback(supabase, table, payload) {
   let current = { ...payload };
 
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < Math.max(Object.keys(current).length, 1); i += 1) {
     const { data, error } = await supabase.from(table).insert(current).select("*").single();
     if (!error) return { data, error: null };
 
@@ -30,7 +30,7 @@ async function insertWithSchemaFallback(supabase, table, payload) {
 async function updateWithSchemaFallback(supabase, table, payload, id, ownerId) {
   let current = { ...payload };
 
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < Math.max(Object.keys(current).length, 1); i += 1) {
     let data;
     let error;
 
@@ -72,9 +72,13 @@ async function updateWithSchemaFallback(supabase, table, payload, id, ownerId) {
 
 function mapTransportRow(row) {
   if (!row) return null;
+  const rideMode = row.ride_mode || row.rideMode || "car_pooling";
+  const serviceLabel = row.service_label || row.serviceLabel || (rideMode === "shared_taxi" ? "Shared Taxi" : "Car Pooling");
   return {
     _id: row.id,
     owner: row.owner_id || row.owner,
+    rideMode,
+    serviceLabel,
     vehicleModel: row.vehicle_model,
     vehicleType: row.vehicle_type,
     plateNumber: row.plate_number,
@@ -88,6 +92,8 @@ function mapTransportRow(row) {
     driverOnline: row.driver_online ?? row.driverOnline ?? true,
     pricePerSeat: row.price_per_seat,
     seatsAvailable: row.seats_available,
+    totalSeats: Number(row.total_seats || row.seats_available || 0),
+    bookedSeats: Math.max(Number(row.total_seats || row.seats_available || 0) - Number(row.seats_available || 0), 0),
     images: row.images || [],
     complianceDetails: row.compliance_details || row.complianceDetails || {},
     verificationDocuments: row.verification_documents || row.verificationDocuments || {},
@@ -114,8 +120,11 @@ async function addTransport({ ownerId, payload }) {
     from_coords: payload.fromCoords ? JSON.parse(payload.fromCoords) : null,
     to_coords: payload.toCoords ? JSON.parse(payload.toCoords) : null,
     driver_online: true,
+    ride_mode: payload.rideMode || "car_pooling",
+    service_label: payload.rideMode === "shared_taxi" ? "Shared Taxi" : "Car Pooling",
     price_per_seat: Number(payload.pricePerSeat),
     seats_available: Number(payload.seatsAvailable),
+    total_seats: Number(payload.seatsAvailable),
     images: payload.images || [],
     compliance_details: payload.complianceDetails || {},
     verification_documents: payload.verificationDocuments || {},
@@ -240,9 +249,12 @@ async function updateTransport({ ownerId, id, updateFields }) {
   if (safe.fromCoords !== undefined) patch.from_coords = safe.fromCoords;
   if (safe.toCoords !== undefined) patch.to_coords = safe.toCoords;
   if (safe.driverOnline !== undefined) patch.driver_online = Boolean(safe.driverOnline);
+  if (safe.rideMode !== undefined) patch.ride_mode = safe.rideMode;
+  if (safe.serviceLabel !== undefined) patch.service_label = safe.serviceLabel;
   if (safe.availableDate !== undefined) patch.available_date = safe.availableDate || null;
   if (safe.pricePerSeat !== undefined) patch.price_per_seat = Number(safe.pricePerSeat);
   if (safe.seatsAvailable !== undefined) patch.seats_available = Number(safe.seatsAvailable);
+  if (safe.totalSeats !== undefined) patch.total_seats = Number(safe.totalSeats);
   if (safe.images !== undefined) patch.images = safe.images;
   if (safe.complianceDetails !== undefined) patch.compliance_details = safe.complianceDetails;
   if (safe.verificationDocuments !== undefined) patch.verification_documents = safe.verificationDocuments;
