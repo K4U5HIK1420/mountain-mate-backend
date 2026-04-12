@@ -5,6 +5,7 @@ const fs = require("fs");
 const { getDataStore } = require("../utils/dataStore");
 const supabaseHotels = require("../services/supabaseHotelsStore");
 const { applyInventorySnapshotToHotels } = require("../services/roomInventoryService");
+const { normalizePropertyType } = require("../utils/hotelPropertyTypes");
 
 const HOTEL_DOC_FIELDS = [
   "ownerPhoto",
@@ -65,12 +66,14 @@ exports.addHotel = async (req, res, next) => {
     }
 
     const complianceDetails = buildHotelComplianceDetails(req.body);
+    const propertyType = normalizePropertyType(req.body.propertyType);
 
     if (getDataStore() === "supabase") {
       const created = await supabaseHotels.addHotel({
         ownerId: req.user.id,
         payload: {
           ...req.body,
+          propertyType,
           images: imageUrls,
           complianceDetails,
           verificationDocuments,
@@ -81,7 +84,7 @@ exports.addHotel = async (req, res, next) => {
 
     const hotel = new Hotel({
       hotelName: req.body.hotelName,
-      propertyType: req.body.propertyType || "Hotel",
+      propertyType,
       location: req.body.location,
       landmark: req.body.landmark || "",
       ownerName: req.body.ownerName || "",
@@ -182,6 +185,7 @@ exports.updateHotel = async (req, res, next) => {
         id,
         updateData: {
           ...req.body,
+          ...(req.body.propertyType !== undefined ? { propertyType: normalizePropertyType(req.body.propertyType) } : {}),
           amenities: parsedAmenities,
           images: imageUrls.length ? [...(existing.images || []), ...imageUrls] : undefined,
           complianceDetails: mergedCompliance,
@@ -204,6 +208,9 @@ exports.updateHotel = async (req, res, next) => {
 
     // Saara data req.body se uthate hain
     const updateData = { ...req.body };
+    if (updateData.propertyType !== undefined) {
+      updateData.propertyType = normalizePropertyType(updateData.propertyType);
+    }
 
     // ✅ RESTRICTION: Ye fields kabhi update nahi honi chahiye
     const restrictedFields = ["hotelName", "owner", "isVerified", "status", "_id"];

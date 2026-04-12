@@ -31,6 +31,11 @@ create table if not exists public.hotels (
   updated_at timestamptz not null default now()
 );
 
+alter table public.hotels drop constraint if exists hotels_property_type_check;
+alter table public.hotels
+  add constraint hotels_property_type_check
+  check (property_type in ('Hotel', 'Homestay', 'Lodge', 'Camp / Tent'));
+
 alter table public.hotels add column if not exists compliance_details jsonb default '{}'::jsonb;
 alter table public.hotels add column if not exists verification_documents jsonb default '{}'::jsonb;
 alter table public.hotels add column if not exists property_type text default 'Hotel';

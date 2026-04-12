@@ -13,6 +13,7 @@ const supabaseHotels = require("../services/supabaseHotelsStore");
 const supabaseTransports = require("../services/supabaseTransportsStore");
 const supabaseBookings = require("../services/supabaseBookingsStore");
 const { createNotification } = require("../services/notificationService");
+const { normalizePropertyType } = require("../utils/hotelPropertyTypes");
 
 const HOTEL_FIELDS = ["hotelName", "propertyType", "location", "landmark", "ownerName", "pricePerNight", "roomsAvailable", "guestsPerRoom", "availabilityStatus", "contactNumber", "description", "images", "amenities", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
 const RIDE_FIELDS = ["vehicleModel", "vehicleType", "plateNumber", "routeFrom", "routeTo", "fromCoords", "toCoords", "pricePerSeat", "seatsAvailable", "driverName", "contactNumber", "images", "complianceDetails", "verificationDocuments", "owner", "status", "isVerified"];
@@ -562,7 +563,7 @@ function buildHotelSupabasePatch(body = {}) {
   const update = pickAllowed(body, HOTEL_FIELDS);
   const patch = {};
   if (update.hotelName !== undefined) patch.hotel_name = update.hotelName;
-  if (update.propertyType !== undefined) patch.property_type = update.propertyType;
+  if (update.propertyType !== undefined) patch.property_type = normalizePropertyType(update.propertyType);
   if (update.location !== undefined) patch.location = update.location;
   if (update.landmark !== undefined) patch.landmark = update.landmark;
   if (update.ownerName !== undefined) patch.owner_name = update.ownerName;

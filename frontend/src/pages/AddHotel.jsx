@@ -52,6 +52,7 @@ import {
 const FORM_STORAGE_KEY = "mountainMate.propertyOnboarding.v3";
 const zoneOptions = ["Guptkashi", "Sonprayag", "Phata", "Rudraprayag", "Ukhimath", "Kedarnath Base"];
 const availabilityOptions = ["Available now", "Available this week", "Temporarily closed"];
+const propertyTypeOptions = ["Hotel", "Homestay", "Lodge", "Camp / Tent"];
 
 const hotelDocumentFields = [
   { key: "ownerPhoto", label: "Owner Photo" },
@@ -450,7 +451,7 @@ const AddHotel = () => {
                 <StepCard title="Basic Property Info" subtitle="Enter property identity, current location and contact details.">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <TextField label="Property Name" name="hotelName" value={formData.hotelName} onChange={updateField} placeholder="Kedar Valley Retreat" error={errors.hotelName} icon={Building2} required />
-                    <SelectField label="Type" name="propertyType" value={formData.propertyType} onChange={updateField} options={["Hotel", "Homestay", "Lodge"]} error={errors.propertyType} icon={BadgeCheck} required />
+                    <SelectField label="Type" name="propertyType" value={formData.propertyType} onChange={updateField} options={propertyTypeOptions} error={errors.propertyType} icon={BadgeCheck} required />
                     <div className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
                       <TextField label="Current Location" name="location" value={formData.location} onChange={updateField} placeholder="Current area/city auto-filled after click" error={errors.location} icon={MapPin} required list="zone-suggestions" />
                       <button type="button" onClick={tryAutoFillLocation} disabled={isDetectingLocation} className="mt-6 h-[50px] rounded-xl border border-orange-400/25 bg-orange-500/10 px-4 text-sm font-semibold text-orange-200 transition hover:border-orange-300/50 hover:bg-orange-500/15 disabled:opacity-60">

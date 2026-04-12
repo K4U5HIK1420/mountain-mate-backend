@@ -33,6 +33,8 @@ import {
 } from "../utils/validation";
 import OwnerInventoryManager from "../components/inventory/OwnerInventoryManager";
 
+const propertyTypeOptions = ["Hotel", "Homestay", "Lodge", "Camp / Tent"];
+
 const hotelDocumentFields = [
   { key: "ownerPhoto", label: "Hotel Owner Photo" },
   { key: "ownerAadhaarDoc", label: "Owner Aadhaar Scan" },
@@ -371,7 +373,7 @@ const ManageStays = () => {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <input name="hotelName" value={editFormData.hotelName || ""} readOnly className="bg-white/5 border border-white/10 p-4 rounded-[16px] text-white/60 font-black text-[11px] uppercase tracking-widest outline-none" />
                     <select name="propertyType" value={editFormData.propertyType || "Hotel"} onChange={handleInputChange} className="bg-white/5 border border-white/10 p-4 rounded-[16px] text-white font-black text-[11px] uppercase tracking-widest outline-none">
-                      {["Hotel", "Homestay", "Lodge"].map((type) => <option key={type} value={type} className="bg-[#111]">{type}</option>)}
+                      {propertyTypeOptions.map((type) => <option key={type} value={type} className="bg-[#111]">{type}</option>)}
                     </select>
                     <input name="location" value={editFormData.location || ""} onChange={handleInputChange} placeholder="Tactical Zone" className="bg-white/5 border border-white/10 p-4 rounded-[16px] text-white font-black text-[11px] uppercase tracking-widest outline-none" />
                     <input name="landmark" value={editFormData.landmark || ""} onChange={handleInputChange} placeholder="Landmark" className="bg-white/5 border border-white/10 p-4 rounded-[16px] text-white font-black text-[11px] uppercase tracking-widest outline-none" />

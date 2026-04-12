@@ -1,4 +1,5 @@
 const { getSupabaseClient } = require("../utils/supabaseClient");
+const { DEFAULT_PROPERTY_TYPE, normalizePropertyType } = require("../utils/hotelPropertyTypes");
 
 function extractMissingColumn(errorMessage = "") {
   const match = String(errorMessage).match(/Could not find the '([^']+)' column/i);
@@ -75,7 +76,7 @@ function mapHotelRow(row) {
   return {
     _id: row.id, // keep frontend compatibility
     hotelName: row.hotel_name,
-    propertyType: row.property_type || row.propertyType || "Hotel",
+    propertyType: normalizePropertyType(row.property_type || row.propertyType || DEFAULT_PROPERTY_TYPE),
     location: row.location,
     landmark: row.landmark || "",
     ownerName: row.owner_name || row.ownerName || "",
@@ -105,7 +106,7 @@ async function addHotel({ ownerId, payload }) {
     owner_id: ownerId,
     owner: ownerId,
     hotel_name: payload.hotelName,
-    property_type: payload.propertyType || "Hotel",
+    property_type: normalizePropertyType(payload.propertyType),
     location: payload.location,
     landmark: payload.landmark || "",
     owner_name: payload.ownerName || "",
@@ -187,7 +188,7 @@ async function updateHotel({ ownerId, id, updateData }) {
   }
 
   const patch = {};
-  if (safe.propertyType !== undefined) patch.property_type = safe.propertyType;
+  if (safe.propertyType !== undefined) patch.property_type = normalizePropertyType(safe.propertyType);
   if (safe.location !== undefined) patch.location = safe.location;
   if (safe.landmark !== undefined) patch.landmark = safe.landmark;
   if (safe.ownerName !== undefined) patch.owner_name = safe.ownerName;

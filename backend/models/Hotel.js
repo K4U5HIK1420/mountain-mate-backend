@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const ALLOWED_PROPERTY_TYPES = ["Hotel", "Homestay", "Lodge", "Camp / Tent"];
 
 const hotelSchema = new mongoose.Schema({
     hotelName: {
@@ -7,6 +8,7 @@ const hotelSchema = new mongoose.Schema({
     },
     propertyType: {
         type: String,
+        enum: ALLOWED_PROPERTY_TYPES,
         default: "Hotel"
     },
     location: {
