@@ -464,7 +464,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="cv-auto relative z-10 px-4 py-10 md:py-12">
+      <section className="relative z-10 px-4 py-10 md:py-12">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -490,7 +490,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="cv-auto relative z-10 px-4 py-10 md:py-14">
+      <section className="relative z-10 px-4 py-10 md:py-14">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -524,7 +524,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="cv-auto relative z-10 px-4 py-10 md:py-14">
+      <section className="relative z-10 px-4 py-10 md:py-14">
         <Container>
           <div className="mb-14 flex flex-col gap-6 md:mb-20 md:flex-row md:items-end md:justify-between">
             <div>
@@ -596,7 +596,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="cv-auto relative z-10 px-4 py-10 md:py-12">
+      <section className="relative z-10 px-4 py-10 md:py-12">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -653,7 +653,7 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="cv-auto relative z-10 overflow-hidden px-4 py-14 text-center md:py-18">
+      <section className="relative z-10 overflow-hidden px-4 py-14 text-center md:py-18">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.16),transparent_28%)]" />
         <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-orange-500/10">
           <Mountain size={700} />
