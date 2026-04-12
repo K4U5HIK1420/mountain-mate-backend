@@ -101,10 +101,11 @@ const AppLayout = ({ children }) => {
   const { notification } = useNotify();
   const isHomePage = location.pathname === "/";
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const usesCustomPageBackdrop = ["/add-hotel", "/add-transport", "/manage-stays", "/manage-rides"].includes(location.pathname);
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#050505] font-sans text-white">
-      <AnimatedBackground variant={isAdminRoute ? "admin" : "default"} />
+      {!usesCustomPageBackdrop ? <AnimatedBackground variant={isAdminRoute ? "admin" : "default"} /> : null}
       <RefreshRedirect />
       <Navbar />
       <main className={`relative z-10 flex-1 ${isHomePage ? "pt-0" : "pt-32"}`}>

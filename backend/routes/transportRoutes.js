@@ -19,6 +19,7 @@ const {
   verifyTransport,
   getMyRides,      
   updateTransport, 
+  deleteTransportImage,
   bookRide 
 } = require("../controllers/transportController");
 
@@ -68,6 +69,7 @@ router.patch(
   ]),
   updateTransport
 ); // ride can be updated later with files too
+router.delete("/delete-image", supabaseAuth, deleteTransportImage);
 
 // ADMIN
 router.get("/admin/all", supabaseAuth, requireRole("admin"), getAllRidesForAdmin);

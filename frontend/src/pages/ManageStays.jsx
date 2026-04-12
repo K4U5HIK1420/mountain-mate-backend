@@ -78,6 +78,7 @@ const ManageStays = () => {
   const [editDocuments, setEditDocuments] = useState({});
   const [newImages, setNewImages] = useState([]);
   const [updating, setUpdating] = useState(false);
+  const [deletingImageUrl, setDeletingImageUrl] = useState("");
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   const [selectedInventoryHotel, setSelectedInventoryHotel] = useState(null);
 
@@ -159,6 +160,30 @@ const ManageStays = () => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setNewImages((prev) => [...prev, ...files]);
+  };
+
+  const handleDeleteExistingImage = async (imageUrl) => {
+    if (!selectedHotel?._id || !imageUrl) return;
+    setDeletingImageUrl(imageUrl);
+    try {
+      const res = await API.delete("/hotel/delete-image", {
+        data: {
+          hotelId: selectedHotel._id,
+          imageUrl,
+        },
+      });
+
+      const updated = res.data?.data;
+      if (updated) {
+        setSelectedHotel(updated);
+        setMyHotels((prev) => prev.map((hotel) => (hotel._id === updated._id ? updated : hotel)));
+      }
+      notify("Image removed successfully.", "success");
+    } catch {
+      notify("Could not delete this image right now.", "error");
+    } finally {
+      setDeletingImageUrl("");
+    }
   };
 
   const handleFullUpdate = async (e) => {
@@ -269,8 +294,8 @@ const ManageStays = () => {
 
   return (
     <div className="relative min-h-screen bg-[#050505] pt-40 pb-20 px-6 overflow-hidden">
-      <div className="fixed inset-0 z-0">
-        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="w-full h-full object-cover opacity-10 grayscale" alt="BG" />
+      <div className="fixed inset-0 z-0 perf-fixed-bg">
+        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="w-full h-full object-cover opacity-10 grayscale" alt="BG" decoding="async" />
         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/95 to-[#050505]" />
       </div>
 
@@ -297,7 +322,7 @@ const ManageStays = () => {
               <motion.div
                 key={hotel._id}
                 whileHover={{ y: -10, scale: 1.01 }}
-                className="bg-white/[0.02] border border-white/5 p-6 sm:p-8 lg:p-10 rounded-[36px] sm:rounded-[44px] lg:rounded-[60px] backdrop-blur-3xl shadow-3xl group relative overflow-hidden transition-all duration-700 hover:border-orange-500/30"
+                className="perf-panel perf-card bg-white/[0.02] border border-white/5 p-6 sm:p-8 lg:p-10 rounded-[36px] sm:rounded-[44px] lg:rounded-[60px] backdrop-blur-3xl shadow-3xl group relative overflow-hidden transition-all duration-700 hover:border-orange-500/30"
               >
                 <div className="absolute top-0 right-0 w-40 h-40 bg-orange-600/10 blur-[100px] group-hover:bg-orange-600/20 transition-all" />
 
@@ -451,9 +476,20 @@ const ManageStays = () => {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {(selectedHotel?.images || []).map((src, idx) => (
-                      <a key={`${src}-${idx}`} href={src} target="_blank" rel="noreferrer" className="overflow-hidden rounded-2xl border border-white/10">
-                        <img src={src} alt={`hotel-${idx}`} className="h-28 w-full object-cover" />
-                      </a>
+                      <div key={`${src}-${idx}`} className="relative overflow-hidden rounded-2xl border border-white/10">
+                        <a href={src} target="_blank" rel="noreferrer">
+                          <img src={src} alt={`hotel-${idx}`} className="h-28 w-full object-cover" loading="lazy" decoding="async" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteExistingImage(src)}
+                          disabled={deletingImageUrl === src}
+                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/75 text-white transition-all hover:border-red-400/40 hover:bg-red-600/85 disabled:opacity-50"
+                          aria-label="Delete image"
+                        >
+                          {deletingImageUrl === src ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                        </button>
+                      </div>
                     ))}
                     {(!selectedHotel?.images || selectedHotel.images.length === 0) ? (
                       <div className="col-span-2 md:col-span-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-center text-white/40 text-sm">No existing photos uploaded</div>

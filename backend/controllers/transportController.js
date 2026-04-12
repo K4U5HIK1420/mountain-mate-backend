@@ -776,3 +776,62 @@ exports.getAllRidesForAdmin = async (req, res) => {
     return res.status(500).json({ message: "Failed to fetch admin data" });
   }
 };
+
+exports.deleteTransportImage = async (req, res) => {
+  try {
+    const { rideId, imageUrl } = req.body || {};
+    if (!rideId) return res.status(400).json({ message: "Ride ID required" });
+    if (!imageUrl) return res.status(400).json({ message: "Image URL required" });
+
+    const publicId = imageUrl.split("/").pop().split(".")[0];
+
+    if (getDataStore() === "supabase") {
+      const sharedRide = await supabaseRideProducts.getSharedTaxiRideById(rideId).catch(() => null);
+
+      if (sharedRide) {
+        if (String(sharedRide.owner || "") !== String(req.user.id || "")) {
+          return res.status(403).json({ message: "Not authorized to update this ride" });
+        }
+
+        const updatedSharedRide = await supabaseRideProducts.updateSharedTaxiRide({
+          ownerId: req.user.id,
+          id: rideId,
+          updateFields: {
+            images: (sharedRide.images || []).filter((item) => item !== imageUrl),
+          },
+        });
+
+        await cloudinary.uploader.destroy(`mountain_mate/transports/${publicId}`);
+        return res.json({ success: true, message: "Ride image deleted successfully", data: updatedSharedRide });
+      }
+
+      const existing = await supabaseTransports.getRideById(rideId);
+      if (!existing) return res.status(404).json({ message: "Ride not found" });
+      if (String(existing.owner || "") !== String(req.user.id || "")) {
+        return res.status(403).json({ message: "Not authorized to update this ride" });
+      }
+
+      const updated = await supabaseTransports.updateTransport({
+        ownerId: req.user.id,
+        id: rideId,
+        updateFields: {
+          images: (existing.images || []).filter((item) => item !== imageUrl),
+        },
+      });
+
+      await cloudinary.uploader.destroy(`mountain_mate/transports/${publicId}`);
+      return res.json({ success: true, message: "Ride image deleted successfully", data: updated });
+    }
+
+    const ride = await Transport.findOne({ _id: rideId, owner: req.user.id });
+    if (!ride) return res.status(404).json({ message: "Ride not found or unauthorized" });
+
+    ride.images = (ride.images || []).filter((item) => item !== imageUrl);
+    await ride.save();
+    await cloudinary.uploader.destroy(`mountain_mate/transports/${publicId}`);
+
+    return res.json({ success: true, message: "Ride image deleted successfully", data: ride });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to delete ride image." });
+  }
+};

@@ -250,6 +250,22 @@ html:not(.dark) .spotlight-border::after {
   contain-intrinsic-size: 1px 900px;
 }
 
+.perf-panel {
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: 1px 760px;
+}
+
+.perf-card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.perf-fixed-bg {
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);

@@ -359,11 +359,36 @@ exports.searchHotels = async (req, res, next) => {
 // 8. Delete Hotel Image
 exports.deleteHotelImage = async (req, res, next) => {
   try {
-    const { imageUrl } = req.body;
+    const { hotelId, imageUrl } = req.body;
+    if (!hotelId) return res.status(400).json({ message: "Hotel ID required" });
     if (!imageUrl) return res.status(400).json({ message: "Image URL required" });
     const publicId = imageUrl.split("/").pop().split(".")[0];
+
+    if (getDataStore() === "supabase") {
+      const existing = await supabaseHotels.getHotelById(hotelId);
+      if (!existing || String(existing.owner || "") !== String(req.user.id || "")) {
+        return res.status(404).json({ message: "Hotel not found or unauthorized" });
+      }
+
+      const updated = await supabaseHotels.updateHotel({
+        ownerId: req.user.id,
+        id: hotelId,
+        updateData: {
+          images: (existing.images || []).filter((item) => item !== imageUrl),
+        },
+      });
+
+      await cloudinary.uploader.destroy(`mountain_mate/hotels/${publicId}`);
+      return res.json({ message: "Image deleted successfully", data: updated });
+    }
+
+    const hotel = await Hotel.findOne({ _id: hotelId, owner: req.user.id });
+    if (!hotel) return res.status(404).json({ message: "Hotel not found or unauthorized" });
+
+    hotel.images = (hotel.images || []).filter((item) => item !== imageUrl);
+    await hotel.save();
     await cloudinary.uploader.destroy(`mountain_mate/hotels/${publicId}`);
-    res.json({ message: "Image deleted successfully" });
+    res.json({ message: "Image deleted successfully", data: hotel });
   } catch (error) {
     next(error);
   }

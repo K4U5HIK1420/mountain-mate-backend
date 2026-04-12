@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../utils/api";
 import { motion } from "framer-motion";
-import { Calendar, Car, Crosshair, IndianRupee, Loader2, MapPin, Navigation, Save, Users } from "lucide-react";
+import { Calendar, Car, Crosshair, IndianRupee, Loader2, MapPin, Navigation, Save, Users, X } from "lucide-react";
 import { useNotify } from "../context/NotificationContext";
 import { geocodePlace, getBrowserLocation, reverseGeocode } from "../utils/location";
 import {
@@ -46,6 +46,7 @@ export default function ManageRides() {
   const [savingId, setSavingId] = useState("");
   const [locatingId, setLocatingId] = useState("");
   const [togglingId, setTogglingId] = useState("");
+  const [deletingImageKey, setDeletingImageKey] = useState("");
 
   useEffect(() => {
     const fetchMyFleet = async () => {
@@ -249,6 +250,30 @@ export default function ManageRides() {
     }
   };
 
+  const deleteRideImage = async (ride, imageUrl) => {
+    if (!ride?._id || !imageUrl) return;
+    const deletingKey = `${ride._id}:${imageUrl}`;
+    setDeletingImageKey(deletingKey);
+    try {
+      const res = await API.delete("/transport/delete-image", {
+        data: {
+          rideId: ride._id,
+          imageUrl,
+        },
+      });
+
+      const updated = res.data?.data;
+      if (updated) {
+        setMyRides((prev) => prev.map((item) => (item._id === ride._id ? { ...item, ...updated } : item)));
+      }
+      notify("Ride image removed.", "success");
+    } catch (_err) {
+      notify("Unable to delete this ride image right now.", "error");
+    } finally {
+      setDeletingImageKey("");
+    }
+  };
+
   const toggleDriverOnline = async (ride) => {
     const nextOnline = !(drafts[ride._id]?.driverOnline ?? ride.driverOnline ?? true);
     setDraft(ride._id, { driverOnline: nextOnline });
@@ -277,8 +302,8 @@ export default function ManageRides() {
 
   return (
     <div className="min-h-screen bg-[#050505] px-6 pb-24 pt-40 text-white">
-      <div className="fixed inset-0 z-0">
-        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="h-full w-full object-cover opacity-10 grayscale" alt="Fleet background" />
+      <div className="fixed inset-0 z-0 perf-fixed-bg">
+        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=2500" className="h-full w-full object-cover opacity-10 grayscale" alt="Fleet background" decoding="async" />
         <div className="absolute inset-0 bg-gradient-to-tr from-black via-[#050505] to-orange-950/10" />
       </div>
 
@@ -314,7 +339,7 @@ export default function ManageRides() {
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.05 }}
-                  className="rounded-[42px] border border-white/10 bg-white/[0.03] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-3xl"
+                  className="perf-panel perf-card rounded-[42px] border border-white/10 bg-white/[0.03] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-3xl"
                 >
                   <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
                     <div>
@@ -484,6 +509,35 @@ export default function ManageRides() {
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.26em] text-white/45">Current Ride Images</p>
+                          {(ride.images || []).length > 0 ? (
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                              {(ride.images || []).map((src, imgIndex) => {
+                                const deleting = deletingImageKey === `${ride._id}:${src}`;
+                                return (
+                                  <div key={`${ride._id}-${imgIndex}-${src}`} className="relative overflow-hidden rounded-2xl border border-white/10">
+                                    <a href={src} target="_blank" rel="noreferrer">
+                                      <img src={src} alt={`ride-${imgIndex}`} className="h-24 w-full object-cover" loading="lazy" decoding="async" />
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteRideImage(ride, src)}
+                                      disabled={deleting}
+                                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/75 text-white transition-all hover:border-red-400/40 hover:bg-red-600/85 disabled:opacity-50"
+                                      aria-label="Delete ride image"
+                                    >
+                                      {deleting ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-xs text-white/40">No ride images uploaded yet.</p>
+                          )}
+                        </div>
+
                         <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
                           <p className="text-[9px] font-black uppercase tracking-[0.26em] text-white/45">Add Ride Images</p>
                           <input
